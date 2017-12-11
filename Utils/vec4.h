@@ -85,16 +85,17 @@ struct vec4
 
 		return temp;
 	}
-// 	REMOVED TEMPORARLY
+
+	myType Dot3(const vec4& v) const
+	{
+//#pragma HLS INLINE
+		return this->data[0] * v.data[0] + this->data[1] * v.data[1] + this->data[2] * v.data[2];
+	}
+
 //	myType operator*(const vec4& v) const
 //	{
 //		return this->data[0] * v.data[0] + this->data[1] * v.data[1] + this->data[2] * v.data[2] + this->data[3] * v.data[3];
 //	}
-
-	myType Dot3(const vec4& v) const
-	{
-		return this->data[0] * v.data[0] + this->data[1] * v.data[1] + this->data[2] * v.data[2];
-	}
 
 	vec4 operator/(myType s) const
 	{
@@ -123,6 +124,8 @@ struct vec4
 	{
 #ifdef USE_FIXEDPOINT
 		return (*this) / hls::sqrt((*this).Dot3(*this));
+
+//		return (*this) * (myType(1.0) / hls::sqrt((*this).Dot3(*this)));
 #else
 		return (*this) / std::sqrt((*this).Dot3(*this));
 #endif
