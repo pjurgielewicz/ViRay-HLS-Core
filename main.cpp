@@ -16,6 +16,7 @@ void CreateRay(const CCamera& camera, const vec4& posShift, unsigned r, unsigned
 void AssignMatrix(const vec4* mats, vec4* mat, unsigned pos)
 {
 #pragma HLS PIPELINE
+#pragma HLS INLINE
 	AssignMatrix_:for (unsigned i = 0; i < 3; ++i)
 	{
 #pragma HLS UNROLL
@@ -106,6 +107,58 @@ myType PerformHits(const vec4* transformedRayData, unsigned objType)
 #define WIDTH 200
 #define HEIGHT 200
 
+void InnerLoop(const CCamera& camera, const vec4& posShift, vec4* loadedRayData, const vec4* mats, const unsigned* objType,
+		unsigned w,
+		pixelColorType* frameBuffer)
+{
+#pragma HLS INLINE
+
+	myType currentClosest;
+	int currentObjIdx;
+	vec4 transformedRayData[2];
+#pragma HLS ARRAY_PARTITION variable=transformedRayData complete dim=1
+	vec4 mat[3];
+#pragma HLS ARRAY_PARTITION variable=mat complete dim=1
+
+	InnerLoop: for (unsigned h = 0; h < HEIGHT; ++h)
+	{
+//#pragma HLS DATAFLOW
+#pragma HLS PIPELINE
+DO_PRAGMA(HLS UNROLL factor=OUTER_LOOP_UNROLL_FACTOR)
+		CreateRay(camera, posShift, w, h, loadedRayData);
+		currentClosest = myType(-1);
+		currentObjIdx = -1;
+
+
+		ObjectsLoop: for (unsigned n = 0; n < OBJ_NUM; ++n)
+		{
+//#pragma HLS UNROLL
+#pragma HLS PIPELINE
+			AssignMatrix(mats, mat, n);
+			TransformRay(mat, loadedRayData, transformedRayData);
+			myType res = PerformHits(transformedRayData, objType[n]);
+
+			if (res != myType(-1) && res < currentClosest)
+			{
+				currentClosest = res;
+				currentObjIdx = n;
+			}
+		}
+//		color[0] = currentClosest;
+//		color[1] = currentObjIdx;
+//		color[2] = currentClosest;
+
+//		frameBuffer[(w * HEIGHT + h) * 3 + 0] = color[0];
+//		frameBuffer[(w * HEIGHT + h) * 3 + 1] = color[1];
+//		frameBuffer[(w * HEIGHT + h) * 3 + 2] = color[2];
+
+		frameBuffer[h * 3 + 0] = currentClosest;
+		frameBuffer[h * 3 + 1] = currentObjIdx;
+		frameBuffer[h * 3 + 2] = currentObjIdx;
+
+	}
+}
+
 int FFCore(const vec4* dataIn, unsigned dataInSize,
 		   const unsigned* objTypeIn,
 			pixelColorType* outColor)
@@ -136,9 +189,11 @@ int FFCore(const vec4* dataIn, unsigned dataInSize,
 #pragma HLS ARRAY_PARTITION variable=vecColor complete dim=1
 
 	vec4 mats[OBJ_NUM * 3];
+// WARNING: MAKES THINGS BLAZINGLY FAST
+#pragma HLS ARRAY_PARTITION variable=mats complete dim=1
 	memcpy(mats, dataIn, sizeof(vec4) * 3 * OBJ_NUM);
 
-	pixelColorType color[3], frameBuffer[3 * WIDTH * HEIGHT];
+	pixelColorType color[3], frameBuffer[3 * HEIGHT];
 #pragma HLS ARRAY_PARTITION variable=color complete dim=1
 //#pragma HLS ARRAY_PARTITION variable=frameBuffer complete dim=1
 	myType currentClosest;
@@ -150,50 +205,14 @@ int FFCore(const vec4* dataIn, unsigned dataInSize,
 
 	for (unsigned w = 0; w < WIDTH; ++w)
 	{
-// TODO: ENCLOSE IN FUNCTION -> DATAFLOW (calculation + save) -> possible gain in time
-		InnerLoop: for (unsigned h = 0; h < HEIGHT; ++h)
-		{
-//#pragma HLS DATAFLOW
-#pragma HLS PIPELINE
-DO_PRAGMA(HLS UNROLL factor=OUTER_LOOP_UNROLL_FACTOR)
-			CreateRay(camera, posShift, w, h, loadedRayData);
-			currentClosest = myType(-1);
-			currentObjIdx = -1;
+#pragma HLS DATAFLOW
+		InnerLoop(camera, posShift, loadedRayData, mats, objType, w, frameBuffer);
 
-			vec4 mat[3];
-#pragma HLS ARRAY_PARTITION variable=mat complete dim=1
-
-			ObjectsLoop: for (unsigned n = 0; n < OBJ_NUM; ++n)
-			{
-//#pragma HLS UNROLL
-#pragma HLS PIPELINE
-				AssignMatrix(mats, mat, n);
-				TransformRay(mat, loadedRayData, transformedRayData);
-				myType res = PerformHits(transformedRayData, objType[n]);
-
-				if (res != myType(-1) && res < currentClosest)
-				{
-					currentClosest = res;
-					currentObjIdx = n;
-				}
-			}
-			color[0] = currentClosest;
-			color[1] = currentObjIdx;
-			color[2] = currentClosest;
-
-			frameBuffer[(w * HEIGHT + h) * 3 + 0] = color[0];
-			frameBuffer[(w * HEIGHT + h) * 3 + 1] = color[1];
-			frameBuffer[(w * HEIGHT + h) * 3 + 2] = color[2];
-
-//			frameBuffer[h * 3 + 0] = color[0];
-//			frameBuffer[h * 3 + 1] = color[1];
-//			frameBuffer[h * 3 + 2] = color[2];
-
-		}
-//		memcpy(outColor, frameBuffer, sizeof(pixelColorType) * 3 * HEIGHT);
+		//TODO -> Change output color to RGBA (4x8b) unsigned -> will reduce copy time by 3
+		memcpy(outColor, frameBuffer, sizeof(pixelColorType) * 3 * HEIGHT);
 	}
 
-	memcpy(outColor, frameBuffer, sizeof(pixelColorType) * 3 * WIDTH * HEIGHT);
+//	memcpy(outColor, frameBuffer, sizeof(pixelColorType) * 3 * WIDTH * HEIGHT);
 
 	return 0;
 
