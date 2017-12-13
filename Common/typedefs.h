@@ -10,7 +10,7 @@
 #include "hls_math.h"
 
 #define FIXEDPOINT_WIDTH 32
-#define FIXEDPOINT_INTEGER_BITS 22
+#define FIXEDPOINT_INTEGER_BITS 16
 
 #define PRAGMA_SUB(x) _Pragma (#x)
 #define DO_PRAGMA(x) PRAGMA_SUB(x)

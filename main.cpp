@@ -1,4 +1,6 @@
 #include "main.h"
+#include "iostream"
+using namespace std;
 
 void CreateRay(const CCamera& camera, const vec4& posShift, unsigned r, unsigned c, CRay& ray)
 {
@@ -153,24 +155,24 @@ DO_PRAGMA(HLS UNROLL factor=OUTER_LOOP_UNROLL_FACTOR)
 #pragma HLS ARRAY_PARTITION variable=transform complete dim=1
 //#pragma HLS ARRAY_PARTITION variable=transform cyclic factor=3 dim=1
 
-//		if (closestSr.objIdx != -1)
-//		{
-//			AssignMatrix(objTransform, transform, closestSr.objIdx);
-//
-//
-//			closestSr.hitPoint = vec4(transform[0].Dot3(closestSr.localHitPoint) + transform[0].data[3],
-//										transform[1].Dot3(closestSr.localHitPoint) + transform[1].data[3],
-//										transform[2].Dot3(closestSr.localHitPoint) + transform[2].data[3]);
-//
-//			closestSr.normal = closestSr.normal.Normalize();
-//
-//		}
-		// TODO: The final result will consist of RGBA value (32 bit)
+		if (closestSr.objIdx != -1)
+		{
+			AssignMatrix(objTransform, transform, closestSr.objIdx);
+
+
+			closestSr.hitPoint = vec4(transform[0].Dot3(closestSr.localHitPoint) + transform[0].data[3],
+										transform[1].Dot3(closestSr.localHitPoint) + transform[1].data[3],
+										transform[2].Dot3(closestSr.localHitPoint) + transform[2].data[3]);
+
+			closestSr.normal = closestSr.normal.Normalize();
+
+		}
+//		 TODO: The final result will consist of RGBA value (32 bit)
 //		frameBuffer[h] = closestSr.hitPoint.data[0] + closestSr.normal.data[1];
 
+//	***	DEBUG ***
+		frameBuffer[h] = pixelColorType(closestSr.distance);
 
-//		frameBuffer[h] = sr.objIdx;
-		frameBuffer[h] = transformedRay.origin.data[2];
 
 	}
 }
@@ -206,7 +208,7 @@ int FFCore(const vec4* objTransformIn,
 
 	vec4 objTransform[OBJ_NUM * 3], objInvTransform[OBJ_NUM * 3];
 // WARNING: MAKES THINGS BLAZINGLY FAST
-//#pragma HLS ARRAY_PARTITION variable=objInvTransform cyclic factor=4 dim=1
+//#pragma HLS ARRAY_PARTITION variable=objInvTransform cyclic factor=3 dim=1
 //#pragma HLS ARRAY_PARTITION variable=objInvTransform complete dim=1
 	memcpy(objTransform, objTransformIn, sizeof(vec4) * 3 * OBJ_NUM);
 	memcpy(objInvTransform, objInvTransformIn, sizeof(vec4) * 3 * OBJ_NUM);
