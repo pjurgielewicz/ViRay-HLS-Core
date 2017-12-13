@@ -1,10 +1,4 @@
-#include "Utils/vec4.h"
-#include "Utils/vision.h"
-
-#define OBJ_NUM 10
-#define WIDTH 1000
-#define HEIGHT 1000
-#define FRAME_BUFFER_SIZE (HEIGHT)
+#include "main.h"
 
 void CreateRay(const CCamera& camera, const vec4& posShift, unsigned r, unsigned c, CRay& ray)
 {
@@ -43,12 +37,12 @@ void TransformRay(const vec4* mat, const CRay& ray, CRay& transformedRay)
 									 mat[2].Dot3(ray.origin) + mat[2].data[3]);
 }
 
-myType SphereTest(const CRay& transformedRay)
+myType SphereTest(const CRay& transformedRay, ShadeRec& sr)
 {
 #pragma HLS PIPELINE
 // unit radius sphere in the global center
 	myType b = transformedRay.direction.Dot3(transformedRay.origin);
-	myType c = myType(1.0) - transformedRay.origin.Dot3(transformedRay.origin);
+	myType c = transformedRay.origin.Dot3(transformedRay.origin) - myType(1.0);
 	myType d2 = b * b - c;
 
 	if (d2 >= myType(0.0))
@@ -70,7 +64,7 @@ myType SphereTest(const CRay& transformedRay)
 	return myType(-1);
 }
 
-myType PlaneTest(const CRay& transformedRay)
+myType PlaneTest(const CRay& transformedRay, ShadeRec& sr)
 {
 #pragma HLS PIPELINE
 // XZ - plane pointing +Y
@@ -82,7 +76,7 @@ myType PlaneTest(const CRay& transformedRay)
 	return myType(-1);
 }
 
-myType PerformHits(const CRay& transformedRay, unsigned objType)
+void PerformHits(const CRay& transformedRay, unsigned objType, ShadeRec& sr)
 {
 //#pragma HLS INLINE
 #pragma HLS PIPELINE
@@ -91,84 +85,107 @@ myType PerformHits(const CRay& transformedRay, unsigned objType)
 	switch(objType)
 	{
 	case SPHERE:
-		res = SphereTest(transformedRay);
+		res = SphereTest(transformedRay, sr);
+		sr.normal = transformedRay.origin + transformedRay.direction * res;
 		break;
 	case PLANE:
-		res = PlaneTest(transformedRay);
+		res = PlaneTest(transformedRay, sr);
+		sr.normal = vec4(myType(0), myType(1), myType(0));
 		break;
 	default:
+		sr.normal = vec4(myType(-1), myType(-1), myType(-1));
 		break;
 	}
 
-	return res;
+	sr.localHitPoint = transformedRay.origin + transformedRay.direction * res;
+	sr.distance = res;
+}
+
+void UpdateClosestObject(const ShadeRec& current, int n, ShadeRec& best)
+{
+#pragma HLS INLINE
+	if (current.distance != myType(-1) && current.distance < best.distance)
+	{
+		best.distance = current.distance;
+		best.localHitPoint = current.localHitPoint;
+		best.normal = current.normal;
+
+		best.objIdx = n;
+	}
 }
 
 void InnerLoop(const CCamera& camera,
 				const vec4& posShift,
-				const vec4* mats,
+				const vec4* objTransform,
+				const vec4* objTransformInv,
 				const unsigned* objType,
 				unsigned w,
 				pixelColorType* frameBuffer)
 {
 #pragma HLS INLINE
 
-	myType currentClosest;
-	int currentObjIdx;
-
-	vec4 loadedRayData[2];
-#pragma HLS ARRAY_PARTITION variable=loadedRayData complete dim=1
-//	vec4 transformedRayData[2];
-//#pragma HLS ARRAY_PARTITION variable=transformedRayData complete dim=1
-
-
-	CRay ray, transformedRay;
-
 	InnerLoop: for (unsigned h = 0; h < HEIGHT; ++h)
 	{
 //#pragma HLS DATAFLOW
 #pragma HLS PIPELINE
 DO_PRAGMA(HLS UNROLL factor=OUTER_LOOP_UNROLL_FACTOR)
-		CreateRay(camera, posShift, w, h, ray);
-		currentClosest = myType(-1);
-		currentObjIdx = -1;
 
+		CRay ray, transformedRay;
+		ShadeRec sr, closestSr;
+
+		CreateRay(camera, posShift, w, h, ray);
 
 		ObjectsLoop: for (unsigned n = 0; n < OBJ_NUM; ++n)
 		{
 //#pragma HLS UNROLL
 #pragma HLS PIPELINE
-			vec4 mat[3];
-#pragma HLS ARRAY_PARTITION variable=mat complete dim=1
-//#pragma HLS ARRAY_PARTITION variable=mat cyclic factor=3 dim=1
+			vec4 transformInv[3];
+#pragma HLS ARRAY_PARTITION variable=transformInv complete dim=1
+//#pragma HLS ARRAY_PARTITION variable=transformInv cyclic factor=3 dim=1
 
-			AssignMatrix(mats, mat, n);
-			TransformRay(mat, ray, transformedRay);
-			myType res = PerformHits(transformedRay, objType[n]);
 
-			if (res != myType(-1) && res < currentClosest)
-			{
-				currentClosest = res;
-				currentObjIdx = n;
-			}
+			AssignMatrix(objTransformInv, transformInv, n);
+			TransformRay(transformInv, ray, transformedRay);
+			PerformHits(transformedRay, objType[n], sr);
+			UpdateClosestObject(sr, n, closestSr);
 		}
-//		color[0] = currentClosest;
-//		color[1] = currentObjIdx;
-//		color[2] = currentClosest;
+		vec4 transform[3];
+#pragma HLS ARRAY_PARTITION variable=transform complete dim=1
+//#pragma HLS ARRAY_PARTITION variable=transform cyclic factor=3 dim=1
 
+//		if (closestSr.objIdx != -1)
+//		{
+//			AssignMatrix(objTransform, transform, closestSr.objIdx);
+//
+//
+//			closestSr.hitPoint = vec4(transform[0].Dot3(closestSr.localHitPoint) + transform[0].data[3],
+//										transform[1].Dot3(closestSr.localHitPoint) + transform[1].data[3],
+//										transform[2].Dot3(closestSr.localHitPoint) + transform[2].data[3]);
+//
+//			closestSr.normal = closestSr.normal.Normalize();
+//
+//		}
 		// TODO: The final result will consist of RGBA value (32 bit)
-		frameBuffer[h] = currentClosest;
-//		frameBuffer[h * 3 + 0] = currentClosest;
-//		frameBuffer[h * 3 + 1] = currentObjIdx;
-//		frameBuffer[h * 3 + 2] = currentObjIdx;
+//		frameBuffer[h] = closestSr.hitPoint.data[0] + closestSr.normal.data[1];
+
+
+//		frameBuffer[h] = sr.objIdx;
+		frameBuffer[h] = transformedRay.origin.data[2];
+
 	}
 }
 
-int FFCore(const vec4* dataIn, unsigned dataInSize,
-		   const unsigned* objTypeIn,
+int FFCore(const vec4* objTransformIn,
+			const vec4* objInvTransformIn,
+			unsigned dataInSize, // ???
+			const int* objTypeIn,
 			pixelColorType* outColor)
 {
-#pragma HLS INTERFACE s_axilite port=dataIn bundle=AXI_LITE_1
-#pragma HLS INTERFACE m_axi port=dataIn offset=slave bundle=MAXI_IN_1
+#pragma HLS INTERFACE s_axilite port=objTransformIn bundle=AXI_LITE_1
+#pragma HLS INTERFACE m_axi port=objTransformIn offset=slave bundle=MAXI_IN_1
+
+#pragma HLS INTERFACE s_axilite port=objInvTransformIn bundle=AXI_LITE_1
+#pragma HLS INTERFACE m_axi port=objInvTransformIn offset=slave bundle=MAXI_IN_1
 
 #pragma HLS INTERFACE s_axilite port=dataInSize bundle=AXI_LITE_1
 
@@ -187,11 +204,12 @@ int FFCore(const vec4* dataIn, unsigned dataInSize,
 				  myType(-0.5) * (HEIGHT - myType(1.0)),
 				  myType(0.0));
 
-	vec4 mats[OBJ_NUM * 3];
-//#pragma HLS ARRAY_PARTITION variable=mats cyclic factor=2 dim=1
+	vec4 objTransform[OBJ_NUM * 3], objInvTransform[OBJ_NUM * 3];
 // WARNING: MAKES THINGS BLAZINGLY FAST
-//#pragma HLS ARRAY_PARTITION variable=mats complete dim=1
-	memcpy(mats, dataIn, sizeof(vec4) * 3 * OBJ_NUM);
+//#pragma HLS ARRAY_PARTITION variable=objInvTransform cyclic factor=4 dim=1
+//#pragma HLS ARRAY_PARTITION variable=objInvTransform complete dim=1
+	memcpy(objTransform, objTransformIn, sizeof(vec4) * 3 * OBJ_NUM);
+	memcpy(objInvTransform, objInvTransformIn, sizeof(vec4) * 3 * OBJ_NUM);
 
 	pixelColorType frameBuffer[FRAME_BUFFER_SIZE];
 //#pragma HLS ARRAY_PARTITION variable=frameBuffer complete dim=1
@@ -205,10 +223,16 @@ int FFCore(const vec4* dataIn, unsigned dataInSize,
 	for (unsigned w = 0; w < WIDTH; ++w)
 	{
 #pragma HLS DATAFLOW
-		InnerLoop(camera, posShift, mats, objType, w, frameBuffer);
+		InnerLoop(camera,
+					posShift,
+					objTransform,
+					objInvTransform,
+					objType,
+					w,
+					frameBuffer);
 
 		//TODO: Change output color to RGBA (4x8b) unsigned -> will reduce copy time by 3
-		memcpy(outColor, frameBuffer, sizeof(pixelColorType) * FRAME_BUFFER_SIZE);
+		memcpy(outColor + FRAME_BUFFER_SIZE * w, frameBuffer, sizeof(pixelColorType) * FRAME_BUFFER_SIZE);
 	}
 
 	return 0;

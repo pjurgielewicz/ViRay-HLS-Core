@@ -15,12 +15,14 @@
 #define PRAGMA_SUB(x) _Pragma (#x)
 #define DO_PRAGMA(x) PRAGMA_SUB(x)
 
-#define OUTER_LOOP_UNROLL_FACTOR 10
+#define OUTER_LOOP_UNROLL_FACTOR 5
 
-typedef ap_fixed<FIXEDPOINT_WIDTH, FIXEDPOINT_INTEGER_BITS, AP_RND> myType;
-//typedef float myType;
+//typedef ap_fixed<FIXEDPOINT_WIDTH, FIXEDPOINT_INTEGER_BITS, AP_RND> myType;
+typedef float myType;
 
-typedef ap_fixed<16, 8, AP_RND> pixelColorType;
+//typedef ap_fixed<16, 8, AP_RND> pixelColorType;
+//typedef int pixelColorType;
+typedef float pixelColorType;
 
 #else
 

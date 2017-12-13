@@ -40,7 +40,7 @@ public:
 	{
 //#pragma HLS INLINE
 		vec4 direction = u * p.data[0] + v * p.data[1] - w * viewDistance;
-		return CRay(eyePosition, direction/*.Normalize()*/);
+		return CRay(eyePosition, direction.Normalize());
 	}
 
 	myType GetRefHRes() const { return refHRes; }
