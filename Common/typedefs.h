@@ -15,7 +15,7 @@
 #define PRAGMA_SUB(x) _Pragma (#x)
 #define DO_PRAGMA(x) PRAGMA_SUB(x)
 
-#define OUTER_LOOP_UNROLL_FACTOR 6
+#define OUTER_LOOP_UNROLL_FACTOR 10
 
 typedef ap_fixed<FIXEDPOINT_WIDTH, FIXEDPOINT_INTEGER_BITS, AP_RND> myType;
 //typedef float myType;

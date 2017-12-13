@@ -2,8 +2,8 @@
 #include "Utils/vision.h"
 
 #define OBJ_NUM 10
-#define WIDTH 200
-#define HEIGHT 200
+#define WIDTH 1000
+#define HEIGHT 1000
 #define FRAME_BUFFER_SIZE (HEIGHT)
 
 void CreateRay(const CCamera& camera, const vec4& posShift, unsigned r, unsigned c, CRay& ray)
@@ -119,8 +119,7 @@ void InnerLoop(const CCamera& camera,
 #pragma HLS ARRAY_PARTITION variable=loadedRayData complete dim=1
 //	vec4 transformedRayData[2];
 //#pragma HLS ARRAY_PARTITION variable=transformedRayData complete dim=1
-	vec4 mat[3];
-#pragma HLS ARRAY_PARTITION variable=mat cyclic factor=3 dim=1
+
 
 	CRay ray, transformedRay;
 
@@ -138,6 +137,10 @@ DO_PRAGMA(HLS UNROLL factor=OUTER_LOOP_UNROLL_FACTOR)
 		{
 //#pragma HLS UNROLL
 #pragma HLS PIPELINE
+			vec4 mat[3];
+#pragma HLS ARRAY_PARTITION variable=mat complete dim=1
+//#pragma HLS ARRAY_PARTITION variable=mat cyclic factor=3 dim=1
+
 			AssignMatrix(mats, mat, n);
 			TransformRay(mat, ray, transformedRay);
 			myType res = PerformHits(transformedRay, objType[n]);
@@ -153,7 +156,8 @@ DO_PRAGMA(HLS UNROLL factor=OUTER_LOOP_UNROLL_FACTOR)
 //		color[2] = currentClosest;
 
 		// TODO: The final result will consist of RGBA value (32 bit)
-		frameBuffer[h * 3 + 0] = currentClosest;
+		frameBuffer[h] = currentClosest;
+//		frameBuffer[h * 3 + 0] = currentClosest;
 //		frameBuffer[h * 3 + 1] = currentObjIdx;
 //		frameBuffer[h * 3 + 2] = currentObjIdx;
 	}
@@ -184,12 +188,12 @@ int FFCore(const vec4* dataIn, unsigned dataInSize,
 				  myType(0.0));
 
 	vec4 mats[OBJ_NUM * 3];
+//#pragma HLS ARRAY_PARTITION variable=mats cyclic factor=2 dim=1
 // WARNING: MAKES THINGS BLAZINGLY FAST
 //#pragma HLS ARRAY_PARTITION variable=mats complete dim=1
 	memcpy(mats, dataIn, sizeof(vec4) * 3 * OBJ_NUM);
 
-	pixelColorType color[3], frameBuffer[FRAME_BUFFER_SIZE];
-#pragma HLS ARRAY_PARTITION variable=color complete dim=1
+	pixelColorType frameBuffer[FRAME_BUFFER_SIZE];
 //#pragma HLS ARRAY_PARTITION variable=frameBuffer complete dim=1
 	myType currentClosest;
 	int currentObjIdx;
