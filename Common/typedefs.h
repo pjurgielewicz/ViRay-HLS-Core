@@ -10,15 +10,17 @@
 #include "hls_math.h"
 
 #define FIXEDPOINT_WIDTH 32
-#define FIXEDPOINT_INTEGER_BITS 16
+#define FIXEDPOINT_INTEGER_BITS 22
 
 #define PRAGMA_SUB(x) _Pragma (#x)
 #define DO_PRAGMA(x) PRAGMA_SUB(x)
 
 #define OUTER_LOOP_UNROLL_FACTOR 5
 
-//typedef ap_fixed<FIXEDPOINT_WIDTH, FIXEDPOINT_INTEGER_BITS, AP_RND> myType;
-typedef float myType;
+typedef ap_fixed<FIXEDPOINT_WIDTH, FIXEDPOINT_INTEGER_BITS, AP_RND> myType;
+//typedef float myType;
+
+#define CORE_BIAS (myType(0.001))
 
 //typedef ap_fixed<16, 8, AP_RND> pixelColorType;
 //typedef int pixelColorType;
@@ -38,5 +40,13 @@ enum ObjectType{
 	SPHERE = 1,
 	PLANE,
 };
+
+/*
+ * SCENE DEFINITION
+ */
+#define OBJ_NUM 10
+#define WIDTH 1000
+#define HEIGHT 1000
+#define FRAME_BUFFER_SIZE (WIDTH)
 
 #endif

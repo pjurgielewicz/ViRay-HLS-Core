@@ -27,9 +27,14 @@ int main()
 	objInvTransform[4] = vec4(0, 1, 0, 2);
 	objInvTransform[5] = vec4(0, 0, 1, 0);
 
-/////////////////////////////////////////////////////////
+	// EMPTY
+	for (unsigned i = 6; i < 3 * OBJ_NUM; ++i)
+	{
+		objTransform[i] = vec4(1, 1, 1);
+		objInvTransform[i] = vec4(1, 1, 1);
+	}
 
-	unsigned numObjects = 1;
+/////////////////////////////////////////////////////////
 
 	int* objTypeIn = new int[OBJ_NUM];
 	for (unsigned i = 0; i < OBJ_NUM; ++i)
@@ -41,15 +46,14 @@ int main()
 
 	pixelColorType* frame = new pixelColorType[WIDTH * HEIGHT];
 
+	FFCore(objTransform, objInvTransform, OBJ_NUM, objTypeIn, frame);
 
-	FFCore(objTransform, objInvTransform, numObjects, objTypeIn, frame);
-
-	for (unsigned w = 0; w < WIDTH; ++w)
+	for (unsigned h = 0; h < HEIGHT; ++h)
 	{
-		for (unsigned h = 0; h < HEIGHT; ++h)
+		for (unsigned w = 0; w < WIDTH; ++w)
 		{
-			if (frame[w * HEIGHT + h] != -1)
-				cout << frame[w * HEIGHT + h] << " ";
+			if (frame[h * WIDTH + w] != -1)
+				cout << frame[h * WIDTH + w] << " ";
 			else cout << "  ";
 		}
 		cout << endl;

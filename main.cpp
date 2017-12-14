@@ -2,6 +2,9 @@
 #include "iostream"
 using namespace std;
 
+// TODO: change to more effective types (vec4 -> vec3), (vec4[3] -> mat4)
+
+
 void CreateRay(const CCamera& camera, const vec4& posShift, unsigned r, unsigned c, CRay& ray)
 {
 #pragma HLS PIPELINE
@@ -12,6 +15,13 @@ void CreateRay(const CCamera& camera, const vec4& posShift, unsigned r, unsigned
 					 posShift.data[1] + myType(0.5) + r,
 					 0);
 	ray = camera.GetCameraRayForPixel(samplePoint);
+
+//	cout << samplePoint.data[0] << " x " << samplePoint.data[1] << "\t->\t";
+//	for (unsigned i = 0; i < 3; ++i)
+//	{
+//		cout << ray.direction.data[i] << ", ";
+//	}
+//	cout << endl;
 }
 
 void AssignMatrix(const vec4* mats, vec4* mat, unsigned pos)
@@ -37,6 +47,12 @@ void TransformRay(const vec4* mat, const CRay& ray, CRay& transformedRay)
 	transformedRay.origin = 	vec4(mat[0].Dot3(ray.origin) + mat[0].data[3],
 								 	 mat[1].Dot3(ray.origin) + mat[1].data[3],
 									 mat[2].Dot3(ray.origin) + mat[2].data[3]);
+
+//	for (unsigned i = 0; i < 3; ++i)
+//	{
+//		cout << transformedRay.direction.data[i] << ", ";
+//	}
+//	cout << endl;
 }
 
 myType SphereTest(const CRay& transformedRay, ShadeRec& sr)
@@ -52,12 +68,12 @@ myType SphereTest(const CRay& transformedRay, ShadeRec& sr)
 		myType d = hls::sqrt(d2);
 
 		myType t = -b - d;
-		if (t > myType(0))
+		if (t > CORE_BIAS)
 		{
 			return t;
 		}
 		t = -b + d;
-		if (t > myType(0))
+		if (t > CORE_BIAS)
 		{
 			return t;
 		}
@@ -70,8 +86,8 @@ myType PlaneTest(const CRay& transformedRay, ShadeRec& sr)
 {
 #pragma HLS PIPELINE
 // XZ - plane pointing +Y
-	myType t = -transformedRay.origin.data[1] * (myType(1) / transformedRay.direction.data[1]);
-	if (t > myType(0))
+	myType t = -transformedRay.origin.data[1] * (myType(1) / (transformedRay.direction.data[1] + CORE_BIAS)); // BIAS removes zero division problem
+	if (t > CORE_BIAS)
 	{
 		return t;
 	}
@@ -121,12 +137,12 @@ void InnerLoop(const CCamera& camera,
 				const vec4* objTransform,
 				const vec4* objTransformInv,
 				const unsigned* objType,
-				unsigned w,
+				int h,
 				pixelColorType* frameBuffer)
 {
 #pragma HLS INLINE
 
-	InnerLoop: for (unsigned h = 0; h < HEIGHT; ++h)
+	InnerLoop: for (int w = 0; w < WIDTH; ++w)
 	{
 //#pragma HLS DATAFLOW
 #pragma HLS PIPELINE
@@ -135,7 +151,7 @@ DO_PRAGMA(HLS UNROLL factor=OUTER_LOOP_UNROLL_FACTOR)
 		CRay ray, transformedRay;
 		ShadeRec sr, closestSr;
 
-		CreateRay(camera, posShift, w, h, ray);
+		CreateRay(camera, posShift, h, w, ray);
 
 		ObjectsLoop: for (unsigned n = 0; n < OBJ_NUM; ++n)
 		{
@@ -144,8 +160,6 @@ DO_PRAGMA(HLS UNROLL factor=OUTER_LOOP_UNROLL_FACTOR)
 			vec4 transformInv[3];
 #pragma HLS ARRAY_PARTITION variable=transformInv complete dim=1
 //#pragma HLS ARRAY_PARTITION variable=transformInv cyclic factor=3 dim=1
-
-
 			AssignMatrix(objTransformInv, transformInv, n);
 			TransformRay(transformInv, ray, transformedRay);
 			PerformHits(transformedRay, objType[n], sr);
@@ -168,10 +182,10 @@ DO_PRAGMA(HLS UNROLL factor=OUTER_LOOP_UNROLL_FACTOR)
 
 		}
 //		 TODO: The final result will consist of RGBA value (32 bit)
-//		frameBuffer[h] = closestSr.hitPoint.data[0] + closestSr.normal.data[1];
+		frameBuffer[w] = closestSr.hitPoint.data[0] + closestSr.normal.data[1];
 
 //	***	DEBUG ***
-		frameBuffer[h] = pixelColorType(closestSr.distance);
+//		frameBuffer[w] = pixelColorType(closestSr.objIdx);
 
 
 	}
@@ -200,7 +214,8 @@ int FFCore(const vec4* objTransformIn,
 #pragma HLS INTERFACE s_axilite port=return bundle=AXI_LITE_1
 
 	CRay ray;
-	CCamera camera;
+	CCamera camera(myType(2.0), myType(2.0),
+				   HEIGHT, WIDTH);
 
 	vec4 posShift(myType(-0.5) * (WIDTH - myType(1.0)),
 				  myType(-0.5) * (HEIGHT - myType(1.0)),
@@ -222,7 +237,7 @@ int FFCore(const vec4* objTransformIn,
 #pragma HLS ARRAY_PARTITION variable=objType complete dim=1
 	memcpy(objType, objTypeIn, sizeof(unsigned) * OBJ_NUM);
 
-	for (unsigned w = 0; w < WIDTH; ++w)
+	for (int h = 0; h < HEIGHT; ++h)
 	{
 #pragma HLS DATAFLOW
 		InnerLoop(camera,
@@ -230,11 +245,11 @@ int FFCore(const vec4* objTransformIn,
 					objTransform,
 					objInvTransform,
 					objType,
-					w,
+					HEIGHT - 1 - h,
 					frameBuffer);
 
 		//TODO: Change output color to RGBA (4x8b) unsigned -> will reduce copy time by 3
-		memcpy(outColor + FRAME_BUFFER_SIZE * w, frameBuffer, sizeof(pixelColorType) * FRAME_BUFFER_SIZE);
+		memcpy(outColor + FRAME_BUFFER_SIZE * h, frameBuffer, sizeof(pixelColorType) * FRAME_BUFFER_SIZE);
 	}
 
 	return 0;

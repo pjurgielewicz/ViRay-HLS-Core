@@ -5,11 +5,6 @@
 #include "Utils/vec4.h"
 #include "Utils/vision.h"
 
-#define OBJ_NUM 10
-#define WIDTH 1000
-#define HEIGHT 1000
-#define FRAME_BUFFER_SIZE (HEIGHT)
-
 struct ShadeRec{
 	vec4 normal;
 	vec4 localHitPoint;

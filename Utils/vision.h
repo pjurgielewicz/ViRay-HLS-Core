@@ -10,7 +10,7 @@ public:
 	vec4 direction;
 
 	CRay(const vec4 &origin = vec4(0.0, 0.0, 0.0),
-		 const vec4 &direction = vec4(0.0, 0.0, -1.0)) :origin( origin ), direction( direction ) {}
+		 const vec4 &direction = vec4(0.0, 0.0, -1.0)) : origin( origin ), direction( direction ) {}
 
 	CRay( const CRay &ray ) : origin( ray.origin ), direction( ray.direction ) {}
 };
@@ -18,11 +18,18 @@ public:
 class CCamera
 {
 public:
-	CCamera(const vec4 &eyePosition = vec4(0.0, 0.0, 0.0),
+	CCamera(myType hDepthRatio, myType vDepthRatio,
+			unsigned refHRes = 640, unsigned refVRes = 480,
+			const vec4 &eyePosition = vec4(0.0, 0.0, 0.0),
 			const vec4 &lookAt = vec4(0.0, 0.0, -1.0),
-			const vec4 &up = vec4(0.0, 1.0, 0.0), unsigned refHRes = 640, unsigned refVRes = 480) :
-				eyePosition(eyePosition), lookAt(lookAt), up(up), refHRes(refHRes), refVRes(refVRes), viewDistance(100.0)
+			const vec4 &up = vec4(0.0, 1.0, 0.0)) :
+				refHRes(refHRes), refVRes(refVRes),
+				eyePosition(eyePosition), lookAt(lookAt), up(up)
+				//, viewDistance(100.0)
 	{
+		hFactor = hDepthRatio / (myType(refHRes));
+		vFactor = vDepthRatio / (myType(refVRes));
+
 		ComputeUVW();
 	}
 
@@ -39,7 +46,10 @@ public:
 	CRay GetCameraRayForPixel(const vec4 &p) const
 	{
 //#pragma HLS INLINE
-		vec4 direction = u * p.data[0] + v * p.data[1] - w * viewDistance;
+//		vec4 direction = u * p.data[0] + v * p.data[1] - w * viewDistance;
+		vec4 direction = u * p.data[0] * hFactor +
+						 v * p.data[1] * vFactor -
+						 w;
 		return CRay(eyePosition, direction/*.Normalize()*/);
 	}
 
@@ -54,7 +64,10 @@ protected:
 	myType refHRes;
 	myType refVRes;
 
-	myType viewDistance;
+//	myType hdRatio, vdRatio;
+	myType hFactor, vFactor;
+
+//	myType viewDistance;
 };
 
 #endif
