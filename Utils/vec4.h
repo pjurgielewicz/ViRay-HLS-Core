@@ -45,8 +45,18 @@ struct vec4
 		return temp;
 	}
 
+	vec4 operator+=(const vec4& v)
+	{
+		this->data[0] += v.data[0];
+		this->data[1] += v.data[1];
+		this->data[2] += v.data[2];
+		this->data[3] += v.data[3];
+		return *this;
+	}
+
 	vec4 operator-(const vec4& v) const
 	{
+#pragma HLS INLINE
 		vec4 temp;
 		temp.data[0] = this->data[0] - v.data[0];
 		temp.data[1] = this->data[1] - v.data[1];
@@ -55,8 +65,18 @@ struct vec4
 		return temp;
 	}
 
+	vec4 operator-=(const vec4& v)
+	{
+		this->data[0] -= v.data[0];
+		this->data[1] -= v.data[1];
+		this->data[2] -= v.data[2];
+		this->data[3] -= v.data[3];
+		return *this;
+	}
+
 	vec4 operator-() const
 	{
+//#pragma HLS INLINE
 		vec4 temp;
 		temp.data[0] = -this->data[0];
 		temp.data[1] = -this->data[1];
@@ -75,8 +95,9 @@ struct vec4
 		return temp;
 	}
 
-	vec4 CompWiseMul(const vec4& v)
+	vec4 CompWiseMul(const vec4& v) const
 	{
+#pragma HLS INLINE
 		vec4 temp;
 		temp.data[0] = this->data[0] * v.data[0];
 		temp.data[1] = this->data[1] * v.data[1];
@@ -131,15 +152,25 @@ struct vec4
 #endif
 	}
 
-	void DecodeFromStream(const myType* stream)
-	{
-		for (unsigned i = 0; i < 4; ++i)
-			data[i] = *(stream + i);
-	}
+//	void DecodeFromStream(const myType* stream)
+//	{
+//		for (unsigned i = 0; i < 4; ++i)
+//			data[i] = *(stream + i);
+//	}
 
 	vec4 Reflect(const vec4& normal) const
 	{
 		return (normal * (normal.Dot3(*this)) * (myType)2.0) - (*this);
+	}
+
+	const myType& operator[](int i) const
+	{
+		return data[i];
+	}
+
+	myType& operator[](int i)
+	{
+		return data[i];
 	}
 };
 

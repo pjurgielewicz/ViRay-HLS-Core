@@ -2,13 +2,14 @@
 #define FFCORE__H_
 
 #include "Common/typedefs.h"
-#include "Utils/vec4.h"
+#include "Utils/mat4.h"
+#include "Utils/vec3.h"
 #include "Utils/vision.h"
 
 struct ShadeRec{
-	vec4 normal;
-	vec4 localHitPoint;
-	vec4 hitPoint;
+	vec3 normal;
+	vec3 localHitPoint;
+	vec3 hitPoint;
 
 	myType distance;
 
@@ -16,18 +17,37 @@ struct ShadeRec{
 
 	ShadeRec()
 	{
-		normal = vec4();
-		localHitPoint = vec4();
-		hitPoint = vec4();
+		normal = vec3();
+		localHitPoint = vec3();
+		hitPoint = vec3();
 		distance = 1000;
 		objIdx = -1;
 	}
 };
 
-int FFCore(const vec4* objTransformIn,
-			const vec4* objInvTransformIn,
-			unsigned dataInSize,
+struct Light{
+	vec3 position;
+	vec3 color;
+};
+
+struct Material{
+	vec3 k;
+	
+	vec3 ambientColor;
+	vec3 diffuseColor;
+	vec3 specularColor;
+};
+
+int FFCore(const mat4* objTransformIn,
+			const mat4* objInvTransformIn,
 			const int* objTypeIn,
+			
+			vec3* lightPositionIn,
+			vec3* lightColorIn,
+
+			vec3* materialCoeffIn,
+			vec3* materialColorsIn,
+			
 			pixelColorType* outColor);
 
 #endif

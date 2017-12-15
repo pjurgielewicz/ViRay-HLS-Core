@@ -1,7 +1,7 @@
 #ifndef MAT4__H_
 #define MAT4__H_
 
-#include "vec4.h"
+#include "vec3.h"
 
 struct mat4
 {
@@ -9,7 +9,8 @@ struct mat4
 
 	mat4()
 	{
-#pragma HLS ARRAY_PARTITION variable=data complete dim=1
+//#pragma HLS ARRAY_PARTITION variable=data complete dim=1
+#pragma HLS ARRAY_PARTITION variable=data block factor=3 dim=1
 	}
 
 	mat4 operator=(const mat4& mat)
@@ -37,7 +38,7 @@ struct mat4
 		{
 			for (unsigned j = 0; j < 4; ++j)
 			{
-				s = 0.0;
+				s = myType(0.0);
 				for (unsigned k = 0; k < 4; ++k)
 				{
 					if (k != 3)
@@ -56,35 +57,35 @@ struct mat4
 		return temp;
 	}
 
-	vec4 operator*(const vec4& v) const
+	vec3 operator*(const vec3& v) const
 	{
-		vec4 temp;
-		temp.data[0] = data[0] * v.data[0] + data[3] * v.data[1] + data[6] * v.data[2] + data[9];
-		temp.data[1] = data[1] * v.data[0] + data[4] * v.data[1] + data[7] * v.data[2] + data[10];
-		temp.data[2] = data[2] * v.data[0] + data[5] * v.data[1] + data[8] * v.data[2] + data[11];
+		vec3 temp;
+		temp.data[0] = data[0] * v[0] + data[3] * v[1] + data[6] * v[2] + data[9];
+		temp.data[1] = data[1] * v[0] + data[4] * v[1] + data[7] * v[2] + data[10];
+		temp.data[2] = data[2] * v[0] + data[5] * v[1] + data[8] * v[2] + data[11];
 		return temp;
 	}
 
-	vec4 Transform(const vec4& v) const
+	vec3 Transform(const vec3& v) const
 	{
 		return *this * v;
 	}
 
-	vec4 TransformDir(const vec4& v) const
+	vec3 TransformDir(const vec3& v) const
 	{
-		vec4 temp;
-		temp.data[0] = data[0] * v.data[0] + data[3] * v.data[1] + data[6] * v.data[2];
-		temp.data[1] = data[1] * v.data[0] + data[4] * v.data[1] + data[7] * v.data[2];
-		temp.data[2] = data[2] * v.data[0] + data[5] * v.data[1] + data[8] * v.data[2];
+		vec3 temp;
+		temp.data[0] = data[0] * v[0] + data[3] * v[1] + data[6] * v[2];
+		temp.data[1] = data[1] * v[0] + data[4] * v[1] + data[7] * v[2];
+		temp.data[2] = data[2] * v[0] + data[5] * v[1] + data[8] * v[2];
 		return temp;
 	}
 
-	vec4 TransposeTransformDir(const vec4& v) const
+	vec3 TransposeTransformDir(const vec3& v) const
 	{
-		vec4 temp;
-		temp.data[0] = data[0] * v.data[0] + data[1] * v.data[1] + data[2] * v.data[2];
-		temp.data[1] = data[3] * v.data[0] + data[4] * v.data[1] + data[5] * v.data[2];
-		temp.data[2] = data[6] * v.data[0] + data[7] * v.data[1] + data[8] * v.data[2];
+		vec3 temp;
+		temp.data[0] = data[0] * v[0] + data[1] * v[1] + data[2] * v[2];
+		temp.data[1] = data[3] * v[0] + data[4] * v[1] + data[5] * v[2];
+		temp.data[2] = data[6] * v[0] + data[7] * v[1] + data[8] * v[2];
 		return temp;
 	}
 
@@ -128,44 +129,44 @@ struct mat4
 	{
 		for (unsigned i = 0; i < 12; ++i)
 		{
-			data[i] = (i % 4 == 0)?1.0:0.0;
+			data[i] = (i % 4 == 0) ? myType(1.0) : myType(0.0);
 		}
 	}
 
-	void TranslationMatrix(const vec4& v)
+	void TranslationMatrix(const vec3& v)
 	{
 		for (unsigned i = 0; i < 9; ++i)
 		{
-			data[i] = (i % 4 == 0)?1.0:0.0;
+			data[i] = (i % 4 == 0) ? myType(1.0) : myType(0.0);
 		}
 		data[9] = v.data[0];	data[10] = v.data[1];	data[11] = v.data[2];
 	}
 
-	vec4 ExtractTranslationVactor()const
+	vec3 ExtractTranslationVactor()const
 	{
-		vec4 tmp;
+		vec3 tmp;
 		tmp.data[0] = data[9];	tmp.data[1] = data[10];	tmp.data[2] = data[11];
 		return tmp;
 	}
 
-	void ScaleMatrix(const vec4& v)
+	void ScaleMatrix(const vec3& v)
 	{
 		for (unsigned i = 0; i < 4; ++i)
 		{
 			for (unsigned j = 0; j < 3; ++j)
 			{
 				if (i == j) data[j + i * 3] = v.data[j];
-				else data[j + i * 3] = 0.0;
+				else data[j + i * 3] = myType(0.0);
 			}
 		}
 	}
 
-	void RotationMatrix(myType rad, const vec4& v)
+	void RotationMatrix(myType rad, const vec3& v)
 	{
 		myType mag, s, c;
 		myType xx, yy, zz, xy, yz, zx, xs, ys, zs, one_c;
-		vec4 rotVec;
-
+		vec3 rotVec;
+// ????
 #ifdef USE_FIXEDPOINT
 		s = myType(hls::sin((float)rad));
 		c = myType(hls::cos((float)rad));
@@ -184,22 +185,22 @@ struct mat4
 		// Rotation matrix is normalized
 		rotVec = v / mag;
 
-		xx = rotVec.data[0] * rotVec.data[0];
-		yy = rotVec.data[1] * rotVec.data[1];
-		zz = rotVec.data[2] * rotVec.data[2];
-		xy = rotVec.data[0] * rotVec.data[1];
-		yz = rotVec.data[1] * rotVec.data[2];
-		zx = rotVec.data[2] * rotVec.data[0];
-		xs = rotVec.data[0] * s;
-		ys = rotVec.data[1] * s;
-		zs = rotVec.data[2] * s;
+		xx = rotVec[0] * rotVec[0];
+		yy = rotVec[1] * rotVec[1];
+		zz = rotVec[2] * rotVec[2];
+		xy = rotVec[0] * rotVec[1];
+		yz = rotVec[1] * rotVec[2];
+		zx = rotVec[2] * rotVec[0];
+		xs = rotVec[0] * s;
+		ys = rotVec[1] * s;
+		zs = rotVec[2] * s;
 		one_c = (myType)1.0 - c;
 
 #define M(row,col)  data[col*3+row]
 
-	M(0,0) = (one_c * xx) + c;	M(0,1) = (one_c * xy) - zs; M(0,2) = (one_c * zx) + ys;	M(0,3) = 0.0;
-	M(1,0) = (one_c * xy) + zs; M(1,1) = (one_c * yy) + c;	M(1,2) = (one_c * yz) - xs;	M(1,3) = 0.0;
-	M(2,0) = (one_c * zx) - ys; M(2,1) = (one_c * yz) + xs; M(2,2) = (one_c * zz) + c;  M(2,3) = 0.0;
+	M(0,0) = (one_c * xx) + c;	M(0,1) = (one_c * xy) - zs; M(0,2) = (one_c * zx) + ys;	M(0,3) = myType(0.0);
+	M(1,0) = (one_c * xy) + zs; M(1,1) = (one_c * yy) + c;	M(1,2) = (one_c * yz) - xs;	M(1,3) = myType(0.0);
+	M(2,0) = (one_c * zx) - ys; M(2,1) = (one_c * yz) + xs; M(2,2) = (one_c * zz) + c;  M(2,3) = myType(0.0);
 //	M(3,0) = 0.0;				M(3,1) = 0.0;				M(3,2) = 0.0;				M(3,3) = 1.0;
 
 #undef M

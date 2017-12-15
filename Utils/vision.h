@@ -1,16 +1,16 @@
 #ifndef VISION__H_
 #define VISION__H_
 
-#include "vec4.h"
+#include "vec3.h"
 
 class CRay
 {
 public:
-	vec4 origin;
-	vec4 direction;
+	vec3 origin;
+	vec3 direction;
 
-	CRay(const vec4 &origin = vec4(0.0, 0.0, 0.0),
-		 const vec4 &direction = vec4(0.0, 0.0, -1.0)) : origin( origin ), direction( direction ) {}
+	CRay(const vec3 &origin = vec3(0.0, 0.0, 0.0),
+		 const vec3 &direction = vec3(0.0, 0.0, -1.0)) : origin( origin ), direction( direction ) {}
 
 	CRay( const CRay &ray ) : origin( ray.origin ), direction( ray.direction ) {}
 };
@@ -20,12 +20,11 @@ class CCamera
 public:
 	CCamera(myType hDepthRatio, myType vDepthRatio,
 			unsigned refHRes = 640, unsigned refVRes = 480,
-			const vec4 &eyePosition = vec4(0.0, 0.0, 0.0),
-			const vec4 &lookAt = vec4(0.0, 0.0, -1.0),
-			const vec4 &up = vec4(0.0, 1.0, 0.0)) :
+			const vec3 &eyePosition = vec3(0.0, 0.0, 0.0),
+			const vec3 &lookAt = vec3(0.0, 0.0, -1.0),
+			const vec3 &up = vec3(0.0, 1.0, 0.0)) :
 				refHRes(refHRes), refVRes(refVRes),
 				eyePosition(eyePosition), lookAt(lookAt), up(up)
-				//, viewDistance(100.0)
 	{
 		hFactor = hDepthRatio / (myType(refHRes));
 		vFactor = vDepthRatio / (myType(refVRes));
@@ -43,12 +42,11 @@ public:
 		v = w ^ u;
 	}
 
-	CRay GetCameraRayForPixel(const vec4 &p) const
+	CRay GetCameraRayForPixel(const myType* p) const
 	{
 //#pragma HLS INLINE
-//		vec4 direction = u * p.data[0] + v * p.data[1] - w * viewDistance;
-		vec4 direction = u * p.data[0] * hFactor +
-						 v * p.data[1] * vFactor -
+		vec3 direction = u * p[0] * hFactor +
+						 v * p[1] * vFactor -
 						 w;
 		return CRay(eyePosition, direction/*.Normalize()*/);
 	}
@@ -56,18 +54,15 @@ public:
 	myType GetRefHRes() const { return refHRes; }
 	myType GetRefVRes() const { return refVRes; }
 protected:
-	vec4 eyePosition;
-	vec4 lookAt;
-	vec4 up;
-	vec4 u, v, w;
+	vec3 eyePosition;
+	vec3 lookAt;
+	vec3 up;
+	vec3 u, v, w;
 
 	myType refHRes;
 	myType refVRes;
 
-//	myType hdRatio, vdRatio;
 	myType hFactor, vFactor;
-
-//	myType viewDistance;
 };
 
 #endif
