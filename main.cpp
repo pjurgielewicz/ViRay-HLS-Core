@@ -277,8 +277,8 @@ int FFCore(const mat4* objTransformIn,
 				  	 		myType(-0.5) * (HEIGHT - myType(1.0))};
 
 	mat4 objTransform[OBJ_NUM], objInvTransform[OBJ_NUM];
-//#pragma HLS ARRAY_PARTITION variable=objInvTransform cyclic factor=2 dim=1
-#pragma HLS ARRAY_PARTITION variable=objInvTransform complete dim=1
+#pragma HLS ARRAY_PARTITION variable=objInvTransform cyclic factor=2 dim=1
+//#pragma HLS ARRAY_PARTITION variable=objInvTransform complete dim=1
 	memcpy(objTransform, objTransformIn, sizeof(mat4) * OBJ_NUM);
 	memcpy(objInvTransform, objInvTransformIn, sizeof(mat4) * OBJ_NUM);
 
