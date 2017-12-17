@@ -15,7 +15,7 @@
 #define PRAGMA_SUB(x) _Pragma (#x)
 #define DO_PRAGMA(x) PRAGMA_SUB(x)
 
-#define OUTER_LOOP_UNROLL_FACTOR 8
+#define OUTER_LOOP_UNROLL_FACTOR 5
 
 typedef ap_fixed<FIXEDPOINT_WIDTH, FIXEDPOINT_INTEGER_BITS, AP_RND> myType;
 //typedef float myType;
@@ -23,8 +23,8 @@ typedef ap_fixed<FIXEDPOINT_WIDTH, FIXEDPOINT_INTEGER_BITS, AP_RND> myType;
 #define CORE_BIAS (myType(0.001))
 
 //typedef ap_fixed<16, 8, AP_RND> pixelColorType;
-//typedef int pixelColorType;
-typedef unsigned pixelColorType;
+typedef int pixelColorType;
+//typedef unsigned pixelColorType;
 
 #else
 
@@ -48,6 +48,6 @@ enum ObjectType{
 #define WIDTH 1000
 #define HEIGHT 1000
 #define FRAME_BUFFER_SIZE (WIDTH)
-#define LIGHTS_NUM 3
+#define LIGHTS_NUM 2
 
 #endif

@@ -35,7 +35,7 @@ void TransformRay(const mat4& mat, const CRay& ray, CRay& transformedRay)
 #pragma HLS PIPELINE
 #pragma HLS INLINE
 
-	transformedRay.direction = mat.TransformDir(ray.direction);
+	transformedRay.direction = mat.TransformDir(ray.direction).Normalize();
 	transformedRay.origin = mat.Transform(ray.origin);
 
 //	for (unsigned i = 0; i < 3; ++i)
@@ -112,6 +112,7 @@ void PerformHits(const CRay& transformedRay, unsigned objType, ShadeRec& sr)
 void UpdateClosestObject(const ShadeRec& current, int n, ShadeRec& best)
 {
 #pragma HLS INLINE
+#pragma HLS PIPELINE
 	if (current.distance != myType(-1) && current.distance < best.distance)
 	{
 		best.distance = current.distance;
@@ -125,6 +126,7 @@ void UpdateClosestObject(const ShadeRec& current, int n, ShadeRec& best)
 void SaveColorToBuffer(vec3& color, pixelColorType& colorOut)
 {
 #pragma HLS INLINE
+#pragma HLS PIPELINE
 
 	pixelColorType tempColor = 0;
 
@@ -161,6 +163,9 @@ DO_PRAGMA(HLS UNROLL factor=OUTER_LOOP_UNROLL_FACTOR)
 		CRay ray, transformedRay;
 		ShadeRec sr, closestSr;
 
+		mat4 transform;
+		vec3 color(0, 0, 0);
+
 		CreateRay(camera, posShift, h, w, ray);
 
 		ObjectsLoop: for (unsigned n = 0; n < OBJ_NUM; ++n)
@@ -174,10 +179,8 @@ DO_PRAGMA(HLS UNROLL factor=OUTER_LOOP_UNROLL_FACTOR)
 			PerformHits(transformedRay, objType[n], sr);
 			UpdateClosestObject(sr, n, closestSr);
 		}
-		mat4 transform;
-		vec3 color(0, 0, 0);
 
-		if (closestSr.objIdx != -1)
+		if (closestSr.objIdx != -1) // THIS IF IS A BOTTLENECK - MAYBE IT CAN BE GOT RID OF
 		{
 			AssignMatrix(objTransform, transform, closestSr.objIdx);
 
@@ -194,17 +197,20 @@ DO_PRAGMA(HLS UNROLL factor=OUTER_LOOP_UNROLL_FACTOR)
 
 				if (dot > myType(0.0))
 				{
-					color += materials[closestSr.objIdx].diffuseColor.CompWiseMul(lights[l].color) * dot;
+					color += 	materials[closestSr.objIdx].diffuseColor.CompWiseMul(lights[l].color) *
+								dot * materials[closestSr.objIdx].k[1];
 				}
 			}
 
 		}
+
 //		 TODO: The final result will consist of RGBA value (32 bit)
 		SaveColorToBuffer(color, frameBuffer[w]);
 
 //	***	DEBUG ***
 //		frameBuffer[w] = pixelColorType(closestSr.objIdx);
-
+//		cout << (closestSr.objIdx + 1 )<< " ";
+//		if (w == WIDTH - 1) cout << endl;
 
 	}
 }
@@ -272,6 +278,7 @@ int FFCore(const mat4* objTransformIn,
 
 	mat4 objTransform[OBJ_NUM], objInvTransform[OBJ_NUM];
 //#pragma HLS ARRAY_PARTITION variable=objInvTransform cyclic factor=2 dim=1
+#pragma HLS ARRAY_PARTITION variable=objInvTransform complete dim=1
 	memcpy(objTransform, objTransformIn, sizeof(mat4) * OBJ_NUM);
 	memcpy(objInvTransform, objInvTransformIn, sizeof(mat4) * OBJ_NUM);
 
