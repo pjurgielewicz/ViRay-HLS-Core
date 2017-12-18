@@ -41,13 +41,16 @@ struct Material{
 int FFCore(const mat4* objTransformIn,
 			const mat4* objInvTransformIn,
 			const int* objTypeIn,
-			
+
 			vec3* lightPositionIn,
 			vec3* lightColorIn,
 
 			vec3* materialCoeffIn,
 			vec3* materialColorsIn,
-			
+
+			vec3* cameraDataIn,
+			myType cameraZoom,
+
 			pixelColorType* outColor);
 
 #endif

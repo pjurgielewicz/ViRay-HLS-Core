@@ -1,38 +1,40 @@
 #include "main.h"
+#include "Utils/bitmap_image.hpp"
 
 #include "iostream"
+#include "fstream"
+#include <string>
 using namespace std;
+
+vec3& loadVectorFromStream(ifstream& file, vec3& vec)
+{
+	file >> vec.data[0] >> vec.data[1] >> vec.data[2];
+	return vec;
+}
 
 int main()
 {
+	string dataPath("C:\\Users\\pjurgiel\\Source\\FFCore\\src\\SimData\\");
+
+	ifstream dataFile((dataPath + "data.dat").c_str());
+	ifstream lightFile((dataPath + "light.dat").c_str());
+	ifstream materialFile((dataPath + "material.dat").c_str());
+	ifstream cameraFile((dataPath + "camera.dat").c_str());
+
+	vec3 tmp;
+
+	/////////////////////////////////////////////////////////
 
 	mat4* objTransform = new mat4[OBJ_NUM];
 	mat4* objInvTransform = new mat4[OBJ_NUM];
 
 	// SPHERE IS AT (0, 0, -2.5)
-	objTransform[0].TranslationMatrix(vec3(0.0, 0.0, -2.5));
-	objInvTransform[0].TranslationMatrix(vec3(0.0, 0.0, 2.5));
-
-
-//	objTransform[0] = vec4(1, 0, 0, 0);
-//	objTransform[1] = vec4(0, 1, 0, 0);
-//	objTransform[2] = vec4(0, 0, 1, -2.5);
-//
-//	objInvTransform[0] = vec4(1, 0, 0, 0);
-//	objInvTransform[1] = vec4(0, 1, 0, 0);
-//	objInvTransform[2] = vec4(0, 0, 1, 2.5);
+	objTransform[0].TranslationMatrix(loadVectorFromStream(dataFile, tmp));
+	objInvTransform[0] = objTransform[0].Inverse();//TranslationMatrix(vec3(0.0, 0.0, 2.5));
 
 	// PLANE
-	objTransform[1].TranslationMatrix(vec3(0.0, -2.0, 0.0));
-	objInvTransform[1].TranslationMatrix(vec3(0.0, 2.0, 0.0));
-
-//	objTransform[3] = vec4(1, 0, 0, 0);
-//	objTransform[4] = vec4(0, 1, 0, -2);
-//	objTransform[5] = vec4(0, 0, 1, 0);
-//
-//	objInvTransform[3] = vec4(1, 0, 0, 0);
-//	objInvTransform[4] = vec4(0, 1, 0, 2);
-//	objInvTransform[5] = vec4(0, 0, 1, 0);
+	objTransform[1].TranslationMatrix(loadVectorFromStream(dataFile, tmp));
+	objInvTransform[1] = objTransform[1].Inverse();//TranslationMatrix(vec3(0.0, 2.0, 0.0));
 
 	// EMPTY
 	for (unsigned i = 2; i < OBJ_NUM; ++i)
@@ -58,9 +60,8 @@ int main()
 
 	for (unsigned i = 0; i < LIGHTS_NUM; ++i)
 	{
-		lightPosition[i] = vec3(0, 10, 0);
-		if (i == 0) lightColor[i] = vec3(0, 0, 0);
-		else lightColor[i] = vec3(0, 0, 1);
+		lightPosition[i] = loadVectorFromStream(lightFile, tmp);
+		lightColor[i] = loadVectorFromStream(lightFile, tmp);
 	}
 
 /////////////////////////////////////////////////////////
@@ -70,13 +71,30 @@ int main()
 
 	for (unsigned i = 0; i < OBJ_NUM; ++i)
 	{
-		materialCoeff[i] = vec3(0, 1, 0);				// GO ONLY WITH DIFFUSE
-		materialColors[i * 3 + 1] = vec3(0, 0, 1);		// SET DIFFUSE RESPONSE TO FULL BLUE
+		materialCoeff[i] = loadVectorFromStream(materialFile, tmp);
+
+		for (unsigned j = 0; j < 3; ++j)
+		{
+			materialColors[i * 3 + j] = loadVectorFromStream(materialFile, tmp);
+		}
+	}
+
+/////////////////////////////////////////////////////////
+
+	vec3* cameraData = new vec3[3];
+	myType zoom;
+
+	cameraFile >> zoom;
+	for (unsigned i = 0; i < 3; ++i)
+	{
+		cameraData[i] = loadVectorFromStream(cameraFile, tmp);
 	}
 
 /////////////////////////////////////////////////////////
 
 	pixelColorType* frame = new pixelColorType[WIDTH * HEIGHT];
+
+/////////////////////////////////////////////////////////
 
 	FFCore(objTransform,
 			objInvTransform,
@@ -88,26 +106,37 @@ int main()
 			materialCoeff,
 			materialColors,
 
+			cameraData,
+			zoom,
+
 			frame);
 
+	bitmap_image img((int)WIDTH, (int)HEIGHT);
 	for (unsigned h = 0; h < HEIGHT; ++h)
 	{
 		for (unsigned w = 0; w < WIDTH; ++w)
 		{
-			if (frame[h * WIDTH + w] != -1){
-				unsigned val = (frame[h * WIDTH + w] >> 8);
-				cout << val << " ";
-				if (val < 10) cout << "  ";
-				else if (val < 100) cout << " ";
-			}
-			else cout << "    ";
+			unsigned val = (frame[h * WIDTH + w] >> 8);
+//			cout << val << " ";
+//			if (val < 10) cout << "  ";
+//			else if (val < 100) cout << " ";
+
+			unsigned char R = (val >> 16) & 0xFF;
+			unsigned char G = (val >> 8 ) & 0xFF;
+			unsigned char B = val & 0xFF;
+
+			img.set_pixel(w, h, R, G, B);
+
 		}
-		cout << endl;
+//		cout << endl;
 	}
+	img.save_image("output.bmp");
 
 /////////////////////////////////////////////////////////
 
 	delete[] frame;
+
+	delete[] cameraData;
 
 	delete[] materialColors;
 	delete[] materialCoeff;
@@ -118,6 +147,11 @@ int main()
 	delete[] objTypeIn;
 	delete[] objInvTransform;
 	delete[] objTransform;
+
+	dataFile.close();
+	lightFile.close();
+	materialFile.close();
+	cameraFile.close();
 
 	return 0;
 }

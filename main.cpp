@@ -225,6 +225,9 @@ int FFCore(const mat4* objTransformIn,
 			vec3* materialCoeffIn,
 			vec3* materialColorsIn,
 
+			vec3* cameraDataIn,
+			myType cameraZoom,
+
 			pixelColorType* outColor)
 {
 	/*
@@ -238,7 +241,7 @@ int FFCore(const mat4* objTransformIn,
 #pragma HLS INTERFACE m_axi port=objInvTransformIn offset=slave bundle=MAXI_IN_1
 
 #pragma HLS INTERFACE s_axilite port=objTypeIn bundle=AXI_LITE_1
-#pragma HLS INTERFACE m_axi port=objTypeIn offset=slave bundle=MAXI_IN_1
+#pragma HLS INTERFACE m_axi port=objTypeIn offset=slave bundle=MAXI_IN_2
 
 	/*
 	 * LIGHTS
@@ -261,6 +264,15 @@ int FFCore(const mat4* objTransformIn,
 #pragma HLS INTERFACE m_axi port=materialColorsIn offset=slave bundle=MAXI_IN_MATERIALS
 
 	/*
+	 * CAMERA
+	 */
+
+#pragma HLS INTERFACE s_axilite port=cameraDataIn bundle=AXI_LITE_1
+#pragma HLS INTERFACE m_axi port=cameraDataIn offset=slave bundle=MAXI_IN_CAMERA
+
+#pragma HLS INTERFACE s_axilite port=cameraZoom bundle=AXI_LITE_1
+
+	/*
 	 * FRAMEBUFFER
 	 */
 
@@ -270,8 +282,13 @@ int FFCore(const mat4* objTransformIn,
 #pragma HLS INTERFACE s_axilite port=return bundle=AXI_LITE_1
 
 	CRay ray;
-	CCamera camera(myType(2.0), myType(2.0),
-				   HEIGHT, WIDTH);
+
+	vec3 cameraData[3];
+	memcpy(cameraData, cameraDataIn, sizeof(vec3) * 3);
+
+	CCamera camera(cameraZoom, cameraZoom * (myType(WIDTH) / myType(HEIGHT)),
+				   HEIGHT, WIDTH,
+				   cameraData[0], cameraData[1], cameraData[2]);
 
 	myType posShift[2] = {	myType(-0.5) * (WIDTH - myType(1.0)),
 				  	 		myType(-0.5) * (HEIGHT - myType(1.0))};
