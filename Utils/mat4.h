@@ -9,8 +9,8 @@ struct mat4
 
 	mat4()
 	{
-//#pragma HLS ARRAY_PARTITION variable=data complete dim=1
-#pragma HLS ARRAY_PARTITION variable=data block factor=3 dim=1
+#pragma HLS ARRAY_PARTITION variable=data complete dim=1
+//#pragma HLS ARRAY_PARTITION variable=data block factor=6 dim=1
 	}
 
 	mat4 operator=(const mat4& mat)
@@ -59,6 +59,12 @@ struct mat4
 
 	vec3 operator*(const vec3& v) const
 	{
+		return this->Transform(v);
+	}
+
+	vec3 Transform(const vec3& v) const
+	{
+#pragma HLS INLINE
 		vec3 temp;
 		temp.data[0] = data[0] * v[0] + data[3] * v[1] + data[6] * v[2] + data[9];
 		temp.data[1] = data[1] * v[0] + data[4] * v[1] + data[7] * v[2] + data[10];
@@ -66,13 +72,9 @@ struct mat4
 		return temp;
 	}
 
-	vec3 Transform(const vec3& v) const
-	{
-		return *this * v;
-	}
-
 	vec3 TransformDir(const vec3& v) const
 	{
+//#pragma HLS INLINE
 		vec3 temp;
 		temp.data[0] = data[0] * v[0] + data[3] * v[1] + data[6] * v[2];
 		temp.data[1] = data[1] * v[0] + data[4] * v[1] + data[7] * v[2];
@@ -82,6 +84,7 @@ struct mat4
 
 	vec3 TransposeTransformDir(const vec3& v) const
 	{
+//#pragma HLS INLINE
 		vec3 temp;
 		temp.data[0] = data[0] * v[0] + data[1] * v[1] + data[2] * v[2];
 		temp.data[1] = data[3] * v[0] + data[4] * v[1] + data[5] * v[2];

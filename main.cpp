@@ -176,6 +176,20 @@ void SaveColorToBuffer(vec3& color, pixelColorType& colorOut)
 	colorOut = tempColor;
 }
 
+void SaveColorToBuffer(const vec3& color, pixelColorType& colorOut)
+{
+#pragma HLS INLINE
+#pragma HLS PIPELINE
+
+	pixelColorType tempColor = 0;
+
+	for (unsigned i = 0; i < 3; ++i)
+	{
+		tempColor += (( unsigned(color[i] * myType(255)) & 0xFF ) << ((3 - i) * 8));
+	}
+	colorOut = tempColor;
+}
+
 void InnerLoop(const CCamera& camera,
 				const myType* posShift,
 				const mat4* objTransform,
@@ -189,6 +203,8 @@ void InnerLoop(const CCamera& camera,
 				pixelColorType* frameBuffer)
 {
 #pragma HLS INLINE
+
+	const vec3 clearColor(0.0, 0.0, 0.0);
 
 	InnerLoop: for (int w = 0; w < WIDTH; ++w)
 	{
@@ -212,8 +228,9 @@ DO_PRAGMA(HLS UNROLL factor=OUTER_LOOP_UNROLL_FACTOR)
 			PerformHits(transformedRay, objType[n], sr);
 			UpdateClosestObject(sr, n, closestSr);
 		}
-
+#ifndef __SYNTHESIS__
 		if (closestSr.objIdx != -1) // THIS IF IS A BOTTLENECK - MAYBE IT CAN BE GOT RID OF
+#endif
 		{
 			AssignMatrix(objTransform, transform, closestSr.objIdx);
 			AssignMatrix(objTransformInv, transformInv, closestSr.objIdx);
@@ -250,6 +267,8 @@ DO_PRAGMA(HLS UNROLL factor=OUTER_LOOP_UNROLL_FACTOR)
 					//// TODO: FIX BUGS IN SHADOWS
 					//// TODO: FIX ACCESS TO TRANSFORMS (BREAKS DESIGN)
 					UpdateClosestObjectShadow(sr, objTransform[n], shadowRay, d2, shadowSr);
+
+//					if (shadowSr.objIdx) break;
 				}
 
 				if (dot > myType(0.0))
@@ -259,14 +278,15 @@ DO_PRAGMA(HLS UNROLL factor=OUTER_LOOP_UNROLL_FACTOR)
 						color += 	materials[closestSr.objIdx].diffuseColor.CompWiseMul(lights[l].color) *
 									dot * materials[closestSr.objIdx].k[1];
 					}
+#ifndef __SYNTHESIS__
 					else color = vec3(0.8, 0.5, 0.0); // DEBUG ONLY
+#endif
 				}
 			}
-
 		}
 
 //		 TODO: The final result will consist of RGBA value (32 bit)
-		SaveColorToBuffer(color, frameBuffer[w]);
+		(closestSr.objIdx != -1) ? SaveColorToBuffer(color, frameBuffer[w]) : SaveColorToBuffer(clearColor, frameBuffer[w]);
 
 //	***	DEBUG ***
 //		frameBuffer[w] = pixelColorType(closestSr.objIdx);
@@ -355,7 +375,7 @@ int FFCore(const mat4* objTransformIn,
 				  	 		myType(-0.5) * (HEIGHT - myType(1.0))};
 
 	mat4 objTransform[OBJ_NUM], objInvTransform[OBJ_NUM];
-#pragma HLS ARRAY_PARTITION variable=objInvTransform cyclic factor=2 dim=1
+//#pragma HLS ARRAY_PARTITION variable=objInvTransform cyclic factor=2 dim=1
 //#pragma HLS ARRAY_PARTITION variable=objInvTransform complete dim=1
 	memcpy(objTransform, objTransformIn, sizeof(mat4) * OBJ_NUM);
 	memcpy(objInvTransform, objInvTransformIn, sizeof(mat4) * OBJ_NUM);
