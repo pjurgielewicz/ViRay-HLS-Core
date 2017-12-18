@@ -20,7 +20,7 @@ struct ShadeRec{
 		normal = vec3();
 		localHitPoint = vec3();
 		hitPoint = vec3();
-		distance = 1000;
+		distance = myType(MAX_DISTANCE);
 		objIdx = -1;
 	}
 };

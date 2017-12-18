@@ -8,7 +8,6 @@ using namespace std;
 void CreateRay(const CCamera& camera, const myType* posShift, unsigned r, unsigned c, CRay& ray)
 {
 #pragma HLS PIPELINE
-// TODO: Numerical errors may be probably reduced when values are normalized to the 'viewDistance'
 // TODO: Remove 'halfs' addition
 
 	myType samplePoint[2] = {posShift[0] + myType(0.5) + c,
@@ -45,7 +44,7 @@ void TransformRay(const mat4& mat, const CRay& ray, CRay& transformedRay)
 //	cout << endl;
 }
 
-myType SphereTest(const CRay& transformedRay, ShadeRec& sr)
+myType SphereTest(const CRay& transformedRay)
 {
 #pragma HLS PIPELINE
 // unit radius sphere in the global center
@@ -69,10 +68,10 @@ myType SphereTest(const CRay& transformedRay, ShadeRec& sr)
 		}
 	}
 
-	return myType(-1.0);
+	return myType(MAX_DISTANCE);
 }
 
-myType PlaneTest(const CRay& transformedRay, ShadeRec& sr)
+myType PlaneTest(const CRay& transformedRay)
 {
 #pragma HLS PIPELINE
 // XZ - plane pointing +Y
@@ -81,23 +80,23 @@ myType PlaneTest(const CRay& transformedRay, ShadeRec& sr)
 	{
 		return t;
 	}
-	return myType(-1.0);
+	return myType(MAX_DISTANCE);
 }
 
 void PerformHits(const CRay& transformedRay, unsigned objType, ShadeRec& sr)
 {
 //#pragma HLS INLINE
 #pragma HLS PIPELINE
-	myType res = myType(-1.0);
+	myType res = myType(MAX_DISTANCE);
 
 	switch(objType)
 	{
 	case SPHERE:
-		res = SphereTest(transformedRay, sr);
+		res = SphereTest(transformedRay);
 		sr.normal = transformedRay.origin + transformedRay.direction * res;
 		break;
 	case PLANE:
-		res = PlaneTest(transformedRay, sr);
+		res = PlaneTest(transformedRay);
 		sr.normal = vec3(myType(0.0), myType(1.0), myType(0.0));
 		break;
 	default:
@@ -109,17 +108,54 @@ void PerformHits(const CRay& transformedRay, unsigned objType, ShadeRec& sr)
 	sr.distance = res;
 }
 
+void PerformShadowHits(const CRay& transformedRay, unsigned objType, ShadeRec& sr)
+{
+//#pragma HLS INLINE
+#pragma HLS PIPELINE
+	myType res = myType(MAX_DISTANCE);
+
+	switch(objType)
+	{
+	case SPHERE:
+		res = SphereTest(transformedRay);
+		break;
+	case PLANE:
+		res = PlaneTest(transformedRay);
+		break;
+	default:
+		break;
+	}
+
+	sr.localHitPoint = transformedRay.origin + transformedRay.direction * res;
+	sr.distance = res;
+}
+
 void UpdateClosestObject(const ShadeRec& current, int n, ShadeRec& best)
 {
 #pragma HLS INLINE
 #pragma HLS PIPELINE
-	if (current.distance != myType(-1) && current.distance < best.distance)
+	if (/*current.distance != myType(-1.0) &&*/ current.distance < best.distance)
 	{
 		best.distance = current.distance;
 		best.localHitPoint = current.localHitPoint;
 		best.normal = current.normal;
 
 		best.objIdx = n;
+	}
+}
+
+void UpdateClosestObjectShadow(const ShadeRec& current, const mat4& transform, const CRay shadowRay, myType distanceToLightSqr, ShadeRec& best)
+{
+#pragma HLS INLINE
+#pragma HLS PIPELINE
+
+	vec3 shadowPointInWorldSpace = transform.Transform(current.localHitPoint);
+	vec3 fromObjToOccluder = shadowPointInWorldSpace - shadowRay.origin;
+	myType distSqr = fromObjToOccluder * fromObjToOccluder;
+
+	if (distSqr < distanceToLightSqr)
+	{
+		best.objIdx = 1;
 	}
 }
 
@@ -163,17 +199,14 @@ DO_PRAGMA(HLS UNROLL factor=OUTER_LOOP_UNROLL_FACTOR)
 		CRay ray, transformedRay;
 		ShadeRec sr, closestSr;
 
-		mat4 transform;
+		mat4 transform, transformInv;
 		vec3 color(0, 0, 0);
 
 		CreateRay(camera, posShift, h, w, ray);
 
 		ObjectsLoop: for (unsigned n = 0; n < OBJ_NUM; ++n)
 		{
-//#pragma HLS UNROLL
 #pragma HLS PIPELINE
-			mat4 transformInv;
-
 			AssignMatrix(objTransformInv, transformInv, n);
 			TransformRay(transformInv, ray, transformedRay);
 			PerformHits(transformedRay, objType[n], sr);
@@ -183,22 +216,50 @@ DO_PRAGMA(HLS UNROLL factor=OUTER_LOOP_UNROLL_FACTOR)
 		if (closestSr.objIdx != -1) // THIS IF IS A BOTTLENECK - MAYBE IT CAN BE GOT RID OF
 		{
 			AssignMatrix(objTransform, transform, closestSr.objIdx);
+			AssignMatrix(objTransformInv, transformInv, closestSr.objIdx);
 
 			closestSr.hitPoint = transform.Transform(closestSr.localHitPoint);
-			closestSr.normal = closestSr.normal.Normalize();
+			closestSr.normal = transformInv.TransposeTransformDir(closestSr.normal).Normalize();  //closestSr.normal.Normalize();
 
 			color = materials[closestSr.objIdx].ambientColor.CompWiseMul(lights[0].color);
 
 			for (unsigned l = 1; l < LIGHTS_NUM; ++l)
 			{
 #pragma HLS PIPELINE
-				vec3 dirToLight = (lights[l].position - closestSr.hitPoint).Normalize();
+				vec3 objToLight = lights[l].position - closestSr.hitPoint;
+				myType d2 = objToLight * objToLight;
+
+				vec3 dirToLight = objToLight / (hls::sqrt(d2));
+
 				myType dot = closestSr.normal * dirToLight;
+				ShadeRec shadowSr;
+				shadowSr.objIdx = 0; // DEFAULT IS -1 SO NEED TO BE CHANGED HERE
+
+				CRay shadowRay(closestSr.hitPoint, dirToLight);
+
+				// TODO: PASS A COPY OF TRANSFORM_INV, O
+				ShadowLoop: for (unsigned n = 0; n < OBJ_NUM; ++n)
+				{
+#pragma HLS PIPELINE
+					mat4 transformInv;
+
+					AssignMatrix(objTransformInv, transformInv, n);
+					TransformRay(transformInv, shadowRay, transformedRay);
+					PerformShadowHits(transformedRay, objType[n], sr);
+
+					//// TODO: FIX BUGS IN SHADOWS
+					//// TODO: FIX ACCESS TO TRANSFORMS (BREAKS DESIGN)
+					UpdateClosestObjectShadow(sr, objTransform[n], shadowRay, d2, shadowSr);
+				}
 
 				if (dot > myType(0.0))
 				{
-					color += 	materials[closestSr.objIdx].diffuseColor.CompWiseMul(lights[l].color) *
-								dot * materials[closestSr.objIdx].k[1];
+					if (!shadowSr.objIdx)
+					{
+						color += 	materials[closestSr.objIdx].diffuseColor.CompWiseMul(lights[l].color) *
+									dot * materials[closestSr.objIdx].k[1];
+					}
+					else color = vec3(0.8, 0.5, 0.0); // DEBUG ONLY
 				}
 			}
 
