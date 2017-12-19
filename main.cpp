@@ -207,6 +207,29 @@ void SaveColorToBuffer(const vec3& color, pixelColorType& colorOut)
 	colorOut = tempColor;
 }
 
+myType NaturalPow(myType valIn, unsigned n)
+{
+	myType x = valIn;
+	myType y(1.0);
+
+	if (n > 128) n = 128;
+	else if (n == 0) return myType(1.0);
+
+	PoweringLoop: for (int i = 0; i < 7; ++i)
+	{
+#pragma HLS PIPELINE
+		if (n == 0) continue;
+
+		if (n & 0x1)
+		{
+			y = x * y;
+		}
+		x *= x;
+		n >>= 1;
+	}
+	return x * y;
+}
+
 void InnerLoop(const CCamera& camera,
 				const myType* posShift,
 				const mat4* objTransform,
@@ -315,12 +338,17 @@ DO_PRAGMA(HLS UNROLL factor=OUTER_LOOP_UNROLL_FACTOR)
 					UpdateClosestObjectShadow(sr, objTransform[n], n, shadowRay, d2, shadowSr);
 				}
 
+				myType specularDot = -ray.direction * dirToLight.Reflect(closestSr.normal);
+
 				if (dot > myType(0.0))
 				{
-					if (shadowSr.objIdx == -1 || shadowSr.objIdx == closestSr.objIdx)
+					if (shadowSr.objIdx == -1 /*|| shadowSr.objIdx == closestSr.objIdx*/)
 					{
 						color += 	materials[closestSr.objIdx].diffuseColor.CompWiseMul(lights[l].color) *
 									dot * materials[closestSr.objIdx].k[1];
+
+						color += 	materials[closestSr.objIdx].specularColor.CompWiseMul(lights[l].color) *
+									NaturalPow(dot, materials[closestSr.objIdx].k[2]);
 
 //						cout << h << " x " << w << " : " << shadowSr.objIdx << " vs " << closestSr.objIdx << endl;
 
@@ -422,7 +450,7 @@ int FFCore(const mat4* objTransformIn,
 				  	 		myType(-0.5) * (HEIGHT - myType(1.0))};
 
 	mat4 objTransform[OBJ_NUM], objInvTransform[OBJ_NUM];
-//#pragma HLS ARRAY_PARTITION variable=objInvTransform cyclic factor=2 dim=1
+#pragma HLS ARRAY_PARTITION variable=objInvTransform cyclic factor=2 dim=1
 //#pragma HLS ARRAY_PARTITION variable=objInvTransform complete dim=1
 	memcpy(objTransform, objTransformIn, sizeof(mat4) * OBJ_NUM);
 	memcpy(objInvTransform, objInvTransformIn, sizeof(mat4) * OBJ_NUM);

@@ -45,9 +45,9 @@ enum ObjectType{
 /*
  * SCENE DEFINITION
  */
-#define OBJ_NUM 3
-#define WIDTH 1280
-#define HEIGHT 720
+#define OBJ_NUM 10
+#define WIDTH 1920
+#define HEIGHT 1080
 #define FRAME_BUFFER_SIZE (WIDTH)
 #define LIGHTS_NUM 2
 

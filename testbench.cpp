@@ -32,15 +32,16 @@ int main()
 
 	// SPHERE I
 	objTransform[0].TranslationMatrix(loadVectorFromStream(dataFile, tmp));
-	objInvTransform[0] = objTransform[0].Inverse();//TranslationMatrix(vec3(0.0, 0.0, 2.5));
+	objTransform[0].data[0] = 0.5;
+	objInvTransform[0] = objTransform[0].Inverse();
 
 	// SPHERE II
 	objTransform[1].TranslationMatrix(loadVectorFromStream(dataFile, tmp));
-	objInvTransform[1] = objTransform[1].Inverse();//TranslationMatrix(vec3(0.0, 0.0, 2.5));
+	objInvTransform[1] = objTransform[1].Inverse();
 
 	// PLANE
 	objTransform[2].TranslationMatrix(loadVectorFromStream(dataFile, tmp));
-	objInvTransform[2] = objTransform[2].Inverse();//TranslationMatrix(vec3(0.0, 2.0, 0.0));
+	objInvTransform[2] = objTransform[2].Inverse();
 
 	// EMPTY
 	for (unsigned i = 3; i < OBJ_NUM; ++i)
