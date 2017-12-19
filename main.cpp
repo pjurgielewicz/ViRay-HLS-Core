@@ -144,19 +144,36 @@ void UpdateClosestObject(const ShadeRec& current, int n, ShadeRec& best)
 	}
 }
 
-void UpdateClosestObjectShadow(const ShadeRec& current, const mat4& transform, const CRay shadowRay, myType distanceToLightSqr, ShadeRec& best)
+void UpdateClosestObjectShadow(const ShadeRec& current, const mat4& transform, int n, const CRay shadowRay, myType distanceToLightSqr, ShadeRec& best)
 {
 #pragma HLS INLINE
 #pragma HLS PIPELINE
 
 	vec3 shadowPointInWorldSpace = transform.Transform(current.localHitPoint);
 	vec3 fromObjToOccluder = shadowPointInWorldSpace - shadowRay.origin;
+
+/*	cout << "shp: ";
+	for (unsigned i = 0; i < 3; ++i)
+	{
+		cout << shadowPointInWorldSpace[i] << " ";
+	}
+	cout << "; oTo: ";
+	for (unsigned i = 0; i < 3; ++i)
+	{
+		cout << fromObjToOccluder[i] << " ";
+	}
+	cout << "\t";*/
+
 	myType distSqr = fromObjToOccluder * fromObjToOccluder;
+
+//	cout << distSqr << " vs " << distanceToLightSqr;
 
 	if (distSqr < distanceToLightSqr)
 	{
-		best.objIdx = 1;
+		best.objIdx = n;
+//		cout << "\tOK";
 	}
+//	cout << endl;
 }
 
 void SaveColorToBuffer(vec3& color, pixelColorType& colorOut)
@@ -250,37 +267,67 @@ DO_PRAGMA(HLS UNROLL factor=OUTER_LOOP_UNROLL_FACTOR)
 
 				myType dot = closestSr.normal * dirToLight;
 				ShadeRec shadowSr;
-				shadowSr.objIdx = 0; // DEFAULT IS -1 SO NEED TO BE CHANGED HERE
+//				shadowSr.objIdx = 0; // DEFAULT IS -1 SO NEED TO BE CHANGED HERE
 
 				CRay shadowRay(closestSr.hitPoint, dirToLight);
+
+/*				cout << closestSr.objIdx << "\tloc: ";
+				for (unsigned i = 0; i < 3; ++i)
+				{
+					cout << closestSr.localHitPoint[i] << " ";
+				}
+				cout << ", or: ";
+				for (unsigned i = 0; i < 3; ++i)
+				{
+					cout << shadowRay.origin[i] << " ";
+				}
+				cout << ", dir: ";
+				for (unsigned i = 0; i < 3; ++i)
+				{
+					cout << shadowRay.direction[i] << " ";
+				}
+				cout << endl;*/
 
 				// TODO: PASS A COPY OF TRANSFORM_INV, O
 				ShadowLoop: for (unsigned n = 0; n < OBJ_NUM; ++n)
 				{
 #pragma HLS PIPELINE
+					if ( n == closestSr.objIdx ) continue;
 					mat4 transformInv;
 
 					AssignMatrix(objTransformInv, transformInv, n);
 					TransformRay(transformInv, shadowRay, transformedRay);
+
+/*					cout << "\ttransfSR: ";
+					for (unsigned i = 0; i < 3; ++i){
+						cout << transformedRay.origin[i] << " ";
+					}
+					cout << "; ";
+					for (unsigned i = 0; i < 3; ++i){
+						cout << transformedRay.direction[i] << " ";
+					}
+					cout << endl;*/
+
 					PerformShadowHits(transformedRay, objType[n], sr);
 
 					//// TODO: FIX BUGS IN SHADOWS
 					//// TODO: FIX ACCESS TO TRANSFORMS (BREAKS DESIGN)
-					UpdateClosestObjectShadow(sr, objTransform[n], shadowRay, d2, shadowSr);
-
-//					if (shadowSr.objIdx) break;
+					UpdateClosestObjectShadow(sr, objTransform[n], n, shadowRay, d2, shadowSr);
 				}
 
 				if (dot > myType(0.0))
 				{
-					if (!shadowSr.objIdx)
+					if (shadowSr.objIdx == -1 || shadowSr.objIdx == closestSr.objIdx)
 					{
 						color += 	materials[closestSr.objIdx].diffuseColor.CompWiseMul(lights[l].color) *
 									dot * materials[closestSr.objIdx].k[1];
+
+//						cout << h << " x " << w << " : " << shadowSr.objIdx << " vs " << closestSr.objIdx << endl;
+
 					}
-#ifndef __SYNTHESIS__
-					else color = vec3(0.8, 0.5, 0.0); // DEBUG ONLY
-#endif
+//#ifndef __SYNTHESIS__
+//					else color = vec3(0.8, 0.5, 0.0); // DEBUG ONLY
+//#endif
 				}
 			}
 		}

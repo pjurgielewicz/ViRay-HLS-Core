@@ -20,8 +20,8 @@
 //typedef ap_fixed<FIXEDPOINT_WIDTH, FIXEDPOINT_INTEGER_BITS, AP_RND> myType;
 typedef float myType;
 
-#define CORE_BIAS (myType(0.001))
-#define MAX_DISTANCE 1000
+#define CORE_BIAS (myType(0.0001))
+#define MAX_DISTANCE 1000000
 
 //typedef ap_fixed<16, 8, AP_RND> pixelColorType;
 //typedef int pixelColorType;
@@ -45,10 +45,10 @@ enum ObjectType{
 /*
  * SCENE DEFINITION
  */
-#define OBJ_NUM 5
+#define OBJ_NUM 3
 #define WIDTH 1280
 #define HEIGHT 720
 #define FRAME_BUFFER_SIZE (WIDTH)
-#define LIGHTS_NUM 3
+#define LIGHTS_NUM 2
 
 #endif

@@ -4,6 +4,7 @@
 #include "iostream"
 #include "fstream"
 #include <string>
+#include <time.h>
 using namespace std;
 
 vec3& loadVectorFromStream(ifstream& file, vec3& vec)
@@ -14,8 +15,8 @@ vec3& loadVectorFromStream(ifstream& file, vec3& vec)
 
 int main()
 {
-//	string dataPath("C:\\Users\\pjurgiel\\Source\\FFCore\\src\\SimData\\");
-	string dataPath("D:\\Dokumenty\\WorkspaceXilinx\\FFCore\\src\\SimData\\");
+	string dataPath("C:\\Users\\pjurgiel\\Source\\FFCore\\src\\SimData\\");
+//	string dataPath("D:\\Dokumenty\\WorkspaceXilinx\\FFCore\\src\\SimData\\");
 
 	ifstream dataFile((dataPath + "data.dat").c_str());
 	ifstream lightFile((dataPath + "light.dat").c_str());
@@ -29,16 +30,20 @@ int main()
 	mat4* objTransform = new mat4[OBJ_NUM];
 	mat4* objInvTransform = new mat4[OBJ_NUM];
 
-	// SPHERE IS AT (0, 0, -2.5)
+	// SPHERE I
 	objTransform[0].TranslationMatrix(loadVectorFromStream(dataFile, tmp));
 	objInvTransform[0] = objTransform[0].Inverse();//TranslationMatrix(vec3(0.0, 0.0, 2.5));
 
-	// PLANE
+	// SPHERE II
 	objTransform[1].TranslationMatrix(loadVectorFromStream(dataFile, tmp));
-	objInvTransform[1] = objTransform[1].Inverse();//TranslationMatrix(vec3(0.0, 2.0, 0.0));
+	objInvTransform[1] = objTransform[1].Inverse();//TranslationMatrix(vec3(0.0, 0.0, 2.5));
+
+	// PLANE
+	objTransform[2].TranslationMatrix(loadVectorFromStream(dataFile, tmp));
+	objInvTransform[2] = objTransform[2].Inverse();//TranslationMatrix(vec3(0.0, 2.0, 0.0));
 
 	// EMPTY
-	for (unsigned i = 2; i < OBJ_NUM; ++i)
+	for (unsigned i = 3; i < OBJ_NUM; ++i)
 	{
 		objTransform[i].IdentityMatrix();
 		objInvTransform[i].IdentityMatrix();
@@ -49,8 +54,8 @@ int main()
 	int* objTypeIn = new int[OBJ_NUM];
 	for (unsigned i = 0; i < OBJ_NUM; ++i)
 	{
-		if (i == 0) objTypeIn[i] = SPHERE;
-		else if (i == 1) objTypeIn[i] = PLANE;
+		if (i < 2) objTypeIn[i] = SPHERE;
+		else if (i == 2) objTypeIn[i] = PLANE;
 		else objTypeIn[i] = INVALID;
 	}
 
@@ -97,6 +102,8 @@ int main()
 
 /////////////////////////////////////////////////////////
 
+	clock_t timer;
+	timer = clock();
 	FFCore(objTransform,
 			objInvTransform,
 			objTypeIn,
@@ -111,6 +118,10 @@ int main()
 			zoom,
 
 			frame);
+
+	timer = clock() - timer;
+
+	cout << "Elapsed: " << (float(timer) / CLOCKS_PER_SEC) << " ms" << endl;
 
 	bitmap_image img((int)WIDTH, (int)HEIGHT);
 	for (unsigned h = 0; h < HEIGHT; ++h)
