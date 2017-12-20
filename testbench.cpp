@@ -105,7 +105,8 @@ int main()
 
 	clock_t timer;
 	timer = clock();
-	FFCore(objTransform,
+
+	ViRayMain(objTransform,
 			objInvTransform,
 			objTypeIn,
 
@@ -122,7 +123,7 @@ int main()
 
 	timer = clock() - timer;
 
-	cout << "Elapsed: " << (float(timer) / CLOCKS_PER_SEC) << " ms" << endl;
+	cout << "Elapsed: " << (float(timer) / CLOCKS_PER_SEC) << " seconds" << endl;
 
 	bitmap_image img((int)WIDTH, (int)HEIGHT);
 	for (unsigned h = 0; h < HEIGHT; ++h)

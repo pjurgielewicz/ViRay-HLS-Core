@@ -18,12 +18,12 @@
 #define OUTER_LOOP_UNROLL_FACTOR 1
 
 //typedef ap_fixed<FIXEDPOINT_WIDTH, FIXEDPOINT_INTEGER_BITS, AP_RND> myType;
+//typedef half myType;
 typedef float myType;
 
 #define CORE_BIAS (myType(0.0001))
 #define MAX_DISTANCE 1000000
 
-//typedef ap_fixed<16, 8, AP_RND> pixelColorType;
 //typedef int pixelColorType;
 typedef unsigned pixelColorType;
 
@@ -45,10 +45,12 @@ enum ObjectType{
 /*
  * SCENE DEFINITION
  */
-#define OBJ_NUM 10
+#define OBJ_NUM 3
 #define WIDTH 1920
 #define HEIGHT 1080
 #define FRAME_BUFFER_SIZE (WIDTH)
 #define LIGHTS_NUM 2
+#define SAMPLES_PER_PIXEL 1
+#define SAMPLING_FACTOR (myType(1.0) / myType(SAMPLES_PER_PIXEL))
 
 #endif
