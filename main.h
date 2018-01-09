@@ -8,7 +8,9 @@ int ViRayMain(const mat4* objTransformIn,
 			const int* objTypeIn,
 
 			vec3* lightPositionIn,
+			vec3* lightDirIn,
 			vec3* lightColorIn,
+			vec3* lightCoeffIn,
 
 			vec3* materialCoeffIn,
 			vec3* materialColorsIn,

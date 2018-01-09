@@ -118,12 +118,13 @@ struct vec3
 
 	myType Magnitude() const
 	{
-		return hls::sqrt((*this) * (*this));
+		return hls::sqrt(myType((*this) * (*this)));
 	}
 
 	vec3 Normalize() const
 	{
-		return (*this) / hls::sqrt((*this) * (*this));
+//#pragma HLS INLINE
+		return (*this) / hls::sqrt(myType((*this) * (*this)));
 	}
 
 	vec3 Reflect(const vec3& normal) const

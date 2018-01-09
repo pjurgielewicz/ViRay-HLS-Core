@@ -9,79 +9,96 @@
 namespace ViRay
 {
 
-struct ShadeRec{
-	vec3 normal;
-	vec3 localHitPoint;
-	vec3 hitPoint;
+	struct ShadeRec{
+		vec3 normal;
+		vec3 localHitPoint;
+		vec3 hitPoint;
 
-	myType distance;
+		myType distance;
 
-	int objIdx;
+		int objIdx;
 
-	ShadeRec()
+		bool isHit;
+
+		ShadeRec()
+		{
+			normal = vec3();
+			localHitPoint = vec3();
+			hitPoint = vec3();
+			distance = myType(MAX_DISTANCE);
+			objIdx = 0;
+			isHit = false;
+		}
+	};
+
+	struct Light{
+		vec3 position;
+		vec3 dir;
+		vec3 color;
+		vec3 coeff;					// 0 - cos(outer angle), 1 - cos(inner angle), 2 - ?
+
+		myType innerMinusOuterInv; 	// inv cone cos(angle) difference
+	};
+
+	struct Material{
+		vec3 k;						// 0 - diffuse, 1 - specular, 2 - specular exp
+
+		vec3 ambientColor;
+		vec3 diffuseColor;
+		vec3 specularColor;
+	};
+
+	void RenderScene(const CCamera& camera,
+			const myType* posShift,
+			const mat4* objTransform,
+			const mat4* objTransformInv,
+			const unsigned* objType,
+
+			const Light* lights,
+			const Material* materials,
+
+			pixelColorType* frameBuffer,
+			pixelColorType* outColor);
+
+	void InnerLoop(const CCamera& camera,
+			const myType* posShift,
+			const mat4* objTransform,
+			const mat4* objTransformInv,
+			const unsigned* objType,
+			int h,
+
+			const Light* lights,
+			const Material* materials,
+
+			pixelColorType* frameBuffer);
+
+	void CreateRay(const CCamera& camera, const myType* posShift, unsigned r, unsigned c, CRay& ray);
+
+	void AssignMatrix(const mat4* mats, mat4& mat, unsigned pos);
+
+	void TransformRay(const mat4& mat, const CRay& ray, CRay& transformedRay);
+
+	myType SphereTest(const CRay& transformedRay);
+	myType PlaneTest(const CRay& transformedRay);
+
+	void PerformHits(const CRay& transformedRay, unsigned objType, ShadeRec& sr);
+	void PerformShadowHits(const CRay& transformedRay, unsigned objType, ShadeRec& sr);
+
+	void UpdateClosestObject(const ShadeRec& current, int n, ShadeRec& best);
+	void UpdateClosestObjectShadow(const ShadeRec& current, const mat4& transform, int n, const CRay shadowRay, myType distanceToLightSqr, ShadeRec& best);
+
+	void SaveColorToBuffer(vec3 color, pixelColorType& colorOut);
+
+	/*
+	 * ViRay Utility Functions
+	 */
+	namespace ViRayUtils
 	{
-		normal = vec3();
-		localHitPoint = vec3();
-		hitPoint = vec3();
-		distance = myType(MAX_DISTANCE);
-		objIdx = -1;
+
+		myType NaturalPow(myType valIn, unsigned n);
+		myType Clamp(myType val, myType min = myType(0.0), myType max = myType(1.0));
+
 	}
-};
-
-struct Light{
-	vec3 position;
-	vec3 color;
-};
-
-struct Material{
-	vec3 k;
-	
-	vec3 ambientColor;
-	vec3 diffuseColor;
-	vec3 specularColor;
-};
-
-void RenderScene(const CCamera& camera,
-		const myType* posShift,
-		const mat4* objTransform,
-		const mat4* objTransformInv,
-		const unsigned* objType,
-
-		const Light* lights,
-		const Material* materials,
-
-		pixelColorType* frameBuffer,
-		pixelColorType* outColor);
-
-void InnerLoop(const CCamera& camera,
-		const myType* posShift,
-		const mat4* objTransform,
-		const mat4* objTransformInv,
-		const unsigned* objType,
-		int h,
-
-		const Light* lights,
-		const Material* materials,
-
-		pixelColorType* frameBuffer);
-
-void CreateRay(const CCamera& camera, const myType* posShift, unsigned r, unsigned c, CRay& ray);
-
-void AssignMatrix(const mat4* mats, mat4& mat, unsigned pos);
-
-void TransformRay(const mat4& mat, const CRay& ray, CRay& transformedRay);
-
-myType SphereTest(const CRay& transformedRay);
-myType PlaneTest(const CRay& transformedRay);
-
-void PerformHits(const CRay& transformedRay, unsigned objType, ShadeRec& sr);
-void PerformShadowHits(const CRay& transformedRay, unsigned objType, ShadeRec& sr);
-
-void UpdateClosestObject(const ShadeRec& current, int n, ShadeRec& best);
-void UpdateClosestObjectShadow(const ShadeRec& current, const mat4& transform, int n, const CRay shadowRay, myType distanceToLightSqr, ShadeRec& best);
-
-void SaveColorToBuffer(vec3 color, pixelColorType& colorOut);
-myType NaturalPow(myType valIn, unsigned n);
 
 }
 

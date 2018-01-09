@@ -37,6 +37,7 @@ int main()
 
 	// SPHERE II
 	objTransform[1].TranslationMatrix(loadVectorFromStream(dataFile, tmp));
+//	objTransform[1].data[8] = 0.5;
 	objInvTransform[1] = objTransform[1].Inverse();
 
 	// PLANE
@@ -55,7 +56,8 @@ int main()
 	int* objTypeIn = new int[OBJ_NUM];
 	for (unsigned i = 0; i < OBJ_NUM; ++i)
 	{
-		if (i < 2) objTypeIn[i] = SPHERE;
+		if (i == 0) objTypeIn[i] = SPHERE;
+		else if (i == 1) objTypeIn[i] = DISK;
 		else if (i == 2) objTypeIn[i] = PLANE;
 		else objTypeIn[i] = INVALID;
 	}
@@ -63,12 +65,16 @@ int main()
 /////////////////////////////////////////////////////////
 
 	vec3* lightPosition = new vec3[LIGHTS_NUM];
+	vec3* lightDir = new vec3[LIGHTS_NUM];
 	vec3* lightColor = new vec3[LIGHTS_NUM];
+	vec3* lightCoeff = new vec3[LIGHTS_NUM];
 
 	for (unsigned i = 0; i < LIGHTS_NUM; ++i)
 	{
 		lightPosition[i] = loadVectorFromStream(lightFile, tmp);
+		lightDir[i] = loadVectorFromStream(lightFile, tmp).Normalize();
 		lightColor[i] = loadVectorFromStream(lightFile, tmp);
+		lightCoeff[i] = loadVectorFromStream(lightFile, tmp);
 	}
 
 /////////////////////////////////////////////////////////
@@ -111,7 +117,9 @@ int main()
 			objTypeIn,
 
 			lightPosition,
+			lightDir,
 			lightColor,
+			lightCoeff,
 
 			materialCoeff,
 			materialColors,
@@ -123,7 +131,7 @@ int main()
 
 	timer = clock() - timer;
 
-	cout << "Elapsed: " << (float(timer) / CLOCKS_PER_SEC) << " seconds" << endl;
+	cout << "CPU simulation took: " << (float(timer) / CLOCKS_PER_SEC) << " seconds" << endl;
 
 	bitmap_image img((int)WIDTH, (int)HEIGHT);
 	for (unsigned h = 0; h < HEIGHT; ++h)
@@ -131,9 +139,6 @@ int main()
 		for (unsigned w = 0; w < WIDTH; ++w)
 		{
 			unsigned val = (frame[h * WIDTH + w] >> 8);
-//			cout << val << " ";
-//			if (val < 10) cout << "  ";
-//			else if (val < 100) cout << " ";
 
 			unsigned char R = (val >> 16) & 0xFF;
 			unsigned char G = (val >> 8 ) & 0xFF;
@@ -166,6 +171,8 @@ int main()
 	lightFile.close();
 	materialFile.close();
 	cameraFile.close();
+
+/////////////////////////////////////////////////////////
 
 	return 0;
 }

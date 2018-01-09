@@ -15,6 +15,7 @@ struct mat4
 
 	mat4 operator=(const mat4& mat)
 	{
+#pragma HLS INLINE
 		for (unsigned i = 0; i < 12; ++i) data[i] = mat.data[i];
 		return *this;
 	}
@@ -32,7 +33,7 @@ struct mat4
 	mat4 operator*(const mat4& m) const
 	{
 		mat4 temp;
-		myType s;// = (myType)0.0;
+		myType s;
 
 		for (unsigned i = 0; i < 3; ++i)
 		{
@@ -145,7 +146,7 @@ struct mat4
 		data[9] = v.data[0];	data[10] = v.data[1];	data[11] = v.data[2];
 	}
 
-	vec3 ExtractTranslationVactor()const
+	vec3 ExtractTranslationVector()const
 	{
 		vec3 tmp;
 		tmp.data[0] = data[9];	tmp.data[1] = data[10];	tmp.data[2] = data[11];
@@ -169,13 +170,13 @@ struct mat4
 		myType mag, s, c;
 		myType xx, yy, zz, xy, yz, zx, xs, ys, zs, one_c;
 		vec3 rotVec;
-// ????
+
 #ifdef USE_FIXEDPOINT
 		s = myType(hls::sin((float)rad));
 		c = myType(hls::cos((float)rad));
 #else
-		s = myType(std::sin(rad));
-		c = myType(std::cos(rad));
+		s = myType(hls::sin(rad));
+		c = myType(hls::cos(rad));
 #endif
 		mag = v.Magnitude();
 

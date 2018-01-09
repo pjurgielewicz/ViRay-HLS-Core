@@ -48,7 +48,10 @@ public:
 		vec3 direction = u * p[0] * hFactor +
 						 v * p[1] * vFactor -
 						 w;
-		return CRay(eyePosition, direction/*.Normalize()*/);
+
+		// Although normalization is not mandatory when checking for distance from object,
+		// it is used during shading stage (for dot product)
+		return CRay(eyePosition, direction.Normalize());
 	}
 
 	myType GetRefHRes() const { return refHRes; }
