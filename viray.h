@@ -72,9 +72,27 @@ namespace ViRay
 
 			pixelColorType* frameBuffer);
 
-	void CreateRay(const CCamera& camera, const myType* posShift, unsigned r, unsigned c, CRay& ray);
+	vec3 Shade(	const ShadeRec& closestSr,
+				const CRay& ray,
 
-	void AssignMatrix(const mat4* mats, mat4& mat, unsigned pos);
+				const mat4* objTransform,
+				const mat4* objTransformInv,
+				const unsigned* objType,
+
+				const Light* lights,
+				const Material* materials);
+
+	vec3 ShadeReflective(	const ShadeRec& closestSr,
+							const CRay& ray,
+
+							const mat4* objTransform,
+							const mat4* objTransformInv,
+							const unsigned* objType,
+
+							const Light* lights,
+							const Material* materials);
+
+	void CreateRay(const CCamera& camera, const myType* posShift, unsigned r, unsigned c, CRay& ray);
 
 	void TransformRay(const mat4& mat, const CRay& ray, CRay& transformedRay);
 
@@ -82,7 +100,6 @@ namespace ViRay
 	myType PlaneTest(const CRay& transformedRay);
 
 	void PerformHits(const CRay& transformedRay, unsigned objType, ShadeRec& sr);
-	void PerformShadowHits(const CRay& transformedRay, unsigned objType, ShadeRec& sr);
 
 	void UpdateClosestObject(const ShadeRec& current, int n, ShadeRec& best);
 	void UpdateClosestObjectShadow(const ShadeRec& current, const mat4& transform, int n, const CRay shadowRay, myType distanceToLightSqr, ShadeRec& best);

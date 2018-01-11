@@ -48,7 +48,7 @@ void InnerLoop(const CCamera& camera,
 
 				pixelColorType* frameBuffer)
 {
-#pragma HLS INLINE
+//#pragma HLS INLINE
 
 	const vec3 clearColor(myType(0.0), myType(0.0), myType(0.0));
 	vec3 colorAccum;
@@ -65,8 +65,8 @@ DO_PRAGMA(HLS PIPELINE II=DESIRED_INNER_LOOP_II)
 #pragma HLS PIPELINE off
 DO_PRAGMA(HLS UNROLL factor=OUTER_LOOP_UNROLL_FACTOR)
 
-			CRay ray, transformedRay;
-			ShadeRec sr, closestSr;
+			CRay ray, transformedRay, reflectedRay;
+			ShadeRec sr, closestSr, closestReflectedSr;
 
 			mat4 transform, transformInv;
 			vec3 color(0, 0, 0);
@@ -76,88 +76,54 @@ DO_PRAGMA(HLS UNROLL factor=OUTER_LOOP_UNROLL_FACTOR)
 			ObjectsLoop: for (unsigned n = 0; n < OBJ_NUM; ++n)
 			{
 #pragma HLS PIPELINE
-				AssignMatrix(objTransformInv, transformInv, n);
-				TransformRay(transformInv, ray, transformedRay);
+				TransformRay(objTransformInv[n], ray, transformedRay);
 				PerformHits(transformedRay, objType[n], sr);
 				UpdateClosestObject(sr, n, closestSr);
 			}
 
 			// NO NEED TO CHECK WHETHER ANY OBJECT WAS HIT
 			// IT IS DONE AT THE COLOR ACCUMULATION STAGE
-			AssignMatrix(objTransform, transform, closestSr.objIdx);
-			AssignMatrix(objTransformInv, transformInv, closestSr.objIdx);
+			transform = objTransform[closestSr.objIdx];
+			transformInv = objTransformInv[closestSr.objIdx];
 
 			closestSr.hitPoint = transform.Transform(closestSr.localHitPoint);
 			closestSr.normal = transformInv.TransposeTransformDir(closestSr.normal).Normalize();
 
-			color = materials[closestSr.objIdx].ambientColor.CompWiseMul(lights[0].color);
+//			colorAccum = materials[closestSr.objIdx].ambientColor.CompWiseMul(lights[0].color);
 
-			for (unsigned l = 1; l < LIGHTS_NUM; ++l)
+			/*
+			 * REFLECTION
+			 */
+
+			reflectedRay = CRay(closestSr.hitPoint, (-ray.direction).Reflect(closestSr.normal));
+			ReflectionObjectsLoop: for (unsigned n = 0; n < OBJ_NUM; ++n)
 			{
 #pragma HLS PIPELINE
-				vec3 objToLight = lights[l].position - closestSr.hitPoint;
-				myType d2 = objToLight * objToLight;
-
-				myType d2Inv = myType(1.0) / d2;
-				vec3 dirToLight = objToLight * (hls::sqrt(d2Inv));
-
-				myType dot = closestSr.normal * dirToLight;
-				ShadeRec shadowSr;
-				shadowSr.objIdx = int(1);
-
-				CRay shadowRay(closestSr.hitPoint, dirToLight);
-
-				// TODO: PASS A COPY OF TRANSFORM_INV, O
-				ShadowLoop: for (unsigned n = 0; n < OBJ_NUM; ++n)
-				{
-#pragma HLS PIPELINE
-					if ( n == closestSr.objIdx ) continue;
-					mat4 transformInv;
-
-					AssignMatrix(objTransformInv, transformInv, n);
-					TransformRay(transformInv, shadowRay, transformedRay);
-//					PerformShadowHits(transformedRay, objType[n], sr);
-					PerformHits(transformedRay, objType[n], sr);
-					UpdateClosestObjectShadow(sr, objTransform[n], n, shadowRay, d2, shadowSr);
-				}
-
-				myType specularDot = -ray.direction * dirToLight.Reflect(closestSr.normal);
-				specularDot = (( specularDot > myType(0.0) ) ? specularDot : myType(0.0));
-				// SHOULD NEVER EXCEED 1
-				if ( specularDot > myType(1.0) ) cout << "SD: " << specularDot << ", ";
-
-				myType lightToObjLightDirDot = -(dirToLight * lights[l].dir);
-				myType lightSpotCoeff = (lightToObjLightDirDot - lights[l].coeff[0]) * lights[l].innerMinusOuterInv;
-				lightSpotCoeff = ViRayUtils::Clamp(lightSpotCoeff, myType(0.0), myType(1.0));
-
-				dot = ViRayUtils::Clamp(dot, myType(0.0), myType(1.0));
-
-				// DIFFUSE + SPECULAR
-				// (HLS::POW() -> SUBOPTIMAL QoR)
-				// Coeffs (k) can be moved to the color at the stage of preparation
-				vec3 baseColor = materials[closestSr.objIdx].diffuseColor /** dot*/ * materials[closestSr.objIdx].k[0] +
-								 materials[closestSr.objIdx].specularColor * ViRayUtils::NaturalPow(specularDot, materials[closestSr.objIdx].k[2]) * materials[closestSr.objIdx].k[1];
-
-				/*
-				 * APPLYING COLOR MODIFIERS:
-				 * - LIGHT COLOR
-				 * - SHADOW
-				 * - DISTANCE TO LIGHT SQR
-				 * - SPOT LIGHT
-				 * - NORMAL LIGHT DIRECTION DOT
-				 */
-				color += baseColor.CompWiseMul(lights[l].color) * shadowSr.objIdx * d2Inv * lightSpotCoeff * dot;
-
-//				cout << h << " x " << w << " : " << shadowSr.objIdx << " vs " << closestSr.objIdx << endl;
-
-//#ifndef __SYNTHESIS__
-//				else color = vec3(0.8, 0.5, 0.0); // DEBUG ONLY
-//#endif
-
+				TransformRay(objTransformInv[n], reflectedRay, transformedRay);
+				PerformHits(transformedRay, objType[n], sr);
+				UpdateClosestObject(sr, n, closestReflectedSr);
 			}
+			transform = objTransform[closestReflectedSr.objIdx];
+			transformInv = objTransformInv[closestReflectedSr.objIdx];
+			closestReflectedSr.hitPoint = transform.Transform(closestReflectedSr.localHitPoint);
+			closestReflectedSr.normal = transformInv.TransposeTransformDir(closestReflectedSr.normal).Normalize();
 
+			/*
+			 * SHADING
+			 */
+
+			ShadingBlock: {
+//#pragma HLS LOOP_MERGE
+			colorAccum += Shade(closestSr, ray,
+								objTransform, objTransformInv, objType,
+								lights, materials);
+
+			colorAccum += ShadeReflective(closestReflectedSr, reflectedRay,
+											objTransform, objTransformInv, objType,
+											lights, materials) * materials[closestSr.objIdx].k[1]; // Coeff has to be the same as for specular highlight of the reflective surface
+			}
 	//		 TODO: The final result will consist of RGBA value (32 bit)
-			(closestSr.isHit) ? colorAccum += color : colorAccum += clearColor;
+//			(closestSr.isHit) ? colorAccum += color : colorAccum += clearColor;
 	//	***	DEBUG ***
 	//		frameBuffer[w] = pixelColorType(closestSr.objIdx);
 	//		cout << (closestSr.objIdx + 1 )<< " ";
@@ -167,6 +133,156 @@ DO_PRAGMA(HLS UNROLL factor=OUTER_LOOP_UNROLL_FACTOR)
 		SaveColorToBuffer(colorAccum * SAMPLING_FACTOR, frameBuffer[w]);
 	}
 }
+
+vec3 Shade(	const ShadeRec& closestSr,
+			const CRay& ray,
+
+			const mat4* objTransform,
+			const mat4* objTransformInv,
+			const unsigned* objType,
+
+			const Light* lights,
+			const Material* materials)
+{
+#pragma HLS INLINE
+
+	vec3 colorOut(myType(0.0), myType(0.0), myType(0.0));
+	CRay transformedRay;
+	ShadeRec sr;
+
+
+	for (unsigned l = 1; l < LIGHTS_NUM; ++l)
+	{
+#pragma HLS PIPELINE
+		vec3 objToLight = lights[l].position - closestSr.hitPoint;
+		myType d2 = objToLight * objToLight;
+
+		myType d2Inv = myType(1.0) / d2;
+		vec3 dirToLight = objToLight * (hls::sqrt(d2Inv));
+
+		myType dot = closestSr.normal * dirToLight;
+		ShadeRec shadowSr;
+		shadowSr.objIdx = int(1);
+
+		CRay shadowRay(closestSr.hitPoint, dirToLight);
+
+		// TODO: PASS A COPY OF TRANSFORM_INV, O
+		ShadowLoop: for (unsigned n = 0; n < OBJ_NUM; ++n)
+		{
+#pragma HLS PIPELINE
+			if ( n == closestSr.objIdx ) continue;
+
+			TransformRay(objTransformInv[n], shadowRay, transformedRay);
+			PerformHits(transformedRay, objType[n], sr);
+			UpdateClosestObjectShadow(sr, objTransform[n], n, shadowRay, d2, shadowSr);
+		}
+
+		myType specularDot = -ray.direction * dirToLight.Reflect(closestSr.normal);
+		specularDot = (( specularDot > myType(0.0) ) ? specularDot : myType(0.0));
+		// SHOULD NEVER EXCEED 1
+		if ( specularDot > myType(1.0) ) cout << "SD: " << specularDot << ", ";
+
+		myType lightToObjLightDirDot = -(dirToLight * lights[l].dir);
+		myType lightSpotCoeff = (lightToObjLightDirDot - lights[l].coeff[0]) * lights[l].innerMinusOuterInv;
+		lightSpotCoeff = ViRayUtils::Clamp(lightSpotCoeff, myType(0.0), myType(1.0));
+
+		dot = ViRayUtils::Clamp(dot, myType(0.0), myType(1.0));
+
+		// DIFFUSE + SPECULAR
+		// (HLS::POW() -> SUBOPTIMAL QoR)
+		// Coeffs (k) can be moved to the color at the stage of preparation
+		vec3 baseColor = materials[closestSr.objIdx].diffuseColor /** dot*/ * materials[closestSr.objIdx].k[0] +
+						 materials[closestSr.objIdx].specularColor * ViRayUtils::NaturalPow(specularDot, materials[closestSr.objIdx].k[2]) * materials[closestSr.objIdx].k[1];
+
+		/*
+		 * APPLYING COLOR MODIFIERS:
+		 * - LIGHT COLOR
+		 * - SHADOW
+		 * - DISTANCE TO LIGHT SQR
+		 * - SPOT LIGHT
+		 * - NORMAL LIGHT DIRECTION DOT
+		 */
+		colorOut += baseColor.CompWiseMul(lights[l].color) * shadowSr.objIdx * d2Inv * lightSpotCoeff * dot;
+
+	}
+	return ((closestSr.isHit) ? (colorOut + materials[closestSr.objIdx].ambientColor.CompWiseMul(lights[0].color)) : vec3(myType(0.0), myType(0.0), myType(0.0)));
+}
+
+vec3 ShadeReflective(	const ShadeRec& closestSr,
+						const CRay& ray,
+
+						const mat4* objTransform,
+						const mat4* objTransformInv,
+						const unsigned* objType,
+
+						const Light* lights,
+						const Material* materials)
+{
+#pragma HLS INLINE
+
+	vec3 colorOut(myType(0.0), myType(0.0), myType(0.0));
+	CRay transformedRay;
+	ShadeRec sr;
+
+
+	for (unsigned l = 1; l < LIGHTS_NUM; ++l)
+	{
+#pragma HLS PIPELINE
+		vec3 objToLight = lights[l].position - closestSr.hitPoint;
+		myType d2 = objToLight * objToLight;
+
+		myType d2Inv = myType(1.0) / d2;
+		vec3 dirToLight = objToLight * (hls::sqrt(d2Inv));
+
+		myType dot = closestSr.normal * dirToLight;
+		ShadeRec shadowSr;
+		shadowSr.objIdx = int(1);
+
+		CRay shadowRay(closestSr.hitPoint, dirToLight);
+
+		// TODO: PASS A COPY OF TRANSFORM_INV, O
+		ShadowLoop: for (unsigned n = 0; n < OBJ_NUM; ++n)
+		{
+#pragma HLS PIPELINE
+			if ( n == closestSr.objIdx ) continue;
+
+			TransformRay(objTransformInv[n], shadowRay, transformedRay);
+			PerformHits(transformedRay, objType[n], sr);
+			UpdateClosestObjectShadow(sr, objTransform[n], n, shadowRay, d2, shadowSr);
+		}
+
+		myType specularDot = -ray.direction * dirToLight.Reflect(closestSr.normal);
+		specularDot = (( specularDot > myType(0.0) ) ? specularDot : myType(0.0));
+		// SHOULD NEVER EXCEED 1
+		if ( specularDot > myType(1.0) ) cout << "SD: " << specularDot << ", ";
+
+		myType lightToObjLightDirDot = -(dirToLight * lights[l].dir);
+		myType lightSpotCoeff = (lightToObjLightDirDot - lights[l].coeff[0]) * lights[l].innerMinusOuterInv;
+		lightSpotCoeff = ViRayUtils::Clamp(lightSpotCoeff, myType(0.0), myType(1.0));
+
+//		dot = ViRayUtils::Clamp(dot, myType(0.0), myType(1.0));
+		dot = ((dot > myType(0.0)) ? myType(1.0) : myType(0.0));
+
+		// DIFFUSE + SPECULAR
+		// (HLS::POW() -> SUBOPTIMAL QoR)
+		// Coeffs (k) can be moved to the color at the stage of preparation
+		vec3 baseColor = materials[closestSr.objIdx].diffuseColor /** dot*/ * materials[closestSr.objIdx].k[0] +
+						 materials[closestSr.objIdx].specularColor * ViRayUtils::NaturalPow(specularDot, materials[closestSr.objIdx].k[2]) * materials[closestSr.objIdx].k[1];
+
+		/*
+		 * APPLYING COLOR MODIFIERS:
+		 * - LIGHT COLOR
+		 * - SHADOW
+		 * - DISTANCE TO LIGHT SQR
+		 * - SPOT LIGHT
+		 * - NORMAL LIGHT DIRECTION DOT
+		 */
+		colorOut += baseColor.CompWiseMul(lights[l].color) * shadowSr.objIdx * d2Inv * lightSpotCoeff * dot;
+
+	}
+	return ((closestSr.isHit) ? (colorOut + materials[closestSr.objIdx].ambientColor.CompWiseMul(lights[0].color)) : vec3(myType(0.0), myType(0.0), myType(0.0)));
+}
+
 // ****************   !THE REAL CORE OF THE PROCESSING   ****************
 
 void CreateRay(const CCamera& camera, const myType* posShift, unsigned r, unsigned c, CRay& ray)
@@ -177,20 +293,6 @@ void CreateRay(const CCamera& camera, const myType* posShift, unsigned r, unsign
 	myType samplePoint[2] = {posShift[0] + myType(0.5) + c,
 					 	 	 posShift[1] + myType(0.5) + r};
 	ray = camera.GetCameraRayForPixel(samplePoint);
-
-//	cout << samplePoint.data[0] << " x " << samplePoint.data[1] << "\t->\t";
-//	for (unsigned i = 0; i < 3; ++i)
-//	{
-//		cout << ray.direction.data[i] << ", ";
-//	}
-//	cout << endl;
-}
-
-void AssignMatrix(const mat4* mats, mat4& mat, unsigned pos)
-{
-#pragma HLS PIPELINE
-#pragma HLS INLINE
-	mat = mats[pos];
 }
 
 void TransformRay(const mat4& mat, const CRay& ray, CRay& transformedRay)
@@ -200,12 +302,6 @@ void TransformRay(const mat4& mat, const CRay& ray, CRay& transformedRay)
 
 	transformedRay.direction = mat.TransformDir(ray.direction).Normalize();
 	transformedRay.origin = mat.Transform(ray.origin);
-
-//	for (unsigned i = 0; i < 3; ++i)
-//	{
-//		cout << transformedRay.direction.data[i] << ", ";
-//	}
-//	cout << endl;
 }
 
 myType SphereTest(const CRay& transformedRay)
@@ -302,32 +398,6 @@ void PerformHits(const CRay& transformedRay, unsigned objType, ShadeRec& sr)
 	sr.distance = res;
 }
 
-/*void PerformShadowHits(const CRay& transformedRay, unsigned objType, ShadeRec& sr)
-{
-//#pragma HLS INLINE
-#pragma HLS PIPELINE
-	myType res = myType(MAX_DISTANCE);
-
-	switch(objType)
-	{
-#ifdef USE_SPHERE_OBJECT
-	case SPHERE:
-		res = SphereTest(transformedRay);
-		break;
-#endif
-#ifdef USE_PLANE_OBJECT
-	case PLANE:
-		res = PlaneTest(transformedRay);
-		break;
-#endif
-	default:
-		break;
-	}
-
-	sr.localHitPoint = transformedRay.origin + transformedRay.direction * res;
-	sr.distance = res;
-}*/
-
 void UpdateClosestObject(const ShadeRec& current, int n, ShadeRec& best)
 {
 #pragma HLS INLINE
@@ -375,8 +445,6 @@ void SaveColorToBuffer(vec3 color, pixelColorType& colorOut)
 	}
 	colorOut = tempColor;
 }
-
-// hls::pow() ...
 
 myType ViRayUtils::NaturalPow(myType valIn, unsigned n)
 {

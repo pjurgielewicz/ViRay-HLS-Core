@@ -57,7 +57,7 @@ int main()
 	for (unsigned i = 0; i < OBJ_NUM; ++i)
 	{
 		if (i == 0) objTypeIn[i] = SPHERE;
-		else if (i == 1) objTypeIn[i] = DISK;
+		else if (i == 1) objTypeIn[i] = SPHERE;
 		else if (i == 2) objTypeIn[i] = PLANE;
 		else objTypeIn[i] = INVALID;
 	}
