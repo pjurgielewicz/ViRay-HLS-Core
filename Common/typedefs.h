@@ -50,6 +50,14 @@ enum ObjectType{
 #define USE_SQUARE_OBJECT
 
 /*
+ * ENABLE/DISABLE
+ */
+
+#define PRIMARY_COLOR_ENABLE
+#define SHADOW_ENABLE
+#define REFLECTION_ENABLE
+
+/*
  * SCENE 'RANGE' DEFINITION
  */
 #define OBJ_NUM 10

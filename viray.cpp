@@ -89,13 +89,18 @@ DO_PRAGMA(HLS UNROLL factor=OUTER_LOOP_UNROLL_FACTOR)
 			closestSr.hitPoint = transform.Transform(closestSr.localHitPoint);
 			closestSr.normal = transformInv.TransposeTransformDir(closestSr.normal).Normalize();
 
+//			if (closestSr.normal * ray.direction > myType(0.0)) closestSr.normal = -closestSr.normal;
+
 //			colorAccum = materials[closestSr.objIdx].ambientColor.CompWiseMul(lights[0].color);
 
+#ifdef REFLECTION_ENABLE
+
 			/*
-			 * REFLECTION
+			 * REFLECTION PASS (DEPTH = 1)
 			 */
 
 			reflectedRay = CRay(closestSr.hitPoint, (-ray.direction).Reflect(closestSr.normal));
+
 			ReflectionObjectsLoop: for (unsigned n = 0; n < OBJ_NUM; ++n)
 			{
 #pragma HLS PIPELINE
@@ -103,32 +108,34 @@ DO_PRAGMA(HLS UNROLL factor=OUTER_LOOP_UNROLL_FACTOR)
 				PerformHits(transformedRay, objType[n], sr);
 				UpdateClosestObject(sr, n, closestReflectedSr);
 			}
+
 			transform = objTransform[closestReflectedSr.objIdx];
 			transformInv = objTransformInv[closestReflectedSr.objIdx];
+
 			closestReflectedSr.hitPoint = transform.Transform(closestReflectedSr.localHitPoint);
 			closestReflectedSr.normal = transformInv.TransposeTransformDir(closestReflectedSr.normal).Normalize();
 
+//			if (closestReflectedSr.normal * reflectedRay.direction > myType(0.0)) closestReflectedSr.normal = -closestReflectedSr.normal;
+
+#endif
 			/*
 			 * SHADING
 			 */
 
 			ShadingBlock: {
 //#pragma HLS LOOP_MERGE
+
+#ifdef PRIMARY_COLOR_ENABLE
 			colorAccum += Shade(closestSr, ray,
 								objTransform, objTransformInv, objType,
 								lights, materials);
-
+#endif
+#ifdef REFLECTION_ENABLE
 			colorAccum += ShadeReflective(closestReflectedSr, reflectedRay,
 											objTransform, objTransformInv, objType,
 											lights, materials) * materials[closestSr.objIdx].k[1]; // Coeff has to be the same as for specular highlight of the reflective surface
+#endif
 			}
-	//		 TODO: The final result will consist of RGBA value (32 bit)
-//			(closestSr.isHit) ? colorAccum += color : colorAccum += clearColor;
-	//	***	DEBUG ***
-	//		frameBuffer[w] = pixelColorType(closestSr.objIdx);
-	//		cout << (closestSr.objIdx + 1 )<< " ";
-	//		if (w == WIDTH - 1) cout << endl;
-
 		}
 		SaveColorToBuffer(colorAccum * SAMPLING_FACTOR, frameBuffer[w]);
 	}
@@ -150,7 +157,6 @@ vec3 Shade(	const ShadeRec& closestSr,
 	CRay transformedRay;
 	ShadeRec sr;
 
-
 	for (unsigned l = 1; l < LIGHTS_NUM; ++l)
 	{
 #pragma HLS PIPELINE
@@ -164,6 +170,7 @@ vec3 Shade(	const ShadeRec& closestSr,
 		ShadeRec shadowSr;
 		shadowSr.objIdx = int(1);
 
+#ifdef SHADOW_ENABLE
 		CRay shadowRay(closestSr.hitPoint, dirToLight);
 
 		// TODO: PASS A COPY OF TRANSFORM_INV, O
@@ -176,6 +183,7 @@ vec3 Shade(	const ShadeRec& closestSr,
 			PerformHits(transformedRay, objType[n], sr);
 			UpdateClosestObjectShadow(sr, objTransform[n], n, shadowRay, d2, shadowSr);
 		}
+#endif
 
 		myType specularDot = -ray.direction * dirToLight.Reflect(closestSr.normal);
 		specularDot = (( specularDot > myType(0.0) ) ? specularDot : myType(0.0));
@@ -224,7 +232,6 @@ vec3 ShadeReflective(	const ShadeRec& closestSr,
 	CRay transformedRay;
 	ShadeRec sr;
 
-
 	for (unsigned l = 1; l < LIGHTS_NUM; ++l)
 	{
 #pragma HLS PIPELINE
@@ -260,7 +267,12 @@ vec3 ShadeReflective(	const ShadeRec& closestSr,
 		myType lightSpotCoeff = (lightToObjLightDirDot - lights[l].coeff[0]) * lights[l].innerMinusOuterInv;
 		lightSpotCoeff = ViRayUtils::Clamp(lightSpotCoeff, myType(0.0), myType(1.0));
 
-//		dot = ViRayUtils::Clamp(dot, myType(0.0), myType(1.0));
+		/*
+		 * THE MAIN DIFFERENCE BETWEEN REGULAR SHADING:
+		 * EITHER OBJECT IS FACING THE LIGHT OR NOT
+		 * IT RESULTS FROM THE EQUAL CROSS SECTION OF INCIDENT AND REFLECTED LIGHT BEAM
+		 * SEE RAY TRACING FROM THE GROUND UP
+		 */
 		dot = ((dot > myType(0.0)) ? myType(1.0) : myType(0.0));
 
 		// DIFFUSE + SPECULAR

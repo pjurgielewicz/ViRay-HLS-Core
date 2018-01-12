@@ -19,12 +19,12 @@ class CCamera
 {
 public:
 	CCamera(myType hDepthRatio, myType vDepthRatio,
-			unsigned refHRes = 640, unsigned refVRes = 480,
+			unsigned refHRes = 1920, unsigned refVRes = 1080,
 			const vec3 &eyePosition = vec3(0.0, 0.0, 0.0),
-			const vec3 &lookAt = vec3(0.0, 0.0, -1.0),
+			const vec3 &lookAtDir = vec3(0.0, 0.0, -1.0),
 			const vec3 &up = vec3(0.0, 1.0, 0.0)) :
 				refHRes(refHRes), refVRes(refVRes),
-				eyePosition(eyePosition), lookAt(lookAt), up(up)
+				eyePosition(eyePosition), lookAtDir(lookAtDir), up(up)
 	{
 		hFactor = hDepthRatio / (myType(refHRes));
 		vFactor = vDepthRatio / (myType(refVRes));
@@ -35,7 +35,7 @@ public:
 	void ComputeUVW()
 	{
 		// DON'T HAVE TO NORMALIZE AS LONG AS INPUT VECTORS ARE UNIT VECTORS
-		w = eyePosition - lookAt;
+		w = -lookAtDir;
 //		w = w.Normalize();
 		u = up ^ w;
 //		u = u.Normalize();
@@ -58,7 +58,7 @@ public:
 	myType GetRefVRes() const { return refVRes; }
 protected:
 	vec3 eyePosition;
-	vec3 lookAt;
+	vec3 lookAtDir;
 	vec3 up;
 	vec3 u, v, w;
 

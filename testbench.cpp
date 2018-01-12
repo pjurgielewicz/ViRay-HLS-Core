@@ -29,23 +29,38 @@ int main()
 
 	mat4* objTransform = new mat4[OBJ_NUM];
 	mat4* objInvTransform = new mat4[OBJ_NUM];
+	mat4 S, R, T;
 
 	// SPHERE I
-	objTransform[0].TranslationMatrix(loadVectorFromStream(dataFile, tmp));
-	objTransform[0].data[0] = 0.5;
+	T.TranslationMatrix(loadVectorFromStream(dataFile, tmp));
+	S.ScaleMatrix(vec3(0.5, 1.0, 1.0));
+	objTransform[0] = T * S;
 	objInvTransform[0] = objTransform[0].Inverse();
 
 	// SPHERE II
-	objTransform[1].TranslationMatrix(loadVectorFromStream(dataFile, tmp));
-//	objTransform[1].data[8] = 0.5;
+	T.TranslationMatrix(loadVectorFromStream(dataFile, tmp));
+	objTransform[1] = T;
 	objInvTransform[1] = objTransform[1].Inverse();
 
-	// PLANE
-	objTransform[2].TranslationMatrix(loadVectorFromStream(dataFile, tmp));
+	// PLANE I
+	T.TranslationMatrix(loadVectorFromStream(dataFile, tmp));
+	R.RotationMatrix(myType(-3.141592 * 0.5), vec3(1.0, 0.0, 0.0));
+	objTransform[2] = T;
 	objInvTransform[2] = objTransform[2].Inverse();
 
+	// PLANE II
+	T.TranslationMatrix(loadVectorFromStream(dataFile, tmp));
+	cout << T << endl;
+	R.RotationMatrix(myType(-3 * 0.5), vec3(1.0, 0.0, 0.0));
+	cout << R << endl;
+	S.ScaleMatrix(vec3(6.0, 1.0, 6.0));
+	cout << S << endl;
+	objTransform[3] = T * R * S;
+	objInvTransform[3] = objTransform[3].Inverse();
+	cout << objTransform[3] << endl;
+
 	// EMPTY
-	for (unsigned i = 3; i < OBJ_NUM; ++i)
+	for (unsigned i = 4; i < OBJ_NUM; ++i)
 	{
 		objTransform[i].IdentityMatrix();
 		objInvTransform[i].IdentityMatrix();
@@ -59,6 +74,7 @@ int main()
 		if (i == 0) objTypeIn[i] = SPHERE;
 		else if (i == 1) objTypeIn[i] = SPHERE;
 		else if (i == 2) objTypeIn[i] = PLANE;
+		else if (i == 3) objTypeIn[i] = SQUARE;
 		else objTypeIn[i] = INVALID;
 	}
 

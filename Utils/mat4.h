@@ -1,6 +1,8 @@
 #ifndef MAT4__H_
 #define MAT4__H_
 
+#include <iostream>
+
 #include "vec3.h"
 
 struct mat4
@@ -44,7 +46,7 @@ struct mat4
 				{
 					if (k != 3)
 					{
-						s += data[i + k * 3] * data[k + j * 3];
+						s += data[i + k * 3] * m.data[k + j * 3];
 					}
 					else if (k == j)
 					{
@@ -209,6 +211,32 @@ struct mat4
 
 #undef M
 	}
+
+	friend std::ostream& operator<<(std::ostream& cout, const mat4& mat)
+	{
+		for (unsigned r = 0; r < 3; ++r)
+		{
+			for (unsigned c = 0; c < 4; ++c)
+			{
+				cout << mat.data[r + c * 3] << " ";
+			}
+			cout << std::endl;
+		}
+		return cout;
+	}
 };
+
+/*std::ostream& operator<<(std::ostream& cout, const mat4& mat)
+{
+	for (unsigned r = 0; r < 3; ++r)
+	{
+		for (unsigned c = 0; c < 4; ++c)
+		{
+			cout << mat.data[r + c * 3] << " ";
+		}
+		cout << std::endl;
+	}
+	return cout;
+}*/
 
 #endif
