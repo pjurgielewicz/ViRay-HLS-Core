@@ -15,8 +15,8 @@ vec3& loadVectorFromStream(ifstream& file, vec3& vec)
 
 int main()
 {
-	string dataPath("C:\\Users\\pjurgiel\\Source\\FFCore\\src\\SimData\\");
-//	string dataPath("D:\\Dokumenty\\WorkspaceXilinx\\FFCore\\src\\SimData\\");
+//	string dataPath("C:\\Users\\pjurgiel\\Source\\FFCore\\src\\SimData\\");
+	string dataPath("D:\\Dokumenty\\WorkspaceXilinx\\FFCore\\src\\SimData\\");
 
 	ifstream dataFile((dataPath + "data.dat").c_str());
 	ifstream lightFile((dataPath + "light.dat").c_str());
@@ -44,16 +44,16 @@ int main()
 
 	// PLANE I
 	T.TranslationMatrix(loadVectorFromStream(dataFile, tmp));
-	R.RotationMatrix(myType(-3.141592 * 0.5), vec3(1.0, 0.0, 0.0));
-	objTransform[2] = T;
+	R.RotationMatrix(myType(0.0), vec3(1.0, 0.0, 0.0));
+	objTransform[2] = T * R;
 	objInvTransform[2] = objTransform[2].Inverse();
 
 	// PLANE II
 	T.TranslationMatrix(loadVectorFromStream(dataFile, tmp));
 	cout << T << endl;
-	R.RotationMatrix(myType(-3 * 0.5), vec3(1.0, 0.0, 0.0));
+	R.RotationMatrix(myType(PI * 0.5), vec3(1.0, 0.0, 0.0));
 	cout << R << endl;
-	S.ScaleMatrix(vec3(6.0, 1.0, 6.0));
+	S.ScaleMatrix(vec3(4.0, 1.0, 10.0));
 	cout << S << endl;
 	objTransform[3] = T * R * S;
 	objInvTransform[3] = objTransform[3].Inverse();
@@ -74,7 +74,7 @@ int main()
 		if (i == 0) objTypeIn[i] = SPHERE;
 		else if (i == 1) objTypeIn[i] = SPHERE;
 		else if (i == 2) objTypeIn[i] = PLANE;
-		else if (i == 3) objTypeIn[i] = SQUARE;
+		else if (i == 3) objTypeIn[i] = PLANE;
 		else objTypeIn[i] = INVALID;
 	}
 

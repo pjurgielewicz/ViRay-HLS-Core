@@ -10,11 +10,14 @@ namespace ViRay
 {
 
 	struct ShadeRec{
+		vec3 localNormal;
 		vec3 normal;
+
 		vec3 localHitPoint;
 		vec3 hitPoint;
 
-		myType distance;
+		myType localDistance;
+		myType distanceSqr;
 
 		int objIdx;
 
@@ -22,10 +25,15 @@ namespace ViRay
 
 		ShadeRec()
 		{
-			normal = vec3();
+			localNormal = vec3();
+			normal = vec3(myType(0.0), myType(-1.0), myType(0.0));
+
 			localHitPoint = vec3();
 			hitPoint = vec3();
-			distance = myType(MAX_DISTANCE);
+
+			localDistance = myType(MAX_DISTANCE);
+			distanceSqr = myType(MAX_DISTANCE);
+
 			objIdx = 0;
 			isHit = false;
 		}
@@ -101,8 +109,8 @@ namespace ViRay
 
 	void PerformHits(const CRay& transformedRay, unsigned objType, ShadeRec& sr);
 
-	void UpdateClosestObject(const ShadeRec& current, int n, ShadeRec& best);
-	void UpdateClosestObjectShadow(const ShadeRec& current, const mat4& transform, int n, const CRay shadowRay, myType distanceToLightSqr, ShadeRec& best);
+	void UpdateClosestObject(ShadeRec& current, const mat4& transform, const mat4& transformInv, int n, const CRay& ray, ShadeRec& best);
+	void UpdateClosestObjectShadow(const ShadeRec& current, const mat4& transform, int n, const CRay& shadowRay, myType distanceToLightSqr, ShadeRec& best);
 
 	void SaveColorToBuffer(vec3 color, pixelColorType& colorOut);
 

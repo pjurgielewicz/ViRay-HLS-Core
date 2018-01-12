@@ -68,4 +68,6 @@ enum ObjectType{
 #define SAMPLES_PER_PIXEL 1
 #define SAMPLING_FACTOR (myType(1.0) / myType(SAMPLES_PER_PIXEL))
 
+#define PI (myType(3.141592))
+
 #endif

@@ -62,14 +62,10 @@ DO_PRAGMA(HLS PIPELINE II=DESIRED_INNER_LOOP_II)
 			if (sampleIdx == 0) colorAccum = vec3(myType(0.0), myType(0.0), myType(0.0));
 
 //#pragma HLS DATAFLOW
-#pragma HLS PIPELINE off
 DO_PRAGMA(HLS UNROLL factor=OUTER_LOOP_UNROLL_FACTOR)
 
 			CRay ray, transformedRay, reflectedRay;
 			ShadeRec sr, closestSr, closestReflectedSr;
-
-			mat4 transform, transformInv;
-			vec3 color(0, 0, 0);
 
 			CreateRay(camera, posShift, h, w, ray);
 
@@ -78,20 +74,11 @@ DO_PRAGMA(HLS UNROLL factor=OUTER_LOOP_UNROLL_FACTOR)
 #pragma HLS PIPELINE
 				TransformRay(objTransformInv[n], ray, transformedRay);
 				PerformHits(transformedRay, objType[n], sr);
-				UpdateClosestObject(sr, n, closestSr);
+				UpdateClosestObject(sr, objTransform[n], objTransformInv[n], n, ray, closestSr);
 			}
 
 			// NO NEED TO CHECK WHETHER ANY OBJECT WAS HIT
 			// IT IS DONE AT THE COLOR ACCUMULATION STAGE
-			transform = objTransform[closestSr.objIdx];
-			transformInv = objTransformInv[closestSr.objIdx];
-
-			closestSr.hitPoint = transform.Transform(closestSr.localHitPoint);
-			closestSr.normal = transformInv.TransposeTransformDir(closestSr.normal).Normalize();
-
-//			if (closestSr.normal * ray.direction > myType(0.0)) closestSr.normal = -closestSr.normal;
-
-//			colorAccum = materials[closestSr.objIdx].ambientColor.CompWiseMul(lights[0].color);
 
 #ifdef REFLECTION_ENABLE
 
@@ -106,16 +93,8 @@ DO_PRAGMA(HLS UNROLL factor=OUTER_LOOP_UNROLL_FACTOR)
 #pragma HLS PIPELINE
 				TransformRay(objTransformInv[n], reflectedRay, transformedRay);
 				PerformHits(transformedRay, objType[n], sr);
-				UpdateClosestObject(sr, n, closestReflectedSr);
+				UpdateClosestObject(sr, objTransform[n], objTransformInv[n], n, reflectedRay, closestReflectedSr);
 			}
-
-			transform = objTransform[closestReflectedSr.objIdx];
-			transformInv = objTransformInv[closestReflectedSr.objIdx];
-
-			closestReflectedSr.hitPoint = transform.Transform(closestReflectedSr.localHitPoint);
-			closestReflectedSr.normal = transformInv.TransposeTransformDir(closestReflectedSr.normal).Normalize();
-
-//			if (closestReflectedSr.normal * reflectedRay.direction > myType(0.0)) closestReflectedSr.normal = -closestReflectedSr.normal;
 
 #endif
 			/*
@@ -133,7 +112,7 @@ DO_PRAGMA(HLS UNROLL factor=OUTER_LOOP_UNROLL_FACTOR)
 #ifdef REFLECTION_ENABLE
 			colorAccum += ShadeReflective(closestReflectedSr, reflectedRay,
 											objTransform, objTransformInv, objType,
-											lights, materials) * materials[closestSr.objIdx].k[1]; // Coeff has to be the same as for specular highlight of the reflective surface
+											lights, materials) * materials[closestSr.objIdx].k[1] * closestSr.isHit; // Coeff has to be the same as for specular highlight of the reflective surface
 #endif
 			}
 		}
@@ -213,7 +192,8 @@ vec3 Shade(	const ShadeRec& closestSr,
 		colorOut += baseColor.CompWiseMul(lights[l].color) * shadowSr.objIdx * d2Inv * lightSpotCoeff * dot;
 
 	}
-	return ((closestSr.isHit) ? (colorOut + materials[closestSr.objIdx].ambientColor.CompWiseMul(lights[0].color)) : vec3(myType(0.0), myType(0.0), myType(0.0)));
+//	return ((closestSr.isHit) ? (colorOut + materials[closestSr.objIdx].ambientColor.CompWiseMul(lights[0].color)) : vec3(myType(0.0), myType(0.0), myType(0.0)));
+	return (colorOut + materials[closestSr.objIdx].ambientColor.CompWiseMul(lights[0].color)) * closestSr.isHit;
 }
 
 vec3 ShadeReflective(	const ShadeRec& closestSr,
@@ -292,7 +272,8 @@ vec3 ShadeReflective(	const ShadeRec& closestSr,
 		colorOut += baseColor.CompWiseMul(lights[l].color) * shadowSr.objIdx * d2Inv * lightSpotCoeff * dot;
 
 	}
-	return ((closestSr.isHit) ? (colorOut + materials[closestSr.objIdx].ambientColor.CompWiseMul(lights[0].color)) : vec3(myType(0.0), myType(0.0), myType(0.0)));
+//	return ((closestSr.isHit) ? (colorOut + materials[closestSr.objIdx].ambientColor.CompWiseMul(lights[0].color)) : vec3(myType(0.0), myType(0.0), myType(0.0)));
+	return (colorOut + materials[closestSr.objIdx].ambientColor.CompWiseMul(lights[0].color)) * closestSr.isHit;
 }
 
 // ****************   !THE REAL CORE OF THE PROCESSING   ****************
@@ -366,7 +347,7 @@ void PerformHits(const CRay& transformedRay, unsigned objType, ShadeRec& sr)
 #ifdef USE_SPHERE_OBJECT
 	case SPHERE:
 		res = SphereTest(transformedRay);
-		sr.normal = transformedRay.origin + transformedRay.direction * res;
+		sr.localNormal = transformedRay.origin + transformedRay.direction * res;
 		break;
 #endif
 #if defined(USE_PLANE_OBJECT) || defined(USE_DISK_OBJECT) || defined(USE_SQUARE_OBJECT)
@@ -374,11 +355,11 @@ void PerformHits(const CRay& transformedRay, unsigned objType, ShadeRec& sr)
 	case DISK:
 	case SQUARE:
 		res = PlaneTest(transformedRay);
-		sr.normal = vec3(myType(0.0), myType(1.0), myType(0.0));
+		sr.localNormal = vec3(myType(0.0), myType(1.0), myType(0.0));
 		break;
 #endif
 	default:
-		sr.normal = vec3(myType(-1.0), myType(-1.0), myType(-1.0));
+		sr.localNormal = vec3(myType(-1.0), myType(-1.0), myType(-1.0));
 		break;
 	}
 
@@ -407,25 +388,36 @@ void PerformHits(const CRay& transformedRay, unsigned objType, ShadeRec& sr)
 #endif
 
 	// the most important at this point
-	sr.distance = res;
+	sr.localDistance = res;
 }
 
-void UpdateClosestObject(const ShadeRec& current, int n, ShadeRec& best)
+void UpdateClosestObject(ShadeRec& current, const mat4& transform, const mat4& transformInv, int n, const CRay& ray, ShadeRec& best)
 {
 #pragma HLS INLINE
 #pragma HLS PIPELINE
-	if (current.distance < best.distance)
-	{
-		best.distance = current.distance;
-		best.localHitPoint = current.localHitPoint;
-		best.normal = current.normal;
+	current.hitPoint = transform.Transform(current.localHitPoint);
+	current.normal = transformInv.TransposeTransformDir(current.localNormal).Normalize();
 
-		best.isHit = true;
+	vec3 fromRayToObject = current.hitPoint - ray.origin;
+	myType realDistanceSqr = fromRayToObject * fromRayToObject;
+
+	if (realDistanceSqr < best.distanceSqr)
+	{
+		best.localDistance 	= current.localDistance;
+		best.distanceSqr 	= realDistanceSqr;
+
+		best.localHitPoint 	= current.localHitPoint;
+		best.hitPoint 		= current.hitPoint;
+
+		best.localNormal 	= current.localNormal;
+		best.normal 		= current.normal;
+
+		best.isHit 	= true;
 		best.objIdx = n;
 	}
 }
 
-void UpdateClosestObjectShadow(const ShadeRec& current, const mat4& transform, int n, const CRay shadowRay, myType distanceToLightSqr, ShadeRec& best)
+void UpdateClosestObjectShadow(const ShadeRec& current, const mat4& transform, int n, const CRay& shadowRay, myType distanceToLightSqr, ShadeRec& best)
 {
 #pragma HLS INLINE
 #pragma HLS PIPELINE
