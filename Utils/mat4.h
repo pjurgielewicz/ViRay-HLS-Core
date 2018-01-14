@@ -226,17 +226,4 @@ struct mat4
 	}
 };
 
-/*std::ostream& operator<<(std::ostream& cout, const mat4& mat)
-{
-	for (unsigned r = 0; r < 3; ++r)
-	{
-		for (unsigned c = 0; c < 4; ++c)
-		{
-			cout << mat.data[r + c * 3] << " ";
-		}
-		cout << std::endl;
-	}
-	return cout;
-}*/
-
 #endif

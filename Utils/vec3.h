@@ -1,7 +1,15 @@
 #ifndef VEC3__H_
 #define VEC3__H_
 
+#include <iostream>
 #include "../Common/typedefs.h"
+#include "../viray.h"
+
+namespace ViRay{
+	namespace ViRayUtils{
+		myType InvSqrt(myType val);
+	};
+};
 
 struct vec3
 {
@@ -124,7 +132,8 @@ struct vec3
 	vec3 Normalize() const
 	{
 //#pragma HLS INLINE
-		return (*this) / hls::sqrt(myType((*this) * (*this)));
+//		return (*this) / hls::sqrt(myType((*this) * (*this)));
+		return (*this) * ViRay::ViRayUtils::InvSqrt(myType((*this) * (*this)));
 	}
 
 	vec3 Reflect(const vec3& normal) const
@@ -142,6 +151,15 @@ struct vec3
 		return data[i];
 	}
 	
+	friend std::ostream& operator<<(std::ostream& cout, const vec3& v)
+	{
+		for (unsigned i = 0; i < 3; ++i)
+		{
+			cout << v[i] << " ";
+		}
+		return cout;
+	}
+
 };
 
 #endif

@@ -9,7 +9,7 @@
 #define DO_PRAGMA(x) PRAGMA_SUB(x)
 
 #define OUTER_LOOP_UNROLL_FACTOR 1
-#define DESIRED_INNER_LOOP_II 6
+#define DESIRED_INNER_LOOP_II 10
 
 //#define USE_FIXEDPOINT
 
@@ -23,8 +23,30 @@ typedef ap_fixed<FIXEDPOINT_WIDTH, FIXEDPOINT_INTEGER_BITS, AP_RND> myType;
 #define MAX_DISTANCE 10000
 
 #else
-//typedef half myType;
+
+#define USE_FLOAT
+
+#ifdef USE_FLOAT
+
 typedef float myType;
+
+// SEE << fp_mul_pow2 >> example project
+typedef union {
+    myType fp_num;
+//    unsigned raw_bits;
+    struct {
+    	unsigned mant : 23;
+    	unsigned bexp : 8;
+    	unsigned sign : 1;
+    };
+} myType_union;
+
+#else
+
+typedef half myType;
+
+#endif
+
 
 #define CORE_BIAS (myType(0.0001))
 #define MAX_DISTANCE myType(1000000)
@@ -42,31 +64,42 @@ enum ObjectType{
 	PLANE,
 	DISK,
 	SQUARE,
+	CYLINDER,
+	CUBE,
 };
-
-#define USE_SPHERE_OBJECT
-#define USE_PLANE_OBJECT
-#define USE_DISK_OBJECT
-#define USE_SQUARE_OBJECT
 
 /*
  * ENABLE/DISABLE
  */
 
+#define SPHERE_OBJECT_ENABLE
+#define PLANE_OBJECT_ENABLE
+#define DISK_OBJECT_ENABLE
+#define SQUARE_OBJECT_ENABLE
+#define CYLINDER_OBJECT_ENABLE
+#define CUBE_OBJECT_ENABLE
+
 #define PRIMARY_COLOR_ENABLE
-#define SHADOW_ENABLE
+#define DIRECT_SHADOW_ENABLE
+#define REFLECTION_SHADOW_ENABLE
 #define REFLECTION_ENABLE
+#define FRESNEL_REFLECTION_ENABLE
+#define FAST_INV_SQRT_ENABLE
+//#define FAST_DIVISION_ENABLE
 
 /*
  * SCENE 'RANGE' DEFINITION
  */
-#define OBJ_NUM 10
+#define OBJ_NUM 6
 #define WIDTH 1920
 #define HEIGHT 1080
 #define FRAME_BUFFER_SIZE (WIDTH)
 #define LIGHTS_NUM 2
 #define SAMPLES_PER_PIXEL 1
 #define SAMPLING_FACTOR (myType(1.0) / myType(SAMPLES_PER_PIXEL))
+
+#define FAST_INV_SQRT_ORDER 2
+#define FAST_DIVISION_ORDER 2
 
 #define PI (myType(3.141592))
 

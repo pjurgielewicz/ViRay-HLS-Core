@@ -118,8 +118,8 @@ int ViRayMain(const mat4* objTransformIn,
 		lights[i].coeff 	= lightCoeffIn[i];
 
 		myType spotDiff = lightCoeffIn[i][1] - lightCoeffIn[i][0];
-		if (spotDiff > myType(CORE_BIAS)) lights[i].innerMinusOuterInv = myType(1.0) / spotDiff;
-		else lights[i].innerMinusOuterInv = MAX_DISTANCE;
+		/*if (spotDiff > myType(CORE_BIAS))*/ lights[i].innerMinusOuterInv = myType(1.0) / spotDiff;
+//		else lights[i].innerMinusOuterInv = MAX_DISTANCE;
 	}
 
 	ViRay::Material materials[OBJ_NUM];
@@ -127,7 +127,10 @@ int ViRayMain(const mat4* objTransformIn,
 	MaterialsAssignmentLoop: for (unsigned i = 0; i < OBJ_NUM; ++i)
 	{
 #pragma HLS PIPELINE
-		materials[i].k 				= materialCoeffIn[i];
+		materials[i].k 				= materialCoeffIn[i * 2];
+		materials[i].eta 			= materialCoeffIn[i * 2 + 1][0];
+		materials[i].invEtaSqr 		= myType(1.0) / (materials[i].eta * materials[i].eta);
+
 		materials[i].ambientColor 	= materialColorsIn[i * 3 + 0];
 		materials[i].diffuseColor 	= materialColorsIn[i * 3 + 1];
 		materials[i].specularColor 	= materialColorsIn[i * 3 + 2];

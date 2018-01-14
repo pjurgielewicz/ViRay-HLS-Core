@@ -50,6 +50,7 @@ namespace ViRay
 
 	struct Material{
 		vec3 k;						// 0 - diffuse, 1 - specular, 2 - specular exp
+		myType eta, invEtaSqr;
 
 		vec3 ambientColor;
 		vec3 diffuseColor;
@@ -80,6 +81,20 @@ namespace ViRay
 
 			pixelColorType* frameBuffer);
 
+	void VisibilityTest(const CRay& ray,
+						const mat4* objTransform,
+						const mat4* objTransformInv,
+						const unsigned* objType,
+						ShadeRec& closestSr);
+
+	void ShadowVisibilityTest(	const CRay& shadowRay,
+								const mat4* objTransform,
+								const mat4* objTransformInv,
+								const unsigned* objType,
+								const ShadeRec& closestSr,
+								myType d2,
+								ShadeRec& shadowSr);
+
 	vec3 Shade(	const ShadeRec& closestSr,
 				const CRay& ray,
 
@@ -100,16 +115,21 @@ namespace ViRay
 							const Light* lights,
 							const Material* materials);
 
+	myType GetFresnelReflectionCoeff(const vec3& rayDirection, const vec3 surfaceNormal, const myType& relativeEta, const myType& invRelativeEtaSqr);
+
 	void CreateRay(const CCamera& camera, const myType* posShift, unsigned r, unsigned c, CRay& ray);
 
 	void TransformRay(const mat4& mat, const CRay& ray, CRay& transformedRay);
 
-	myType SphereTest(const CRay& transformedRay);
+	myType SphereTest(const CRay& transformedRay, const CRay& transformedRayReal);
+	myType CylinderTest(const CRay& transformedRay);
 	myType PlaneTest(const CRay& transformedRay);
+	myType CubeTest(const CRay& transformedRay, unsigned& face);
+	vec3 GetCubeNormal(unsigned faceIdx);
 
 	void PerformHits(const CRay& transformedRay, unsigned objType, ShadeRec& sr);
 
-	void UpdateClosestObject(ShadeRec& current, const mat4& transform, const mat4& transformInv, int n, const CRay& ray, ShadeRec& best);
+	void UpdateClosestObject(ShadeRec& current, const mat4& transform, int n, const CRay& ray, ShadeRec& best);
 	void UpdateClosestObjectShadow(const ShadeRec& current, const mat4& transform, int n, const CRay& shadowRay, myType distanceToLightSqr, ShadeRec& best);
 
 	void SaveColorToBuffer(vec3 color, pixelColorType& colorOut);
@@ -122,6 +142,9 @@ namespace ViRay
 
 		myType NaturalPow(myType valIn, unsigned n);
 		myType Clamp(myType val, myType min = myType(0.0), myType max = myType(1.0));
+		myType InvSqrt(myType val);
+		myType Sqrt(myType val);
+		myType Divide(myType N, myType D);
 
 	}
 
