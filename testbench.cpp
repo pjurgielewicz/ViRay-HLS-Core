@@ -15,8 +15,8 @@ vec3& loadVectorFromStream(ifstream& file, vec3& vec)
 
 int main()
 {
-//	string dataPath("C:\\Users\\pjurgiel\\Source\\FFCore\\src\\SimData\\");
-	string dataPath("D:\\Dokumenty\\WorkspaceXilinx\\FFCore\\src\\SimData\\");
+	string dataPath("C:\\Users\\pjurgiel\\Source\\FFCore\\src\\SimData\\");
+//	string dataPath("D:\\Dokumenty\\WorkspaceXilinx\\FFCore\\src\\SimData\\");
 
 	ifstream dataFile((dataPath + "data.dat").c_str());
 	ifstream lightFile((dataPath + "light.dat").c_str());
@@ -31,7 +31,7 @@ int main()
 	mat4* objInvTransform = new mat4[OBJ_NUM];
 	mat4 S, R, T;
 
-	// SPHERE I
+	// CUBE I
 	T.TranslationMatrix(loadVectorFromStream(dataFile, tmp));
 	R.RotationMatrix(PI * 0.3, vec3(myType(1.0), myType(1.0), myType(1.0)));
 	S.ScaleMatrix(vec3(0.5, 0.5, 0.5));
@@ -47,33 +47,41 @@ int main()
 
 	// PLANE I
 	T.TranslationMatrix(loadVectorFromStream(dataFile, tmp));
-	R.RotationMatrix(myType(PI), vec3(1.0, 0.0, 0.0));
+	R.RotationMatrix(0, vec3(1.0, 0.0, 0.0));
 	objTransform[2] = T * R;
 	objInvTransform[2] = objTransform[2].Inverse();
 
 	// PLANE II
 	T.TranslationMatrix(loadVectorFromStream(dataFile, tmp));
-	R.RotationMatrix(myType(-PI * 0.6), vec3(1.0, 0.0, 0.0));
+	R.RotationMatrix(myType(PI * 0.5), vec3(1.0, 0.0, 0.0));
 	S.ScaleMatrix(vec3(5.0, 1.0, 5.0));
 	objTransform[3] = T * R * S;
 	objInvTransform[3] = objTransform[3].Inverse();
 
 	// PLANE III
 	T.TranslationMatrix(loadVectorFromStream(dataFile, tmp));
-	R.RotationMatrix(myType(PI * 0.6), vec3(0.0, 0.0, 1.0));
+	R.RotationMatrix(myType(PI * 0.5), vec3(0.0, 0.0, 1.0));
 	S.ScaleMatrix(vec3(5.0, 1.0, 5.0));
 	objTransform[4] = T * R * S;
 	objInvTransform[4] = objTransform[4].Inverse();
 
 	// PLANE IV
 	T.TranslationMatrix(loadVectorFromStream(dataFile, tmp));
-	R.RotationMatrix(myType(-PI * 0.6), vec3(0.0, 0.0, 1.0));
+	R.RotationMatrix(myType(-PI * 0.5), vec3(0.0, 0.0, 1.0));
 	S.ScaleMatrix(vec3(5.0, 1.0, 5.0));
 	objTransform[5] = T * R * S;
 	objInvTransform[5] = objTransform[5].Inverse();
 
+	// SPHERE I
+	T.TranslationMatrix(loadVectorFromStream(dataFile, tmp));
+	R.RotationMatrix(0, vec3(myType(1.0), myType(1.0), myType(1.0)));
+	S.ScaleMatrix(vec3(1.0, 1.0, 1.0));
+	objTransform[6] = T * R * S;
+	objInvTransform[6] = objTransform[6].Inverse();
+
+
 	// EMPTY
-	for (unsigned i = 6; i < OBJ_NUM; ++i)
+	for (unsigned i = 7; i < OBJ_NUM; ++i)
 	{
 		objTransform[i].IdentityMatrix();
 		objInvTransform[i].IdentityMatrix();
@@ -90,6 +98,7 @@ int main()
 		else if (i == 3) objTypeIn[i] = DISK;
 		else if (i == 4) objTypeIn[i] = SQUARE;
 		else if (i == 5) objTypeIn[i] = SQUARE;
+		else if (i == 6) objTypeIn[i] = SPHERE;
 		else objTypeIn[i] = INVALID;
 	}
 

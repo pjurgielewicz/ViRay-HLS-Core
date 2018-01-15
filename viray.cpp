@@ -19,7 +19,7 @@ void RenderScene(const CCamera& camera,
 					pixelColorType* outColor)
 {
 #pragma HLS INLINE
-	for (int h = 0; h < HEIGHT; ++h)
+	for (unsigned short h = 0; h < HEIGHT; ++h)
 	{
 #pragma HLS DATAFLOW
 		InnerLoop(	camera,
@@ -41,7 +41,7 @@ void InnerLoop(const CCamera& camera,
 				const mat4* objTransform,
 				const mat4* objTransformInv,
 				const unsigned* objType,
-				int h,
+				unsigned short h,
 
 				const Light* lights,
 				const Material* materials,
@@ -53,82 +53,93 @@ void InnerLoop(const CCamera& camera,
 	const vec3 clearColor(myType(0.0), myType(0.0), myType(0.0));
 	vec3 colorAccum;
 
-	InnerLoop: for (int w = 0; w < WIDTH; ++w)
+	InnerLoop: for (unsigned short w = 0; w < WIDTH; ++w)
 	{
 DO_PRAGMA(HLS PIPELINE II=DESIRED_INNER_LOOP_II)
+DO_PRAGMA(HLS UNROLL factor=INNER_LOOP_UNROLL_FACTOR)
 
-		SamplingLoop: for (unsigned sampleIdx = 0; sampleIdx < SAMPLES_PER_PIXEL; ++sampleIdx)
-		{
-			if (sampleIdx == 0) colorAccum = vec3(myType(0.0), myType(0.0), myType(0.0));
+		colorAccum = vec3(myType(0.0), myType(0.0), myType(0.0));
 
-//#pragma HLS DATAFLOW
-DO_PRAGMA(HLS UNROLL factor=OUTER_LOOP_UNROLL_FACTOR)
+		CRay ray, transformedRay, reflectedRay;
+		ShadeRec sr, closestSr, closestReflectedSr;
 
-			CRay ray, transformedRay, reflectedRay;
-			ShadeRec sr, closestSr, closestReflectedSr;
+		CreateRay(camera, posShift, h, w, ray);
+		VisibilityTest(ray, objTransform, objTransformInv, objType, closestSr);
 
-			CreateRay(camera, posShift, h, w, ray);
-			VisibilityTest(ray, objTransform, objTransformInv, objType, closestSr);
-
-			/*
-			 * NO NEED TO CHECK WHETHER ANY OBJECT WAS HIT
-			 * IT IS BEING DONE AT THE COLOR ACCUMULATION STAGE
-			 */
+		/*
+		 * NO NEED TO CHECK WHETHER ANY OBJECT WAS HIT
+		 * IT IS BEING DONE AT THE COLOR ACCUMULATION STAGE
+		 */
 
 #ifdef REFLECTION_ENABLE
 
-			/*
-			 * REFLECTION PASS (DEPTH = 1)
-			 */
+		/*
+		 * REFLECTION PASS (DEPTH = 1)
+		 */
 
-			reflectedRay = CRay(closestSr.hitPoint, (-ray.direction).Reflect(closestSr.normal));
-			VisibilityTest(reflectedRay, objTransform, objTransformInv, objType, closestReflectedSr);
+		reflectedRay = CRay(closestSr.hitPoint, (-ray.direction).Reflect(closestSr.normal));
+		VisibilityTest(reflectedRay, objTransform, objTransformInv, objType, closestReflectedSr);
 #endif
-			/*
-			 * SHADING
-			 */
+		/*
+		 * SHADING
+		 */
 
-			ShadingBlock: {
+		ShadingBlock: {
 //#pragma HLS LOOP_MERGE
 
 #ifdef PRIMARY_COLOR_ENABLE
-			colorAccum += Shade(closestSr, ray,
-								objTransform, objTransformInv, objType,
-								lights, materials);
+		colorAccum += Shade(closestSr, ray,
+							objTransform, objTransformInv, objType,
+							lights, materials);
 #endif
 #ifdef REFLECTION_ENABLE
-			colorAccum += ShadeReflective(closestReflectedSr, reflectedRay,
-											objTransform, objTransformInv, objType,
-											lights, materials) *
+		colorAccum += Shade(closestReflectedSr, reflectedRay,
+							objTransform, objTransformInv, objType,
+							lights, materials) *
 #ifdef FRESNEL_REFLECTION_ENABLE
-											GetFresnelReflectionCoeff(ray.direction, closestSr.normal, materials[closestSr.objIdx].eta, materials[closestSr.objIdx].invEtaSqr /*materials[closestSr.objIdx].invEtaSqr*/)  *
+							GetFresnelReflectionCoeff(ray.direction, closestSr.normal, materials[closestSr.objIdx].eta, materials[closestSr.objIdx].invEtaSqr)  *
 #else
-											materials[closestSr.objIdx].k[1] * // Coeff has to be the same as for specular highlight of the reflective surface
+							materials[closestSr.objIdx].k[1] * // Coeff has to be the same as for specular highlight of the reflective surface
 #endif
-											closestSr.isHit;
+							closestSr.isHit;
 #endif
-			}
+
 		}
-		SaveColorToBuffer(colorAccum * SAMPLING_FACTOR, frameBuffer[w]);
+		SaveColorToBuffer(colorAccum, frameBuffer[w]);
 	}
 }
 
 myType GetFresnelReflectionCoeff(const vec3& rayDirection, const vec3 surfaceNormal, const myType& relativeEta, const myType& invRelativeEtaSqr)
 {
 #pragma HLS INLINE
-	myType relativeEtaInv(myType(1.0) / relativeEta);
-
-//	cout << relativeEta << " : " << invRelativeEtaSqr << endl;
 
 	myType cosRefl = -(rayDirection * surfaceNormal);
 	myType cosRefrSqr = myType(1.0) - invRelativeEtaSqr * (myType(1.0) - cosRefl * cosRefl);
+
+#if defined(FAST_INV_SQRT_ENABLE) && defined(USE_FLOAT)
+	myType invCosRefr = ViRayUtils::InvSqrt(cosRefrSqr);
+	myType k = cosRefl * invCosRefr;
+
+	myType f1 = (k - relativeEta) / (k + relativeEta);
+	myType f2 = (relativeEta * k - myType(1.0)) / (relativeEta * k + myType(1.0));
+#else
 	myType cosRefr = ViRayUtils::Sqrt(cosRefrSqr);
 
 	myType f1 = (relativeEta * cosRefl - cosRefr) / (relativeEta * cosRefl + cosRefr);
 	myType f2 = (relativeEta * cosRefr - cosRefl) / (relativeEta * cosRefr + cosRefl);
+#endif
+
+	/*
+	 * ASSUMING EQUAL CONTRIBUTION OF EACH KIND OF POLARIZATION - UNPOLARIZED LIGHT
+	 */
+
 	myType fCoeff = myType(0.5) * (f1 * f1 + f2 * f2);
 
-	return fCoeff;
+	/*
+	 * ACCOUNT FOR TOTAL INTERNAL REFLECTION
+	 * ETA < 1.0
+	 */
+	return (cosRefrSqr < myType(0.0)) ? myType(1.0) : fCoeff;
 }
 
 void VisibilityTest(const CRay& ray,
@@ -141,7 +152,7 @@ void VisibilityTest(const CRay& ray,
 	ShadeRec sr;
 	CRay transformedRay;
 
-	for (unsigned n = 0; n < OBJ_NUM; ++n)
+	for (unsigned char n = 0; n < OBJ_NUM; ++n)
 	{
 #pragma HLS PIPELINE
 		TransformRay(objTransformInv[n], ray, transformedRay);
@@ -150,6 +161,9 @@ void VisibilityTest(const CRay& ray,
 	}
 	closestSr.normal = objTransformInv[closestSr.objIdx].TransposeTransformDir(closestSr.localNormal).Normalize();
 
+	/*
+	 * ALLOW TO SEE INTERNAL SURFACES
+	 */
 	if (closestSr.normal * ray.direction > myType(0.0)) closestSr.normal = -closestSr.normal;
 }
 
@@ -165,14 +179,14 @@ void ShadowVisibilityTest(	const CRay& shadowRay,
 	CRay transformedRay;
 	ShadeRec sr;
 
-	ShadowLoop: for (unsigned n = 0; n < OBJ_NUM; ++n)
+	ShadowLoop: for (unsigned char n = 0; n < OBJ_NUM; ++n)
 	{
 #pragma HLS PIPELINE
 		if ( n == closestSr.objIdx ) continue;
 
 		TransformRay(objTransformInv[n], shadowRay, transformedRay);
 		PerformHits(transformedRay, objType[n], sr);
-		UpdateClosestObjectShadow(sr, objTransform[n], n, shadowRay, d2, shadowSr);
+		UpdateClosestObjectShadow(sr, objTransform[n], shadowRay, d2, shadowSr);
 	}
 }
 
@@ -187,12 +201,13 @@ vec3 Shade(	const ShadeRec& closestSr,
 			const Material* materials)
 {
 #pragma HLS INLINE
+#pragma HLS PIPELINE
 
 	vec3 colorOut(myType(0.0), myType(0.0), myType(0.0));
 	CRay transformedRay;
 	ShadeRec sr;
 
-	for (unsigned l = 1; l < LIGHTS_NUM; ++l)
+	for (unsigned char l = 1; l < LIGHTS_NUM; ++l)
 	{
 #pragma HLS PIPELINE
 		vec3 objToLight = lights[l].position - closestSr.hitPoint;
@@ -203,6 +218,8 @@ vec3 Shade(	const ShadeRec& closestSr,
 		vec3 dirToLight = objToLight * dInv;
 
 		myType dot = closestSr.normal * dirToLight;
+		dot = ViRayUtils::Clamp(dot, myType(0.0), myType(1.0));
+
 		ShadeRec shadowSr;
 		shadowSr.objIdx = int(1);
 
@@ -211,7 +228,7 @@ vec3 Shade(	const ShadeRec& closestSr,
 		ShadowVisibilityTest(shadowRay, objTransform, objTransformInv, objType, closestSr, d2, shadowSr);
 #endif
 
-		myType specularDot = -ray.direction * dirToLight.Reflect(closestSr.normal);
+		myType specularDot = -(ray.direction * dirToLight.Reflect(closestSr.normal));
 		specularDot = (( specularDot > myType(0.0) ) ? specularDot : myType(0.0));
 		// SHOULD NEVER EXCEED 1
 		if ( specularDot > myType(1.0) ) cout << "SD: " << specularDot << ", ";
@@ -220,87 +237,22 @@ vec3 Shade(	const ShadeRec& closestSr,
 		myType lightSpotCoeff = (lightToObjLightDirDot - lights[l].coeff[0]) * lights[l].innerMinusOuterInv;
 		lightSpotCoeff = ViRayUtils::Clamp(lightSpotCoeff, myType(0.0), myType(1.0));
 
-		dot = ViRayUtils::Clamp(dot, myType(0.0), myType(1.0));
-
 		// DIFFUSE + SPECULAR
 		// (HLS::POW() -> SUBOPTIMAL QoR)
 		// Coeffs (k) can be moved to the color at the stage of preparation
-		vec3 baseColor = materials[closestSr.objIdx].diffuseColor /** dot*/ * materials[closestSr.objIdx].k[0] +
-						 materials[closestSr.objIdx].specularColor * ViRayUtils::NaturalPow(specularDot, materials[closestSr.objIdx].k[2]) * materials[closestSr.objIdx].k[1];
-
-		/*
-		 * APPLYING COLOR MODIFIERS:
-		 * - LIGHT COLOR
-		 * - SHADOW
-		 * - DISTANCE TO LIGHT SQR
-		 * - SPOT LIGHT
-		 * - NORMAL LIGHT DIRECTION DOT
-		 */
-		colorOut += baseColor.CompWiseMul(lights[l].color) * shadowSr.objIdx * d2Inv * lightSpotCoeff * dot;
-
-	}
-//	return materials[closestSr.objIdx].ambientColor.CompWiseMul(lights[0].color) * closestSr.isHit;
-	return (colorOut + materials[closestSr.objIdx].ambientColor.CompWiseMul(lights[0].color)) * closestSr.isHit;
-}
-
-vec3 ShadeReflective(	const ShadeRec& closestSr,
-						const CRay& ray,
-
-						const mat4* objTransform,
-						const mat4* objTransformInv,
-						const unsigned* objType,
-
-						const Light* lights,
-						const Material* materials)
-{
-#pragma HLS INLINE
-
-	vec3 colorOut(myType(0.0), myType(0.0), myType(0.0));
-	CRay transformedRay;
-	ShadeRec sr;
-
-	for (unsigned l = 1; l < LIGHTS_NUM; ++l)
-	{
-#pragma HLS PIPELINE
-		vec3 objToLight = lights[l].position - closestSr.hitPoint;
-		myType d2 = objToLight * objToLight;
-		myType dInv = ViRayUtils::InvSqrt(d2);
-
-		myType d2Inv = dInv * dInv;
-		vec3 dirToLight = objToLight * dInv;
-
-		myType dot = closestSr.normal * dirToLight;
-		ShadeRec shadowSr;
-		shadowSr.objIdx = int(1);
-
-#ifdef REFLECTION_SHADOW_ENABLE
-		CRay shadowRay(closestSr.hitPoint, dirToLight);
-		ShadowVisibilityTest(shadowRay, objTransform, objTransformInv, objType, closestSr, d2, shadowSr);
+		vec3 baseColor =
+#ifdef DIFFUSE_COLOR_ENABLE
+							materials[closestSr.objIdx].diffuseColor /** dot*/ * materials[closestSr.objIdx].k[0]
+#else
+						   colorOut(myType(0.0), myType(0.0), myType(0.0))
 #endif
-
-		myType specularDot = -ray.direction * dirToLight.Reflect(closestSr.normal);
-		specularDot = (( specularDot > myType(0.0) ) ? specularDot : myType(0.0));
-		// SHOULD NEVER EXCEED 1
-		if ( specularDot > myType(1.0) ) cout << "RSD: " << specularDot << ", ";
-
-		myType lightToObjLightDirDot = -(dirToLight * lights[l].dir);
-		myType lightSpotCoeff = (lightToObjLightDirDot - lights[l].coeff[0]) * lights[l].innerMinusOuterInv;
-		lightSpotCoeff = ViRayUtils::Clamp(lightSpotCoeff, myType(0.0), myType(1.0));
-
-		/*
-		 * THE MAIN DIFFERENCE BETWEEN REGULAR SHADING:
-		 * EITHER OBJECT IS FACING THE LIGHT OR NOT
-		 * IT RESULTS FROM THE EQUAL CROSS SECTION OF INCIDENT AND REFLECTED LIGHT BEAM
-		 * SEE: RAY TRACING FROM THE GROUND UP
-		 */
-		dot = ((dot > myType(0.0)) ? myType(1.0) : myType(0.0));
-
-		// DIFFUSE + SPECULAR
-		// (HLS::POW() -> SUBOPTIMAL QoR)
-		// Coeffs (k) can be moved to the color at the stage of preparation
-		vec3 baseColor = materials[closestSr.objIdx].diffuseColor /** dot*/ * materials[closestSr.objIdx].k[0] +
-						 materials[closestSr.objIdx].specularColor * ViRayUtils::NaturalPow(specularDot, materials[closestSr.objIdx].k[2]) * materials[closestSr.objIdx].k[1];
-
+							+
+#ifdef SPECULAR_HIGHLIGHT_ENABLE
+							materials[closestSr.objIdx].specularColor * ViRayUtils::NaturalPow(specularDot, materials[closestSr.objIdx].k[2]) * materials[closestSr.objIdx].k[1]
+#else
+						   colorOut(myType(0.0), myType(0.0), myType(0.0))
+#endif
+							;
 
 		/*
 		 * APPLYING COLOR MODIFIERS:
@@ -313,12 +265,16 @@ vec3 ShadeReflective(	const ShadeRec& closestSr,
 		colorOut += baseColor.CompWiseMul(lights[l].color) * shadowSr.objIdx * d2Inv * lightSpotCoeff * dot;
 
 	}
-	return (colorOut + materials[closestSr.objIdx].ambientColor.CompWiseMul(lights[0].color)) * closestSr.isHit;
+	return (colorOut
+#ifdef AMBIENT_COLOR_ENABLE
+			+ materials[closestSr.objIdx].ambientColor.CompWiseMul(lights[0].color)
+#endif
+			) * closestSr.isHit;
 }
 
 // ****************   !THE REAL CORE OF THE PROCESSING   ****************
 
-void CreateRay(const CCamera& camera, const myType* posShift, unsigned r, unsigned c, CRay& ray)
+void CreateRay(const CCamera& camera, const myType* posShift, unsigned short r, unsigned short c, CRay& ray)
 {
 #pragma HLS PIPELINE
 // TODO: Remove 'halfs' addition
@@ -333,8 +289,8 @@ void TransformRay(const mat4& mat, const CRay& ray, CRay& transformedRay)
 #pragma HLS PIPELINE
 #pragma HLS INLINE
 
-	transformedRay.direction = mat.TransformDir(ray.direction).Normalize();
-	transformedRay.origin = mat.Transform(ray.origin);
+	transformedRay.direction 	= mat.TransformDir(ray.direction).Normalize();
+	transformedRay.origin 		= mat.Transform(ray.origin);
 }
 
 myType SphereTest(const CRay& transformedRay, const CRay& transformedRayReal)
@@ -343,62 +299,27 @@ myType SphereTest(const CRay& transformedRay, const CRay& transformedRayReal)
 // unit radius sphere in the global center
 	myType a = transformedRay.direction * transformedRay.direction;
 	myType b = transformedRay.direction * transformedRay.origin;
-	myType c = (transformedRay.origin * transformedRay.origin) - myType(1.0);
-//	myType aInv = myType(1.0) / a;
+	myType c = transformedRay.origin * transformedRay.origin - myType(1.0);
 	myType aInv = ViRayUtils::Divide(myType(1.0), a);
-
 
 	myType d2 = b * b - a * c;
 
 	if (d2 >= myType(0.0))
 	{
-//		myType d = hls::sqrt(d2);
 		myType d = ViRayUtils::Sqrt(d2);
 
 		myType t1 = (-b - d) * aInv;
+
 		myType localHitPointY1 = transformedRayReal.origin[1] + t1 * transformedRayReal.direction[1];
 		if (t1 > CORE_BIAS && hls::fabs(localHitPointY1) < myType(1.0))
 		{
 			return t1;
 		}
+
 		myType t2 = (-b + d) * aInv;
+
 		myType localHitPointY2 = transformedRayReal.origin[1] + t2 * transformedRayReal.direction[1];
 		if (t2 > CORE_BIAS && hls::fabs(localHitPointY2) < myType(1.0))
-		{
-			return t2;
-		}
-	}
-
-	return myType(MAX_DISTANCE);
-}
-
-myType CylinderTest(const CRay& transformedRay)
-{
-	myType a = 	transformedRay.direction[0] * transformedRay.direction[0] +
-				transformedRay.direction[2] * transformedRay.direction[2];
-	myType b = 	transformedRay.direction[0] * transformedRay.origin[0] +
-				transformedRay.direction[2] * transformedRay.origin[2];
-	myType c = (transformedRay.origin[0] * transformedRay.origin[0] +
-				transformedRay.origin[2] * transformedRay.origin[2]) - myType(1.0);
-//	myType aInv = myType(1.0) / a;
-	myType aInv = ViRayUtils::Divide(myType(1.0), a);
-
-	myType d2 = b * b - a * c;
-
-	if (d2 >= myType(0.0))
-	{
-//		myType d = hls::sqrt(d2);
-		myType d = ViRayUtils::Sqrt(d2);
-
-		myType t1 = (-b - d) * aInv;
-		myType localHitPointY1 = transformedRay.origin[1] + t1 * transformedRay.direction[1];
-		if (t1 > CORE_BIAS && hls::fabs(localHitPointY1) < myType(0.5))
-		{
-			return t1;
-		}
-		myType t2 = (-b + d) * aInv;
-		myType localHitPointY2 = transformedRay.origin[1] + t2 * transformedRay.direction[1];
-		if (t2 > CORE_BIAS && hls::fabs(localHitPointY2) < myType(0.5))
 		{
 			return t2;
 		}
@@ -411,8 +332,7 @@ myType PlaneTest(const CRay& transformedRay)
 {
 #pragma HLS PIPELINE
 // XZ - plane pointing +Y
-//	myType t = -transformedRay.origin[1] * (myType(1.0) / (transformedRay.direction[1] + CORE_BIAS)); // BIAS removes zero division problem
-	myType t = ViRayUtils::Divide(-transformedRay.origin[1], (transformedRay.direction[1] + CORE_BIAS)); // BIAS removes zero division problem
+	myType t = ViRayUtils::Divide(-transformedRay.origin[1], (transformedRay.direction[1] /*+ CORE_BIAS*/)); // BIAS removes zero division problem
 
 	if (t > CORE_BIAS)
 	{
@@ -421,27 +341,27 @@ myType PlaneTest(const CRay& transformedRay)
 	return myType(MAX_DISTANCE);
 }
 
-myType CubeTest(const CRay& transformedRay, unsigned& face)
+myType CubeTest(const CRay& transformedRay, unsigned char& face)
 {
+#pragma HLS PIPELINE
 	vec3 t_min, t_max, abc;
 
-	for (unsigned i = 0; i < 3; ++i)
+	for (unsigned char i = 0; i < 3; ++i)
 	{
+#pragma HLS UNROLL
+#pragma HLS PIPELINE
 		abc[i] = myType(1.0) / transformedRay.direction[i];
-		if (abc[i] >= myType(0.0))
-		{
-			t_min[i] = (myType(-1.0) - transformedRay.origin[i]) * abc[i];
-			t_max[i] = (myType(1.0) - transformedRay.origin[i])  * abc[i];
-		}
-		else
-		{
-			t_min[i] = (myType(1.0) - transformedRay.origin[i])  * abc[i];
-			t_max[i] = (myType(-1.0) - transformedRay.origin[i]) * abc[i];
-		}
+
+		myType pos = (transformedRay.direction[i] >= myType(0.0)) ? myType(1.0) : myType(-1.0);
+
+		// POTENTAILLY OPTIMIZING RESOURCE USAGE
+		// SEE ORIGINAL CONTENT IN: RTFTGU
+		t_min[i] = (-pos - transformedRay.origin[i]) * abc[i];
+		t_max[i] = ( pos - transformedRay.origin[i]) * abc[i];
 	}
 
 	myType t0, t1, t(MAX_DISTANCE);
-	unsigned faceIn, faceOut;
+	unsigned char faceIn, faceOut;
 	if (t_min[0] > t_min[1])
 	{
 		t0 = t_min[0];
@@ -490,7 +410,7 @@ myType CubeTest(const CRay& transformedRay, unsigned& face)
 	return t;
 }
 
-vec3 GetCubeNormal(unsigned faceIdx)
+vec3 GetCubeNormal(const unsigned char& faceIdx)
 {
 	switch(faceIdx)
 	{
@@ -514,7 +434,7 @@ void PerformHits(const CRay& transformedRay, unsigned objType, ShadeRec& sr)
 //#pragma HLS INLINE
 #pragma HLS PIPELINE
 	myType res = MAX_DISTANCE;
-	unsigned faceIdx(0);
+	unsigned char faceIdx(0);
 	CRay transformedRayChanged(transformedRay);
 
 	switch(objType)
@@ -576,7 +496,7 @@ void PerformHits(const CRay& transformedRay, unsigned objType, ShadeRec& sr)
 	sr.localDistance = res;
 }
 
-void UpdateClosestObject(ShadeRec& current, const mat4& transform, int n, const CRay& ray, ShadeRec& best)
+void UpdateClosestObject(ShadeRec& current, const mat4& transform, const unsigned char& n, const CRay& ray, ShadeRec& best)
 {
 #pragma HLS INLINE
 #pragma HLS PIPELINE
@@ -600,7 +520,7 @@ void UpdateClosestObject(ShadeRec& current, const mat4& transform, int n, const 
 	}
 }
 
-void UpdateClosestObjectShadow(const ShadeRec& current, const mat4& transform, int n, const CRay& shadowRay, myType distanceToLightSqr, ShadeRec& best)
+void UpdateClosestObjectShadow(const ShadeRec& current, const mat4& transform, const CRay& shadowRay, myType distanceToLightSqr, ShadeRec& best)
 {
 #pragma HLS INLINE
 #pragma HLS PIPELINE
@@ -612,7 +532,7 @@ void UpdateClosestObjectShadow(const ShadeRec& current, const mat4& transform, i
 
 	if (distSqr < distanceToLightSqr)
 	{
-		best.objIdx = 0;
+		best.objIdx = (unsigned char)0;
 	}
 }
 
@@ -625,22 +545,21 @@ void SaveColorToBuffer(vec3 color, pixelColorType& colorOut)
 
 	for (unsigned i = 0; i < 3; ++i)
 	{
-		if (color[i] > myType(1.0))
-			color[i] = myType(1.0);
+#pragma HLS UNROLL
+		if (color[i] > myType(1.0))	color[i] = myType(1.0);
 
-		tempColor += (( unsigned(color[i] * myType(255)) & 0xFF ) << ((3 - i) * 8));
+		tempColor += (( unsigned(color[i] * myType(255.0)) & 0xFF ) << ((3 - i) * 8));
 	}
 	colorOut = tempColor;
 }
 
-myType ViRayUtils::NaturalPow(myType valIn, unsigned n)
+myType ViRayUtils::NaturalPow(myType valIn, unsigned char n)
 {
 #pragma HLS INLINE
 	myType x = valIn;
 	myType y(1.0);
 
-	if (n > 128) n = 128;
-	else if (n == 0) return myType(1.0);
+	if (n == 0) return myType(1.0);
 
 	PoweringLoop: for (int i = 0; i < 7; ++i)
 	{
@@ -709,7 +628,7 @@ myType ViRayUtils::Sqrt(myType val)
 
 myType ViRayUtils::Divide(myType N, myType D)
 {
-#pragma HLS INLINE off
+//#pragma HLS INLINE off
 #ifdef FAST_DIVISION_ENABLE
 
 #ifdef USE_FLOAT

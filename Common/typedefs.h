@@ -8,8 +8,8 @@
 #define PRAGMA_SUB(x) _Pragma (#x)
 #define DO_PRAGMA(x) PRAGMA_SUB(x)
 
-#define OUTER_LOOP_UNROLL_FACTOR 1
-#define DESIRED_INNER_LOOP_II 10
+#define INNER_LOOP_UNROLL_FACTOR 1
+#define DESIRED_INNER_LOOP_II 16
 
 //#define USE_FIXEDPOINT
 
@@ -20,7 +20,7 @@
 typedef ap_fixed<FIXEDPOINT_WIDTH, FIXEDPOINT_INTEGER_BITS, AP_RND> myType;
 
 #define CORE_BIAS (myType(0.01))
-#define MAX_DISTANCE 10000
+#define MAX_DISTANCE 1000000
 
 #else
 
@@ -48,8 +48,8 @@ typedef half myType;
 #endif
 
 
-#define CORE_BIAS (myType(0.0001))
-#define MAX_DISTANCE myType(1000000)
+#define CORE_BIAS 		(myType(0.0001))
+#define MAX_DISTANCE 	(myType(1000000))
 
 #endif
 
@@ -79,6 +79,9 @@ enum ObjectType{
 #define CYLINDER_OBJECT_ENABLE
 #define CUBE_OBJECT_ENABLE
 
+#define AMBIENT_COLOR_ENABLE
+#define DIFFUSE_COLOR_ENABLE
+#define SPECULAR_HIGHLIGHT_ENABLE
 #define PRIMARY_COLOR_ENABLE
 #define DIRECT_SHADOW_ENABLE
 #define REFLECTION_SHADOW_ENABLE
@@ -90,17 +93,16 @@ enum ObjectType{
 /*
  * SCENE 'RANGE' DEFINITION
  */
-#define OBJ_NUM 6
-#define WIDTH 1920
-#define HEIGHT 1080
+
+#define WIDTH 						((unsigned short)(1920))
+#define HEIGHT 						((unsigned short)(1080))
 #define FRAME_BUFFER_SIZE (WIDTH)
-#define LIGHTS_NUM 2
-#define SAMPLES_PER_PIXEL 1
-#define SAMPLING_FACTOR (myType(1.0) / myType(SAMPLES_PER_PIXEL))
+#define LIGHTS_NUM 					((unsigned char)(2))
+#define OBJ_NUM 					((unsigned char)(10))
 
-#define FAST_INV_SQRT_ORDER 2
-#define FAST_DIVISION_ORDER 2
+#define FAST_INV_SQRT_ORDER 		((unsigned char)(2))
+#define FAST_DIVISION_ORDER 		((unsigned char)(2))
 
-#define PI (myType(3.141592))
+#define PI 							(myType(3.141592))
 
 #endif

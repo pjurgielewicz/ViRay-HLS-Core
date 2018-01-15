@@ -8,6 +8,7 @@
 namespace ViRay{
 	namespace ViRayUtils{
 		myType InvSqrt(myType val);
+		myType Sqrt(myType val);
 	};
 };
 
@@ -132,8 +133,12 @@ struct vec3
 	vec3 Normalize() const
 	{
 //#pragma HLS INLINE
-//		return (*this) / hls::sqrt(myType((*this) * (*this)));
+
+#if defined(FAST_INV_SQRT_ENABLE) || defined(USE_FLOAT)
 		return (*this) * ViRay::ViRayUtils::InvSqrt(myType((*this) * (*this)));
+#else
+		return (*this) / ViRay::ViRayUtils::Sqrt(myType((*this) * (*this)));
+#endif
 	}
 
 	vec3 Reflect(const vec3& normal) const
