@@ -15,8 +15,8 @@ vec3& loadVectorFromStream(ifstream& file, vec3& vec)
 
 int main()
 {
-	string dataPath("C:\\Users\\pjurgiel\\Source\\FFCore\\src\\SimData\\");
-//	string dataPath("D:\\Dokumenty\\WorkspaceXilinx\\FFCore\\src\\SimData\\");
+//	string dataPath("C:\\Users\\pjurgiel\\Source\\FFCore\\src\\SimData\\");
+	string dataPath("D:\\Dokumenty\\WorkspaceXilinx\\FFCore\\src\\SimData\\");
 
 	ifstream dataFile((dataPath + "data.dat").c_str());
 	ifstream lightFile((dataPath + "light.dat").c_str());
@@ -75,7 +75,7 @@ int main()
 	// SPHERE I
 	T.TranslationMatrix(loadVectorFromStream(dataFile, tmp));
 	R.RotationMatrix(0, vec3(myType(1.0), myType(1.0), myType(1.0)));
-	S.ScaleMatrix(vec3(1.0, 1.0, 1.0));
+	S.ScaleMatrix(vec3(1.0));
 	objTransform[6] = T * R * S;
 	objInvTransform[6] = objTransform[6].Inverse();
 
@@ -114,7 +114,14 @@ int main()
 		lightPosition[i] = loadVectorFromStream(lightFile, tmp);
 		lightDir[i] = loadVectorFromStream(lightFile, tmp).Normalize();
 		lightColor[i] = loadVectorFromStream(lightFile, tmp);
-		lightCoeff[i] = loadVectorFromStream(lightFile, tmp);
+
+		// OFFLOADING FPGA DESIGN
+		vec3 temp = loadVectorFromStream(lightFile, tmp);
+
+		myType outerMinusInner = temp[1] - temp[0];
+		myType outerMinusInnerInv = (outerMinusInner > CORE_BIAS) ? myType(1.0) / (outerMinusInner) : MAX_DISTANCE;
+
+		lightCoeff[i] = vec3(temp[0], outerMinusInnerInv, temp[2]);
 	}
 
 /////////////////////////////////////////////////////////
@@ -128,6 +135,8 @@ int main()
 		{
 			materialCoeff[i * 2 + j] = loadVectorFromStream(materialFile, tmp);
 		}
+
+		materialCoeff[i * 2 + 1][2] = myType(1.0) / (materialCoeff[i * 2 + 1][1] * materialCoeff[i * 2 + 1][1]);
 
 		for (unsigned j = 0; j < 3; ++j)
 		{

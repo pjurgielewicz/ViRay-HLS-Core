@@ -93,14 +93,20 @@ DO_PRAGMA(HLS UNROLL factor=INNER_LOOP_UNROLL_FACTOR)
 							lights, materials);
 #endif
 #ifdef REFLECTION_ENABLE
+
+#ifdef FRESNEL_REFLECTION_ENABLE
+		myType reflectivity = (materials[closestSr.objIdx].fresnelData[0] != myType(0.0)) ? GetFresnelReflectionCoeff(ray.direction,
+																														closestSr.normal,
+																														materials[closestSr.objIdx].fresnelData[1],
+																														materials[closestSr.objIdx].fresnelData[2]) : materials[closestSr.objIdx].k[1];
+#else
+		myType reflectivity = materials[closestSr.objIdx].k[1];
+#endif
+
 		colorAccum += Shade(closestReflectedSr, reflectedRay,
 							objTransform, objTransformInv, objType,
 							lights, materials) *
-#ifdef FRESNEL_REFLECTION_ENABLE
-							GetFresnelReflectionCoeff(ray.direction, closestSr.normal, materials[closestSr.objIdx].eta, materials[closestSr.objIdx].invEtaSqr)  *
-#else
-							materials[closestSr.objIdx].k[1] * // Coeff has to be the same as for specular highlight of the reflective surface
-#endif
+							reflectivity *
 							closestSr.isHit;
 #endif
 
@@ -234,7 +240,7 @@ vec3 Shade(	const ShadeRec& closestSr,
 		if ( specularDot > myType(1.0) ) cout << "SD: " << specularDot << ", ";
 
 		myType lightToObjLightDirDot = -(dirToLight * lights[l].dir);
-		myType lightSpotCoeff = (lightToObjLightDirDot - lights[l].coeff[0]) * lights[l].innerMinusOuterInv;
+		myType lightSpotCoeff = (lightToObjLightDirDot - lights[l].coeff[0]) * lights[l].coeff[1];
 		lightSpotCoeff = ViRayUtils::Clamp(lightSpotCoeff, myType(0.0), myType(1.0));
 
 		// DIFFUSE + SPECULAR

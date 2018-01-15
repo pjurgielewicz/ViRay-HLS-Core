@@ -43,14 +43,14 @@ namespace ViRay
 		vec3 position;
 		vec3 dir;
 		vec3 color;
-		vec3 coeff;					// 0 - cos(outer angle), 1 - cos(inner angle), 2 - ?
+		vec3 coeff;					// 0 - cos(outer angle), 1 - inv cone cos(angle) difference, 2 - ?
 
-		myType innerMinusOuterInv; 	// inv cone cos(angle) difference
+//		myType innerMinusOuterInv; 	// inv cone cos(angle) difference
 	};
 
 	struct Material{
 		vec3 k;						// 0 - diffuse, 1 - specular, 2 - specular exp
-		myType eta, invEtaSqr;
+		vec3 fresnelData;			// 0 - use Fresnel, 1 - eta, 2 - invEtaSqr
 
 		vec3 ambientColor;
 		vec3 diffuseColor;

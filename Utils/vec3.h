@@ -24,14 +24,21 @@ struct vec3
 	{
 #pragma HLS ARRAY_PARTITION variable=data complete dim=1
 	}
-//#ifndef USE_FIXEDPOINT
+
 	vec3(myType x, myType y, myType z)
 	{
 		data[0] = x;
 		data[1] = y;
 		data[2] = z;
 	}
-//#endif
+
+	vec3(myType s)
+	{
+		data[0] = s;
+		data[1] = s;
+		data[2] = s;
+	}
+
 	vec3 operator=(const vec3& v)
 	{
 		data[0] = v[0];
