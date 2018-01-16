@@ -128,7 +128,7 @@ namespace ViRay
 	 */
 	namespace ViRayUtils
 	{
-
+		myType QuadraticObjectSolve(const vec3& abc, const CRay& transformedRay);
 		myType NaturalPow(myType valIn, unsigned char n);
 		myType Clamp(myType val, myType min = myType(0.0), myType max = myType(1.0));
 		myType InvSqrt(myType val);

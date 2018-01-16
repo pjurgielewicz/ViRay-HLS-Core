@@ -443,6 +443,76 @@ void PerformHits(const CRay& transformedRay, unsigned objType, ShadeRec& sr)
 	unsigned char faceIdx(0);
 	CRay transformedRayChanged(transformedRay);
 
+	/*vec3 abc(myType(1.0));
+
+	if (objType == SPHERE 	||
+		objType == CYLINDER ||
+		objType == CONE)
+	{
+		switch(objType)
+		{
+		case SPHERE:
+			abc[1] = transformedRay.direction * transformedRay.origin;
+			abc[2] = transformedRay.origin * transformedRay.origin - myType(1.0);
+			break;
+		case CYLINDER:
+			abc[0] = myType(1.0) - transformedRay.direction[1] * transformedRay.direction[1];
+			abc[1] = transformedRay.direction[0] * transformedRay.origin[0] +
+					 transformedRay.direction[2] * transformedRay.origin[2];
+			abc[2] = transformedRay.origin[0] * transformedRay.origin[0] +
+					 transformedRay.origin[2] * transformedRay.origin[2] - 1.0;
+			break;
+		case CONE:
+			abc[0] = myType(1.0) - transformedRay.direction[1] * transformedRay.direction[1];
+			abc[1] = transformedRay.direction[0] * transformedRay.origin[0] -
+					 transformedRay.direction[1] * (transformedRay.origin[1] - myType(1.0)) +
+					 transformedRay.direction[2] * transformedRay.origin[2];
+			abc[2] = transformedRay.origin[0] * transformedRay.origin[0] -
+					(transformedRay.origin[1] - myType(1.0)) * (transformedRay.origin[1] - myType(1.0)) +
+					 transformedRay.origin[2] * transformedRay.origin[2];
+		}
+		res = ViRayUtils::QuadraticObjectSolve(abc, transformedRay);
+	}
+	else if (objType == PLANE 	||
+			 objType == DISK 	||
+			 objType == SQUARE)
+	{
+		res = PlaneTest(transformedRay);
+	}
+	else if (objType == CUBE)
+	{
+		res = CubeTest(transformedRay, faceIdx);
+	}
+	sr.localHitPoint = transformedRay.origin + transformedRay.direction * res;
+	sr.localNormal = vec3(myType(0.0), myType(1.0), myType(0.0));
+
+	switch(objType)
+	{
+	case SPHERE:
+		sr.localNormal = sr.localHitPoint;
+		break;
+	case CYLINDER:
+		sr.localNormal = vec3(sr.localHitPoint[0], myType(0.0), sr.localHitPoint[2]);
+		break;
+	case CONE:
+		sr.localNormal = vec3(sr.localHitPoint[0], -sr.localHitPoint[1], sr.localHitPoint[2]);
+		break;
+	case DISK:
+		if (sr.localHitPoint * sr.localHitPoint > myType(1.0)) 	res = MAX_DISTANCE;
+		break;
+	case SQUARE:
+		if (hls::fabs(sr.localHitPoint[0]) > myType(1.0) ||
+			hls::fabs(sr.localHitPoint[2]) > myType(1.0))		res = MAX_DISTANCE;
+		break;
+	case CUBE:
+		sr.localNormal = GetCubeNormal(faceIdx);
+		break;
+	default:
+		break;
+	}
+	// IT IS REQUIRED FOR SHADOW PASS ANALYSIS
+	sr.localHitPoint = transformedRay.origin + transformedRay.direction * res;
+*/
 	switch(objType)
 	{
 #if defined(SPHERE_OBJECT_ENABLE) || defined(CYLINDER_OBJECT_ENABLE)
@@ -557,6 +627,36 @@ void SaveColorToBuffer(vec3 color, pixelColorType& colorOut)
 		tempColor += (( unsigned(color[i] * myType(255.0)) & 0xFF ) << ((3 - i) * 8));
 	}
 	colorOut = tempColor;
+}
+
+myType ViRayUtils::QuadraticObjectSolve(const vec3& abc, const CRay& transformedRay)
+{
+	myType aInv = ViRayUtils::Divide(myType(1.0), abc[0]);
+
+	myType d2 = abc[1] * abc[1] - abc[0] * abc[2];
+
+	if (d2 >= myType(0.0))
+	{
+		myType d = ViRayUtils::Sqrt(d2);
+
+		myType t1 = (-abc[1] - d) * aInv;
+
+		myType localHitPointY1 = transformedRay.origin[1] + t1 * transformedRay.direction[1];
+		if (t1 > CORE_BIAS && hls::fabs(localHitPointY1) < myType(1.0))
+		{
+			return t1;
+		}
+
+		myType t2 = (-abc[1] + d) * aInv;
+
+		myType localHitPointY2 = transformedRay.origin[1] + t2 * transformedRay.direction[1];
+		if (t2 > CORE_BIAS && hls::fabs(localHitPointY2) < myType(1.0))
+		{
+			return t2;
+		}
+	}
+
+	return myType(MAX_DISTANCE);
 }
 
 myType ViRayUtils::NaturalPow(myType valIn, unsigned char n)

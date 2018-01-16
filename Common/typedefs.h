@@ -9,7 +9,7 @@
 #define DO_PRAGMA(x) PRAGMA_SUB(x)
 
 #define INNER_LOOP_UNROLL_FACTOR 1
-#define DESIRED_INNER_LOOP_II 8
+#define DESIRED_INNER_LOOP_II 16
 
 //#define USE_FIXEDPOINT
 
@@ -66,6 +66,7 @@ enum ObjectType{
 	SQUARE,
 	CYLINDER,
 	CUBE,
+	CONE,
 };
 
 /*
@@ -78,6 +79,7 @@ enum ObjectType{
 #define SQUARE_OBJECT_ENABLE
 #define CYLINDER_OBJECT_ENABLE
 #define CUBE_OBJECT_ENABLE
+#define CONE_OBJECT_ENABLE
 
 #define AMBIENT_COLOR_ENABLE
 #define DIFFUSE_COLOR_ENABLE
