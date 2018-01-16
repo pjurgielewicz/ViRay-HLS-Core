@@ -100,6 +100,14 @@ struct vec3
 		return temp;
 	}
 
+	vec3 operator*=(myType s)
+	{
+		data[0] *= s;
+		data[1] *= s;
+		data[2] *= s;
+		return *this;
+	}
+
 	vec3 CompWiseMul(const vec3& v) const
 	{
 #pragma HLS INLINE
@@ -134,17 +142,17 @@ struct vec3
 
 	myType Magnitude() const
 	{
-		return hls::sqrt(myType((*this) * (*this)));
+		return ViRay::ViRayUtils::Sqrt((*this) * (*this));
 	}
 
 	vec3 Normalize() const
 	{
 //#pragma HLS INLINE
 
-#if defined(FAST_INV_SQRT_ENABLE) || defined(USE_FLOAT)
-		return (*this) * ViRay::ViRayUtils::InvSqrt(myType((*this) * (*this)));
+#if defined(FAST_INV_SQRT_ENABLE) && defined(USE_FLOAT)
+		return (*this) * ViRay::ViRayUtils::InvSqrt(((*this) * (*this)));
 #else
-		return (*this) / ViRay::ViRayUtils::Sqrt(myType((*this) * (*this)));
+		return (*this) * ViRay::ViRayUtils::Sqrt(myType(1.0) / ((*this) * (*this)));
 #endif
 	}
 

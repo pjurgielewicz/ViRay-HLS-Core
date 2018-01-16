@@ -61,7 +61,7 @@ DO_PRAGMA(HLS UNROLL factor=INNER_LOOP_UNROLL_FACTOR)
 		colorAccum = vec3(myType(0.0), myType(0.0), myType(0.0));
 
 		CRay ray, transformedRay, reflectedRay;
-		ShadeRec sr, closestSr, closestReflectedSr;
+		ShadeRec closestSr, closestReflectedSr;
 
 		CreateRay(camera, posShift, h, w, ray);
 		VisibilityTest(ray, objTransform, objTransformInv, objType, closestSr);
@@ -168,7 +168,7 @@ void VisibilityTest(const CRay& ray,
 	closestSr.normal = objTransformInv[closestSr.objIdx].TransposeTransformDir(closestSr.localNormal).Normalize();
 
 	/*
-	 * ALLOW TO SEE INTERNAL SURFACES
+	 * ALLOW TO SHADE INTERNAL SURFACES
 	 */
 	if (closestSr.normal * ray.direction > myType(0.0)) closestSr.normal = -closestSr.normal;
 }
@@ -246,15 +246,16 @@ vec3 Shade(	const ShadeRec& closestSr,
 		// DIFFUSE + SPECULAR
 		// (HLS::POW() -> SUBOPTIMAL QoR)
 		// Coeffs (k) can be moved to the color at the stage of preparation
+		// COLORS SHOULD BE ATTENUATED BEFOREHAND (AT MICROCONTROLLER STAGE)
 		vec3 baseColor =
 #ifdef DIFFUSE_COLOR_ENABLE
-							materials[closestSr.objIdx].diffuseColor /** dot*/ * materials[closestSr.objIdx].k[0]
+							materials[closestSr.objIdx].diffuseColor  // * materials[closestSr.objIdx].k[0]
 #else
 						   colorOut(myType(0.0), myType(0.0), myType(0.0))
 #endif
 							+
 #ifdef SPECULAR_HIGHLIGHT_ENABLE
-							materials[closestSr.objIdx].specularColor * ViRayUtils::NaturalPow(specularDot, materials[closestSr.objIdx].k[2]) * materials[closestSr.objIdx].k[1]
+							materials[closestSr.objIdx].specularColor * ViRayUtils::NaturalPow(specularDot, materials[closestSr.objIdx].k[2])// * materials[closestSr.objIdx].k[1]
 #else
 						   colorOut(myType(0.0), myType(0.0), myType(0.0))
 #endif
@@ -295,43 +296,13 @@ void TransformRay(const mat4& mat, const CRay& ray, CRay& transformedRay)
 #pragma HLS PIPELINE
 #pragma HLS INLINE
 
-	transformedRay.direction 	= mat.TransformDir(ray.direction).Normalize();
+	/*
+	 * RAY DIRECTION DOES NOT NEED TO BE NORMALIZED
+	 * SINCE INTERSECTION TESTS MORPHED NATURALLY TO THEIR
+	 * GENERAL FORMS
+	 */
+	transformedRay.direction 	= mat.TransformDir(ray.direction);//.Normalize();
 	transformedRay.origin 		= mat.Transform(ray.origin);
-}
-
-myType SphereTest(const CRay& transformedRay, const CRay& transformedRayReal)
-{
-#pragma HLS PIPELINE
-// unit radius sphere in the global center
-	myType a = transformedRay.direction * transformedRay.direction;
-	myType b = transformedRay.direction * transformedRay.origin;
-	myType c = transformedRay.origin * transformedRay.origin - myType(1.0);
-	myType aInv = ViRayUtils::Divide(myType(1.0), a);
-
-	myType d2 = b * b - a * c;
-
-	if (d2 >= myType(0.0))
-	{
-		myType d = ViRayUtils::Sqrt(d2);
-
-		myType t1 = (-b - d) * aInv;
-
-		myType localHitPointY1 = transformedRayReal.origin[1] + t1 * transformedRayReal.direction[1];
-		if (t1 > CORE_BIAS && hls::fabs(localHitPointY1) < myType(1.0))
-		{
-			return t1;
-		}
-
-		myType t2 = (-b + d) * aInv;
-
-		myType localHitPointY2 = transformedRayReal.origin[1] + t2 * transformedRayReal.direction[1];
-		if (t2 > CORE_BIAS && hls::fabs(localHitPointY2) < myType(1.0))
-		{
-			return t2;
-		}
-	}
-
-	return myType(MAX_DISTANCE);
 }
 
 myType PlaneTest(const CRay& transformedRay)
@@ -441,78 +412,124 @@ void PerformHits(const CRay& transformedRay, unsigned objType, ShadeRec& sr)
 #pragma HLS PIPELINE
 	myType res = MAX_DISTANCE;
 	unsigned char faceIdx(0);
-	CRay transformedRayChanged(transformedRay);
 
-	/*vec3 abc(myType(1.0));
+	vec3 abc;
 
+#define NEW_HITS
+
+#ifdef NEW_HITS
+
+#if defined(SPHERE_OBJECT_ENABLE) || defined(CYLINDER_OBJECT_ENABLE) || defined(CONE_OBJECT_ENABLE)
 	if (objType == SPHERE 	||
 		objType == CYLINDER ||
 		objType == CONE)
 	{
 		switch(objType)
 		{
+		/*
+		 * DUE TO THE LACK OF STABILITY OF COMPUTATIONS
+		 * ALL FACTORS NEED TO BE COMPUTED FROM SCRATCH
+		 */
+#ifdef SPHERE_OBJECT_ENABLE
 		case SPHERE:
+			abc[0] = transformedRay.direction * transformedRay.direction;
 			abc[1] = transformedRay.direction * transformedRay.origin;
 			abc[2] = transformedRay.origin * transformedRay.origin - myType(1.0);
 			break;
+#endif
+#ifdef CYLINDER_OBJECT_ENABLE
 		case CYLINDER:
-			abc[0] = myType(1.0) - transformedRay.direction[1] * transformedRay.direction[1];
+			abc[0] = transformedRay.direction[0] * transformedRay.direction[0] +
+			 	 	 transformedRay.direction[2] * transformedRay.direction[2];
 			abc[1] = transformedRay.direction[0] * transformedRay.origin[0] +
 					 transformedRay.direction[2] * transformedRay.origin[2];
 			abc[2] = transformedRay.origin[0] * transformedRay.origin[0] +
 					 transformedRay.origin[2] * transformedRay.origin[2] - 1.0;
 			break;
+#endif
+#ifdef CONE_OBJECT_ENABLE
 		case CONE:
-			abc[0] = myType(1.0) - transformedRay.direction[1] * transformedRay.direction[1];
+			abc[0] = transformedRay.direction[0] * transformedRay.direction[0] -
+					 transformedRay.direction[1] * transformedRay.direction[1] +
+					 transformedRay.direction[2] * transformedRay.direction[2];
 			abc[1] = transformedRay.direction[0] * transformedRay.origin[0] -
 					 transformedRay.direction[1] * (transformedRay.origin[1] - myType(1.0)) +
 					 transformedRay.direction[2] * transformedRay.origin[2];
 			abc[2] = transformedRay.origin[0] * transformedRay.origin[0] -
 					(transformedRay.origin[1] - myType(1.0)) * (transformedRay.origin[1] - myType(1.0)) +
 					 transformedRay.origin[2] * transformedRay.origin[2];
+			break;
+#endif
+		default:
+			break;
 		}
 		res = ViRayUtils::QuadraticObjectSolve(abc, transformedRay);
 	}
-	else if (objType == PLANE 	||
-			 objType == DISK 	||
-			 objType == SQUARE)
+	else
+#endif
+#if defined(PLANE_OBJECT_ENABLE) || defined(DISK_OBJECT_ENABLE) || defined(SQUARE_OBJECT_ENABLE)
+	if (objType == PLANE 	||
+		objType == DISK 	||
+		objType == SQUARE)
 	{
 		res = PlaneTest(transformedRay);
 	}
-	else if (objType == CUBE)
+	else
+#endif
+#if defined(CUBE_OBJECT_ENABLE)
+	if (objType == CUBE)
 	{
 		res = CubeTest(transformedRay, faceIdx);
 	}
+#endif
+	// JUST IN CASE IF-ELSE BLOCK TERMINATION
+	{
+		// WHATEVER
+		;
+	}
+
 	sr.localHitPoint = transformedRay.origin + transformedRay.direction * res;
 	sr.localNormal = vec3(myType(0.0), myType(1.0), myType(0.0));
 
 	switch(objType)
 	{
+#ifdef SPHERE_OBJECT_ENABLE
 	case SPHERE:
 		sr.localNormal = sr.localHitPoint;
 		break;
+#endif
+#ifdef CYLINDER_OBJECT_ENABLE
 	case CYLINDER:
 		sr.localNormal = vec3(sr.localHitPoint[0], myType(0.0), sr.localHitPoint[2]);
 		break;
+#endif
+#ifdef CONE_OBJECT_ENABLE
 	case CONE:
-		sr.localNormal = vec3(sr.localHitPoint[0], -sr.localHitPoint[1], sr.localHitPoint[2]);
+		sr.localNormal = vec3(sr.localHitPoint[0], -sr.localHitPoint[1] + myType(1.0), sr.localHitPoint[2]);
 		break;
+#endif
+#ifdef DISK_OBJECT_ENABLE
 	case DISK:
 		if (sr.localHitPoint * sr.localHitPoint > myType(1.0)) 	res = MAX_DISTANCE;
 		break;
+#endif
+#ifdef SQUARE_OBJECT_ENABLE
 	case SQUARE:
 		if (hls::fabs(sr.localHitPoint[0]) > myType(1.0) ||
 			hls::fabs(sr.localHitPoint[2]) > myType(1.0))		res = MAX_DISTANCE;
 		break;
+#endif
+#ifdef CUBE_OBJECT_ENABLE
 	case CUBE:
 		sr.localNormal = GetCubeNormal(faceIdx);
 		break;
+#endif
 	default:
 		break;
 	}
-	// IT IS REQUIRED FOR SHADOW PASS ANALYSIS
-	sr.localHitPoint = transformedRay.origin + transformedRay.direction * res;
-*/
+
+#else
+	CRay transformedRayChanged(transformedRay);
 	switch(objType)
 	{
 #if defined(SPHERE_OBJECT_ENABLE) || defined(CYLINDER_OBJECT_ENABLE)
@@ -564,10 +581,12 @@ void PerformHits(const CRay& transformedRay, unsigned objType, ShadeRec& sr)
 		break;
 	}
 
-	// IT IS REQUIRED FOR SHADOW PASS ANALYSIS
-	sr.localHitPoint = transformedRay.origin + transformedRay.direction * res;
 #endif
 
+#endif
+
+	// IT IS REQUIRED FOR SHADOW PASS ANALYSIS
+	sr.localHitPoint = transformedRay.origin + transformedRay.direction * res;
 	// the most important at this point
 	sr.localDistance = res;
 }
@@ -661,6 +680,9 @@ myType ViRayUtils::QuadraticObjectSolve(const vec3& abc, const CRay& transformed
 
 myType ViRayUtils::NaturalPow(myType valIn, unsigned char n)
 {
+	/*
+	 * N_max = 128 (OPENGL - like)
+	 */
 #pragma HLS INLINE
 	myType x = valIn;
 	myType y(1.0);

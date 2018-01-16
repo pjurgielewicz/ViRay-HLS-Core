@@ -15,8 +15,8 @@ vec3& loadVectorFromStream(ifstream& file, vec3& vec)
 
 int main()
 {
-	string dataPath("C:\\Users\\pjurgiel\\Source\\FFCore\\src\\SimData\\");
-//	string dataPath("D:\\Dokumenty\\WorkspaceXilinx\\FFCore\\src\\SimData\\");
+//	string dataPath("C:\\Users\\pjurgiel\\Source\\FFCore\\src\\SimData\\");
+	string dataPath("D:\\Dokumenty\\WorkspaceXilinx\\FFCore\\src\\SimData\\");
 
 	ifstream dataFile((dataPath + "data.dat").c_str());
 	ifstream lightFile((dataPath + "light.dat").c_str());
@@ -74,8 +74,8 @@ int main()
 
 	// SPHERE I
 	T.TranslationMatrix(loadVectorFromStream(dataFile, tmp));
-	R.RotationMatrix(0, vec3(myType(1.0), myType(1.0), myType(1.0)));
-	S.ScaleMatrix(vec3(1.0));
+	R.RotationMatrix(PI * 1.0, vec3(myType(1.0), myType(0.0), myType(0.0)));
+	S.ScaleMatrix(vec3(0.5, 1.0, 0.5));
 	objTransform[6] = T * R * S;
 	objInvTransform[6] = objTransform[6].Inverse();
 
@@ -98,7 +98,7 @@ int main()
 		else if (i == 3) objTypeIn[i] = DISK;
 		else if (i == 4) objTypeIn[i] = SQUARE;
 		else if (i == 5) objTypeIn[i] = SQUARE;
-		else if (i == 6) objTypeIn[i] = SPHERE;
+		else if (i == 6) objTypeIn[i] = CONE;
 		else objTypeIn[i] = INVALID;
 	}
 
@@ -142,6 +142,9 @@ int main()
 		{
 			materialColors[i * 3 + j] = loadVectorFromStream(materialFile, tmp);
 		}
+
+		materialColors[i * 3 + 1] *= materialCoeff[i * 2 + 0][0]; 	// DIFFUSE 	* K[0]
+		materialColors[i * 3 + 2] *= materialCoeff[i * 2 + 1][1];  	// SPECULAR * K[1]
 	}
 
 /////////////////////////////////////////////////////////

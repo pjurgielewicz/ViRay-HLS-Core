@@ -49,8 +49,11 @@ public:
 						 v * p[1] * vFactor -
 						 w;
 
-		// Although normalization is not mandatory when checking for distance from object,
-		// it is used during shading stage (for dot product)
+		/*
+		 * ALTHOUGH NORMALIZATION IS NOT MANDATORY WHEN CHECKING FOR DISTANCE FROM OBJECT,
+		 * IT IS USED DURING SHADING STAGE (FOR DOT PRODUCT)
+		 */
+
 		return CRay(eyePosition, direction.Normalize());
 	}
 

@@ -111,7 +111,6 @@ namespace ViRay
 
 	void TransformRay(const mat4& mat, const CRay& ray, CRay& transformedRay);
 
-	myType SphereTest(const CRay& transformedRay, const CRay& transformedRayReal);
 	myType PlaneTest(const CRay& transformedRay);
 	myType CubeTest(const CRay& transformedRay, unsigned char& face);
 	vec3 GetCubeNormal(const unsigned char& faceIdx);
