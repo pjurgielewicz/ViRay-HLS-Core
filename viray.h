@@ -133,6 +133,7 @@ namespace ViRay
 		myType InvSqrt(myType val);
 		myType Sqrt(myType val);
 		myType Divide(myType N, myType D);
+		myType Abs(myType val);
 	}
 
 }

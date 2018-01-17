@@ -284,8 +284,6 @@ vec3 Shade(	const ShadeRec& closestSr,
 void CreateRay(const CCamera& camera, const myType* posShift, unsigned short r, unsigned short c, CRay& ray)
 {
 #pragma HLS PIPELINE
-// TODO: Remove 'halfs' addition
-
 	myType samplePoint[2] = {posShift[0] + myType(0.5) + c,
 					 	 	 posShift[1] + myType(0.5) + r};
 	ray = camera.GetCameraRayForPixel(samplePoint);
@@ -444,7 +442,7 @@ void PerformHits(const CRay& transformedRay, unsigned objType, ShadeRec& sr)
 			abc[1] = transformedRay.direction[0] * transformedRay.origin[0] +
 					 transformedRay.direction[2] * transformedRay.origin[2];
 			abc[2] = transformedRay.origin[0] * transformedRay.origin[0] +
-					 transformedRay.origin[2] * transformedRay.origin[2] - 1.0;
+					 transformedRay.origin[2] * transformedRay.origin[2] - myType(1.0);
 			break;
 #endif
 #ifdef CONE_OBJECT_ENABLE
@@ -515,8 +513,10 @@ void PerformHits(const CRay& transformedRay, unsigned objType, ShadeRec& sr)
 #endif
 #ifdef SQUARE_OBJECT_ENABLE
 	case SQUARE:
-		if (hls::fabs(sr.localHitPoint[0]) > myType(1.0) ||
-			hls::fabs(sr.localHitPoint[2]) > myType(1.0))		res = MAX_DISTANCE;
+		if (ViRayUtils::Abs(sr.localHitPoint[0]) > myType(1.0) ||
+			ViRayUtils::Abs(sr.localHitPoint[2]) > myType(1.0))		res = MAX_DISTANCE;
+
+
 		break;
 #endif
 #ifdef CUBE_OBJECT_ENABLE
@@ -661,7 +661,7 @@ myType ViRayUtils::QuadraticObjectSolve(const vec3& abc, const CRay& transformed
 		myType t1 = (-abc[1] - d) * aInv;
 
 		myType localHitPointY1 = transformedRay.origin[1] + t1 * transformedRay.direction[1];
-		if (t1 > CORE_BIAS && hls::fabs(localHitPointY1) < myType(1.0))
+		if (t1 > CORE_BIAS && ViRayUtils::Abs(localHitPointY1) < myType(1.0))
 		{
 			return t1;
 		}
@@ -669,7 +669,7 @@ myType ViRayUtils::QuadraticObjectSolve(const vec3& abc, const CRay& transformed
 		myType t2 = (-abc[1] + d) * aInv;
 
 		myType localHitPointY2 = transformedRay.origin[1] + t2 * transformedRay.direction[1];
-		if (t2 > CORE_BIAS && hls::fabs(localHitPointY2) < myType(1.0))
+		if (t2 > CORE_BIAS && ViRayUtils::Abs(localHitPointY2) < myType(1.0))
 		{
 			return t2;
 		}
@@ -790,6 +790,17 @@ myType ViRayUtils::Divide(myType N, myType D)
 
 #else
 	return N / D;
+#endif
+}
+
+myType ViRayUtils::Abs(myType val)
+{
+#ifdef USE_FIXEDPOINT
+	return (val > myType(0.0)) ? myType(val) : myType(-val);
+#elif defined(USE_FLOAT)
+	return hls::fabs(val);
+#else
+	return hls::abs(val);
 #endif
 }
 
