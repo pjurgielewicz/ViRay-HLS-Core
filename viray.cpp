@@ -8,8 +8,12 @@ namespace ViRay
 
 void RenderScene(const CCamera& camera,
 					const myType* posShift,
-					const mat4* objTransform,
-					const mat4* objTransformInv,
+#ifndef SIMPLE_OBJECT_TRANSFORM_ENABLE
+			const mat4* objTransform,
+			const mat4* objTransformInv,
+#else
+			const SimpleTransform* objTransform,
+#endif
 					const unsigned* objType,
 
 					const Light* lights,
@@ -24,8 +28,12 @@ void RenderScene(const CCamera& camera,
 #pragma HLS DATAFLOW
 		InnerLoop(	camera,
 					posShift,
+#ifndef SIMPLE_OBJECT_TRANSFORM_ENABLE
 					objTransform,
 					objTransformInv,
+#else
+					objTransform,
+#endif
 					objType,
 					HEIGHT - 1 - h,
 					lights,
@@ -38,8 +46,12 @@ void RenderScene(const CCamera& camera,
 // ****************   THE REAL CORE OF THE PROCESSING   ****************
 void InnerLoop(const CCamera& camera,
 				const myType* posShift,
-				const mat4* objTransform,
-				const mat4* objTransformInv,
+#ifndef SIMPLE_OBJECT_TRANSFORM_ENABLE
+			const mat4* objTransform,
+			const mat4* objTransformInv,
+#else
+			const SimpleTransform* objTransform,
+#endif
 				const unsigned* objType,
 				unsigned short h,
 
@@ -64,7 +76,13 @@ DO_PRAGMA(HLS UNROLL factor=INNER_LOOP_UNROLL_FACTOR)
 		ShadeRec closestSr, closestReflectedSr;
 
 		CreateRay(camera, posShift, h, w, ray);
-		VisibilityTest(ray, objTransform, objTransformInv, objType, closestSr);
+		VisibilityTest(ray,
+#ifndef SIMPLE_OBJECT_TRANSFORM_ENABLE
+						objTransform, objTransformInv,
+#else
+						objTransform,
+#endif
+						objType, closestSr);
 
 		/*
 		 * NO NEED TO CHECK WHETHER ANY OBJECT WAS HIT
@@ -78,7 +96,13 @@ DO_PRAGMA(HLS UNROLL factor=INNER_LOOP_UNROLL_FACTOR)
 		 */
 
 		reflectedRay = CRay(closestSr.hitPoint, (-ray.direction).Reflect(closestSr.normal));
-		VisibilityTest(reflectedRay, objTransform, objTransformInv, objType, closestReflectedSr);
+		VisibilityTest(reflectedRay,
+#ifndef SIMPLE_OBJECT_TRANSFORM_ENABLE
+						objTransform, objTransformInv,
+#else
+						objTransform,
+#endif
+						objType, closestReflectedSr);
 #endif
 		/*
 		 * SHADING
@@ -89,8 +113,12 @@ DO_PRAGMA(HLS UNROLL factor=INNER_LOOP_UNROLL_FACTOR)
 
 #ifdef PRIMARY_COLOR_ENABLE
 		colorAccum += Shade(closestSr, ray,
-							objTransform, objTransformInv, objType,
-							lights, materials);
+#ifndef SIMPLE_OBJECT_TRANSFORM_ENABLE
+						objTransform, objTransformInv,
+#else
+						objTransform,
+#endif
+						objType, lights, materials);
 #endif
 #ifdef REFLECTION_ENABLE
 
@@ -104,8 +132,12 @@ DO_PRAGMA(HLS UNROLL factor=INNER_LOOP_UNROLL_FACTOR)
 #endif
 
 		colorAccum += Shade(closestReflectedSr, reflectedRay,
-							objTransform, objTransformInv, objType,
-							lights, materials) *
+#ifndef SIMPLE_OBJECT_TRANSFORM_ENABLE
+							objTransform, objTransformInv,
+#else
+							objTransform,
+#endif
+							objType, lights, materials) *
 							reflectivity *
 							closestSr.isHit;
 #endif
@@ -149,8 +181,12 @@ myType GetFresnelReflectionCoeff(const vec3& rayDirection, const vec3 surfaceNor
 }
 
 void VisibilityTest(const CRay& ray,
+#ifndef SIMPLE_OBJECT_TRANSFORM_ENABLE
 					const mat4* objTransform,
 					const mat4* objTransformInv,
+#else
+					const SimpleTransform* objTransform,
+#endif
 					const unsigned* objType,
 					ShadeRec& closestSr)
 {
@@ -161,11 +197,20 @@ void VisibilityTest(const CRay& ray,
 	for (unsigned char n = 0; n < OBJ_NUM; ++n)
 	{
 #pragma HLS PIPELINE
+#ifndef SIMPLE_OBJECT_TRANSFORM_ENABLE
 		TransformRay(objTransformInv[n], ray, transformedRay);
 		PerformHits(transformedRay, objType[n], sr);
+#else
+		TransformRay(objTransform[n], ray, transformedRay);
+		PerformHits(transformedRay, objTransform[n].orientation, objType[n], sr);
+#endif
 		UpdateClosestObject(sr, objTransform[n], n, ray, closestSr);
 	}
+#ifndef SIMPLE_OBJECT_TRANSFORM_ENABLE
 	closestSr.normal = objTransformInv[closestSr.objIdx].TransposeTransformDir(closestSr.localNormal).Normalize();
+#else
+	closestSr.normal = closestSr.localNormal.CompWiseMul(objTransform[closestSr.objIdx].invScale).Normalize();
+#endif
 
 	/*
 	 * ALLOW TO SHADE INTERNAL SURFACES
@@ -174,8 +219,12 @@ void VisibilityTest(const CRay& ray,
 }
 
 void ShadowVisibilityTest(	const CRay& shadowRay,
+#ifndef SIMPLE_OBJECT_TRANSFORM_ENABLE
 							const mat4* objTransform,
 							const mat4* objTransformInv,
+#else
+							const SimpleTransform* objTransform,
+#endif
 							const unsigned* objType,
 							const ShadeRec& closestSr,
 							myType d2,
@@ -190,8 +239,13 @@ void ShadowVisibilityTest(	const CRay& shadowRay,
 #pragma HLS PIPELINE
 		if ( n == closestSr.objIdx ) continue;
 
+#ifndef SIMPLE_OBJECT_TRANSFORM_ENABLE
 		TransformRay(objTransformInv[n], shadowRay, transformedRay);
 		PerformHits(transformedRay, objType[n], sr);
+#else
+		TransformRay(objTransform[n], shadowRay, transformedRay);
+		PerformHits(transformedRay, objTransform[n].orientation, objType[n], sr);
+#endif
 		UpdateClosestObjectShadow(sr, objTransform[n], shadowRay, d2, shadowSr);
 	}
 }
@@ -199,8 +253,12 @@ void ShadowVisibilityTest(	const CRay& shadowRay,
 vec3 Shade(	const ShadeRec& closestSr,
 			const CRay& ray,
 
+#ifndef SIMPLE_OBJECT_TRANSFORM_ENABLE
 			const mat4* objTransform,
 			const mat4* objTransformInv,
+#else
+			const SimpleTransform* objTransform,
+#endif
 			const unsigned* objType,
 
 			const Light* lights,
@@ -231,7 +289,13 @@ vec3 Shade(	const ShadeRec& closestSr,
 
 #ifdef DIRECT_SHADOW_ENABLE
 		CRay shadowRay(closestSr.hitPoint, dirToLight);
-		ShadowVisibilityTest(shadowRay, objTransform, objTransformInv, objType, closestSr, d2, shadowSr);
+		ShadowVisibilityTest(shadowRay,
+#ifndef SIMPLE_OBJECT_TRANSFORM_ENABLE
+								objTransform, objTransformInv,
+#else
+								objTransform,
+#endif
+								objType, closestSr, d2, shadowSr);
 #endif
 
 		myType specularDot = -(ray.direction * dirToLight.Reflect(closestSr.normal));
@@ -289,6 +353,7 @@ void CreateRay(const CCamera& camera, const myType* posShift, unsigned short r, 
 	ray = camera.GetCameraRayForPixel(samplePoint);
 }
 
+#ifndef SIMPLE_OBJECT_TRANSFORM_ENABLE
 void TransformRay(const mat4& mat, const CRay& ray, CRay& transformedRay)
 {
 #pragma HLS PIPELINE
@@ -302,7 +367,24 @@ void TransformRay(const mat4& mat, const CRay& ray, CRay& transformedRay)
 	transformedRay.direction 	= mat.TransformDir(ray.direction);//.Normalize();
 	transformedRay.origin 		= mat.Transform(ray.origin);
 }
+#else
+void TransformRay(const SimpleTransform& transform, const CRay& ray, CRay& transformedRay, bool isInverse)
+{
+	if (isInverse)
+	{
+		transformedRay.direction = transform.TransformDirInv(ray.direction);
+		transformedRay.origin = transform.TransformInv(ray.origin);
+	}
+	else
+	{
+		transformedRay.direction = transform.TransformDir(ray.direction);
+		transformedRay.origin = transform.Transform(ray.origin);
+	}
+}
+#endif
 
+
+#ifndef SIMPLE_OBJECT_TRANSFORM_ENABLE
 myType PlaneTest(const CRay& transformedRay)
 {
 #pragma HLS PIPELINE
@@ -315,6 +397,22 @@ myType PlaneTest(const CRay& transformedRay)
 	}
 	return myType(MAX_DISTANCE);
 }
+#else
+myType PlaneTest(const CRay& transformedRay, const vec3& orientation)
+{
+#pragma HLS PIPELINE
+
+	myType t = ViRayUtils::Divide(-(transformedRay.origin * orientation), (transformedRay.direction * orientation));
+
+	if (t > CORE_BIAS)
+	{
+		return t;
+	}
+	return myType(MAX_DISTANCE);
+}
+#endif
+
+
 
 myType CubeTest(const CRay& transformedRay, unsigned char& face)
 {
@@ -404,7 +502,11 @@ vec3 GetCubeNormal(const unsigned char& faceIdx)
 	}
 }
 
-void PerformHits(const CRay& transformedRay, unsigned objType, ShadeRec& sr)
+void PerformHits(const CRay& transformedRay,
+#ifdef SIMPLE_OBJECT_TRANSFORM_ENABLE
+				const vec3& objOrientation,
+#endif
+				unsigned objType, ShadeRec& sr)
 {
 //#pragma HLS INLINE
 #pragma HLS PIPELINE
@@ -412,10 +514,6 @@ void PerformHits(const CRay& transformedRay, unsigned objType, ShadeRec& sr)
 	unsigned char faceIdx(0);
 
 	vec3 abc;
-
-#define NEW_HITS
-
-#ifdef NEW_HITS
 
 #if defined(SPHERE_OBJECT_ENABLE) || defined(CYLINDER_OBJECT_ENABLE) || defined(CONE_OBJECT_ENABLE)
 	if (objType == SPHERE 	||
@@ -470,7 +568,11 @@ void PerformHits(const CRay& transformedRay, unsigned objType, ShadeRec& sr)
 		objType == DISK 	||
 		objType == SQUARE)
 	{
+#ifndef SIMPLE_OBJECT_TRANSFORM_ENABLE
 		res = PlaneTest(transformedRay);
+#else
+		res = PlaneTest(transformedRay, objOrientation);
+#endif
 	}
 	else
 #endif
@@ -487,7 +589,11 @@ void PerformHits(const CRay& transformedRay, unsigned objType, ShadeRec& sr)
 	}
 
 	sr.localHitPoint = transformedRay.origin + transformedRay.direction * res;
+#ifndef SIMPLE_OBJECT_TRANSFORM_ENABLE
 	sr.localNormal = vec3(myType(0.0), myType(1.0), myType(0.0));
+#else
+	sr.localNormal = objOrientation;
+#endif
 
 	switch(objType)
 	{
@@ -528,70 +634,19 @@ void PerformHits(const CRay& transformedRay, unsigned objType, ShadeRec& sr)
 		break;
 	}
 
-#else
-	CRay transformedRayChanged(transformedRay);
-	switch(objType)
-	{
-#if defined(SPHERE_OBJECT_ENABLE) || defined(CYLINDER_OBJECT_ENABLE)
-	case CYLINDER:
-		transformedRayChanged.origin[1] 	= myType(0.0);
-		transformedRayChanged.direction[1] 	= myType(0.0);
-	case SPHERE:
-		res = SphereTest(transformedRayChanged, transformedRay);
-
-		sr.localNormal = transformedRayChanged.origin + transformedRayChanged.direction * res;
-		break;
-#endif
-#if defined(PLANE_OBJECT_ENABLE) || defined(DISK_OBJECT_ENABLE) || defined(SQUARE_OBJECT_ENABLE)
-	case PLANE:
-	case DISK:
-	case SQUARE:
-		res = PlaneTest(transformedRay);
-		sr.localNormal = vec3(myType(0.0), myType(1.0), myType(0.0));
-		break;
-#endif
-#ifdef CUBE_OBJECT_ENABLE
-	case CUBE:
-		res = CubeTest(transformedRay, faceIdx);
-		sr.localNormal = GetCubeNormal(faceIdx);
-		break;
-#endif
-	default:
-		sr.localNormal = vec3(myType(-1.0), myType(-1.0), myType(-1.0));
-		break;
-	}
-
-	sr.localHitPoint = transformedRay.origin + transformedRay.direction * res;
-
-#if defined(DISK_OBJECT_ENABLE) || defined(SQUARE_OBJECT_ENABLE)
-	switch(objType)
-	{
-#ifdef DISK_OBJECT_ENABLE
-	case DISK:
-		if (sr.localHitPoint * sr.localHitPoint > myType(1.0)) 	res = MAX_DISTANCE;
-		break;
-#endif
-#ifdef SQUARE_OBJECT_ENABLE
-	case SQUARE:
-		if (hls::fabs(sr.localHitPoint[0]) > myType(1.0) ||
-			hls::fabs(sr.localHitPoint[2]) > myType(1.0))		res = MAX_DISTANCE;
-		break;
-#endif
-	default: // PLANE
-		break;
-	}
-
-#endif
-
-#endif
-
 	// IT IS REQUIRED FOR SHADOW PASS ANALYSIS
 	sr.localHitPoint = transformedRay.origin + transformedRay.direction * res;
 	// the most important at this point
 	sr.localDistance = res;
 }
 
-void UpdateClosestObject(ShadeRec& current, const mat4& transform, const unsigned char& n, const CRay& ray, ShadeRec& best)
+void UpdateClosestObject(ShadeRec& current,
+#ifndef SIMPLE_OBJECT_TRANSFORM_ENABLE
+		const mat4& transform,
+#else
+		const SimpleTransform& transform,
+#endif
+		const unsigned char& n, const CRay& ray, ShadeRec& best)
 {
 #pragma HLS INLINE
 #pragma HLS PIPELINE
@@ -615,7 +670,13 @@ void UpdateClosestObject(ShadeRec& current, const mat4& transform, const unsigne
 	}
 }
 
-void UpdateClosestObjectShadow(const ShadeRec& current, const mat4& transform, const CRay& shadowRay, myType distanceToLightSqr, ShadeRec& best)
+void UpdateClosestObjectShadow(const ShadeRec& current,
+#ifndef SIMPLE_OBJECT_TRANSFORM_ENABLE
+								const mat4& transform,
+#else
+								const SimpleTransform& transform,
+#endif
+								const CRay& shadowRay, myType distanceToLightSqr, ShadeRec& best)
 {
 #pragma HLS INLINE
 #pragma HLS PIPELINE

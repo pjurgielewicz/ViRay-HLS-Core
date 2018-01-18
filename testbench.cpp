@@ -27,6 +27,7 @@ int main()
 
 	/////////////////////////////////////////////////////////
 
+#ifndef SIMPLE_OBJECT_TRANSFORM_ENABLE
 	mat4* objTransform = new mat4[OBJ_NUM];
 	mat4* objInvTransform = new mat4[OBJ_NUM];
 	mat4 S, R, T;
@@ -86,19 +87,64 @@ int main()
 		objTransform[i].IdentityMatrix();
 		objInvTransform[i].IdentityMatrix();
 	}
+#else
+	vec3* translation = new vec3[OBJ_NUM];
+	vec3* scale = new vec3[OBJ_NUM];
+	vec3* invScale = new vec3[OBJ_NUM];
+	vec3* orientation = new vec3[OBJ_NUM];
+
+	for (unsigned i = 0; i < OBJ_NUM; ++i)
+	{
+		translation[i] = vec3(myType(0.0));
+		scale[i] = vec3(myType(1.0));
+		invScale[i] = vec3(myType(1.0));
+		orientation[i] = vec3(myType(0.0), myType(1.0), myType(0.0));
+	}
+
+	// SPHERE
+	translation[0] = vec3(myType(-2.0), myType(0.0), myType(0.0));
+	scale[0][0] = myType(0.5);	invScale[0][0] = myType(1.0) / scale[0][0];
+	// CYLINDER
+	translation[1] = vec3(myType(2.0), myType(1.0), myType(-1.0));
+	scale[1][1] = myType(0.5);	invScale[1][1] = myType(1.0) / scale[1][1];
+	// PLANE
+	translation[2] = vec3(myType(0.0), myType(-2.0), myType(0.0));
+	orientation[2] = vec3(myType(0.0), myType(1.0), myType(0.0));
+
+	// DISK
+	translation[3] = vec3(myType(0.0), myType(0.0), myType(-5.0));
+	orientation[3] = vec3(myType(0.0), myType(0.0), myType(1.0));
+	scale[3][0] = myType(5.0); invScale[3][0] = myType(1.0) / scale[3][0];
+	scale[3][1] = myType(5.0); invScale[3][1] = myType(1.0) / scale[3][1];
+	// SQUARE
+	translation[4] = vec3(myType(-4.0), myType(-2.0), myType(0.0));
+	orientation[4] = vec3(myType(1.0), myType(0.0), myType(0.0));
+	scale[4][1] = myType(5.0); invScale[4][1] = myType(1.0) / scale[4][1];
+	scale[4][2] = myType(5.0); invScale[4][2] = myType(1.0) / scale[4][2];
+	// SQUARE
+	translation[5] = vec3(myType(4.0), myType(-2.0), myType(0.0));
+	orientation[5] = vec3(myType(-1.0), myType(0.0), myType(0.0));
+	scale[5][1] = myType(5.0); invScale[5][1] = myType(1.0) / scale[5][1];
+	scale[5][2] = myType(5.0); invScale[5][2] = myType(1.0) / scale[5][2];
+
+	// CONE
+	translation[6] = vec3(myType(0.0), myType(0.0), myType(0.0));
+//	scale[6][0] = myType(0.5);	invScale[6][0] = myType(1.0) / scale[6][0];
+
+#endif
 
 /////////////////////////////////////////////////////////
 
 	int* objTypeIn = new int[OBJ_NUM];
 	for (unsigned i = 0; i < OBJ_NUM; ++i)
 	{
-		if (i == 0) objTypeIn[i] = CUBE;
+		if (i == 0) objTypeIn[i] = SPHERE;
 		else if (i == 1) objTypeIn[i] = CYLINDER;
 		else if (i == 2) objTypeIn[i] = PLANE;
 		else if (i == 3) objTypeIn[i] = DISK;
 		else if (i == 4) objTypeIn[i] = SQUARE;
 		else if (i == 5) objTypeIn[i] = SQUARE;
-		else if (i == 6) objTypeIn[i] = CONE;
+//		else if (i == 6) objTypeIn[i] = SPHERE;
 		else objTypeIn[i] = INVALID;
 	}
 
@@ -167,8 +213,16 @@ int main()
 	clock_t timer;
 	timer = clock();
 
-	ViRayMain(objTransform,
+	ViRayMain(
+#ifndef SIMPLE_OBJECT_TRANSFORM_ENABLE
+			objTransform,
 			objInvTransform,
+#else
+			orientation,
+			scale,
+			invScale,
+			translation,
+#endif
 			objTypeIn,
 
 			lightPosition,
@@ -219,8 +273,15 @@ int main()
 	delete[] lightPosition;
 
 	delete[] objTypeIn;
+#ifndef SIMPLE_OBJECT_TRANSFORM_ENABLE
 	delete[] objInvTransform;
 	delete[] objTransform;
+#else
+	delete[] orientation;
+	delete[] invScale;
+	delete[] scale;
+	delete[] translation;
+#endif
 
 	dataFile.close();
 	lightFile.close();

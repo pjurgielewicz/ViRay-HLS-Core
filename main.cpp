@@ -1,7 +1,15 @@
 #include "main.h"
 
-int ViRayMain(const mat4* objTransformIn,
+int ViRayMain(
+#ifndef SIMPLE_OBJECT_TRANSFORM_ENABLE
+			const mat4* objTransformIn,
 			const mat4* objInvTransformIn,
+#else
+			const vec3* orientationIn,
+			const vec3* scaleIn,
+			const vec3* invScaleIn,
+			const vec3* translationIn,
+#endif
 			const int* objTypeIn,
 
 			vec3* lightPositionIn,
@@ -21,11 +29,29 @@ int ViRayMain(const mat4* objTransformIn,
 	 * OBJECTS
 	 */
 
+#ifndef SIMPLE_OBJECT_TRANSFORM_ENABLE
+
 #pragma HLS INTERFACE s_axilite port=objTransformIn bundle=AXI_LITE_1
 #pragma HLS INTERFACE m_axi port=objTransformIn offset=slave bundle=MAXI_IN_1
 
 #pragma HLS INTERFACE s_axilite port=objInvTransformIn bundle=AXI_LITE_1
 #pragma HLS INTERFACE m_axi port=objInvTransformIn offset=slave bundle=MAXI_IN_1
+
+#else
+
+#pragma HLS INTERFACE s_axilite port=orientationIn bundle=AXI_LITE_1
+#pragma HLS INTERFACE m_axi port=orientationIn offset=slave bundle=MAXI_IN_1
+
+#pragma HLS INTERFACE s_axilite port=scaleIn bundle=AXI_LITE_1
+#pragma HLS INTERFACE m_axi port=scaleIn offset=slave bundle=MAXI_IN_1
+
+#pragma HLS INTERFACE s_axilite port=invScaleIn bundle=AXI_LITE_1
+#pragma HLS INTERFACE m_axi port=invScaleIn offset=slave bundle=MAXI_IN_1
+
+#pragma HLS INTERFACE s_axilite port=translationIn bundle=AXI_LITE_1
+#pragma HLS INTERFACE m_axi port=translationIn offset=slave bundle=MAXI_IN_1
+
+#endif
 
 #pragma HLS INTERFACE s_axilite port=objTypeIn bundle=AXI_LITE_1
 #pragma HLS INTERFACE m_axi port=objTypeIn offset=slave bundle=MAXI_IN_2
@@ -88,6 +114,7 @@ int ViRayMain(const mat4* objTransformIn,
 	myType posShift[2] = {	myType(-0.5) * (WIDTH - myType(1.0)),
 				  	 		myType(-0.5) * (HEIGHT - myType(1.0))};
 
+#ifndef SIMPLE_OBJECT_TRANSFORM_ENABLE
 	mat4 objTransform[OBJ_NUM], objInvTransform[OBJ_NUM];
 //#pragma HLS ARRAY_PARTITION variable=objInvTransform cyclic factor=2 dim=1
 #pragma HLS ARRAY_PARTITION variable=objInvTransform complete dim=1
@@ -95,6 +122,11 @@ int ViRayMain(const mat4* objTransformIn,
 #pragma HLS ARRAY_PARTITION variable=objTransform complete dim=1
 	memcpy(objTransform, objTransformIn, sizeof(mat4) * OBJ_NUM);
 	memcpy(objInvTransform, objInvTransformIn, sizeof(mat4) * OBJ_NUM);
+#else
+	ViRay::SimpleTransform objTransform[OBJ_NUM];
+#pragma HLS ARRAY_PARTITION variable=objTransform complete dim=1
+
+#endif
 
 	pixelColorType frameBuffer[FRAME_BUFFER_SIZE];
 //#pragma HLS ARRAY_PARTITION variable=frameBuffer complete dim=1
@@ -109,34 +141,57 @@ int ViRayMain(const mat4* objTransformIn,
 
 	ViRay::Light lights[LIGHTS_NUM];
 #pragma HLS ARRAY_PARTITION variable=lights complete dim=1
-	LightsAssignmentLoop: for (unsigned i = 0; i < LIGHTS_NUM; ++i)
-	{
-#pragma HLS PIPELINE
-		lights[i].position 	= lightPositionIn[i];
-		lights[i].dir 		= lightDirIn[i];
-		lights[i].color 	= lightColorIn[i];
-		lights[i].coeff 	= lightCoeffIn[i];
-	}
 
 	ViRay::Material materials[OBJ_NUM];
 //#pragma HLS ARRAY_PARTITION variable=materials complete dim=1
-	MaterialsAssignmentLoop: for (unsigned i = 0; i < OBJ_NUM; ++i)
-	{
-#pragma HLS PIPELINE
-		materials[i].k 				= materialCoeffIn[i * 2];
-		materials[i].fresnelData	= materialCoeffIn[i * 2 + 1];
 
-		materials[i].ambientColor 	= materialColorsIn[i * 3 + 0];
-		materials[i].diffuseColor 	= materialColorsIn[i * 3 + 1];
-		materials[i].specularColor 	= materialColorsIn[i * 3 + 2];
+
+
+
+
+	AssignmentLoops:{
+#pragma HLS LOOP_MERGE
+
+#ifdef SIMPLE_OBJECT_TRANSFORM_ENABLE
+		SimpleTransformAssignmentLoop: for (unsigned i = 0; i < OBJ_NUM; ++i)
+		{
+#pragma HLS PIPELINE
+			objTransform[i].orientation = orientationIn[i];
+			objTransform[i].scale 		= scaleIn[i];
+			objTransform[i].invScale 	= invScaleIn[i];
+			objTransform[i].translation = translationIn[i];
+		}
+#endif
+
+		LightsAssignmentLoop: for (unsigned i = 0; i < LIGHTS_NUM; ++i)
+		{
+#pragma HLS PIPELINE
+			lights[i].position 	= lightPositionIn[i];
+			lights[i].dir 		= lightDirIn[i];
+			lights[i].color 	= lightColorIn[i];
+			lights[i].coeff 	= lightCoeffIn[i];
+		}
+
+		CopyLoop: for (unsigned i = 0; i < OBJ_NUM; ++i)
+		{
+#pragma HLS PIPELINE
+			materials[i].k 				= materialCoeffIn[i * 2];
+			materials[i].fresnelData	= materialCoeffIn[i * 2 + 1];
+
+			materials[i].ambientColor 	= materialColorsIn[i * 3 + 0];
+			materials[i].diffuseColor 	= materialColorsIn[i * 3 + 1];
+			materials[i].specularColor 	= materialColorsIn[i * 3 + 2];
+		}
 	}
 
 	/*
 	 *
 	 */
-
+#ifndef SIMPLE_OBJECT_TRANSFORM_ENABLE
 	ViRay::RenderScene(camera, posShift, objTransform, objInvTransform, objType, lights, materials, frameBuffer, outColor);
-
+#else
+	ViRay::RenderScene(camera, posShift, objTransform, objType, lights, materials, frameBuffer, outColor);
+#endif
 	return 0;
 
 }

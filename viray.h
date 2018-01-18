@@ -57,10 +57,47 @@ namespace ViRay
 		vec3 specularColor;
 	};
 
+	struct SimpleTransform{
+		vec3 orientation;
+
+		vec3 scale;
+		vec3 invScale;				// ???
+		vec3 translation;
+
+		vec3 Transform(const vec3& vec) const
+		{
+			return vec.CompWiseMul(scale) + translation;
+		}
+		vec3 TransformInv(const vec3& vec) const
+		{
+			return (vec - translation).CompWiseMul(invScale);
+		}
+
+		/*
+		 * TODO: THESE ARE THE SAME FUNCTIONS
+		 */
+		vec3 TransformDir(const vec3 vec) const
+		{
+			return vec.CompWiseMul(invScale);
+		}
+		vec3 TransformDirInv(const vec3 vec) const
+		{
+			return vec.CompWiseMul(invScale);
+		}
+		vec3 TransposeTransformDir(const vec3 vec) const
+		{
+			return vec.CompWiseMul(invScale);
+		}
+	};
+
 	void RenderScene(const CCamera& camera,
 			const myType* posShift,
+#ifndef SIMPLE_OBJECT_TRANSFORM_ENABLE
 			const mat4* objTransform,
 			const mat4* objTransformInv,
+#else
+			const SimpleTransform* objTransform,
+#endif
 			const unsigned* objType,
 
 			const Light* lights,
@@ -71,8 +108,12 @@ namespace ViRay
 
 	void InnerLoop(const CCamera& camera,
 			const myType* posShift,
+#ifndef SIMPLE_OBJECT_TRANSFORM_ENABLE
 			const mat4* objTransform,
 			const mat4* objTransformInv,
+#else
+			const SimpleTransform* objTransform,
+#endif
 			const unsigned* objType,
 			unsigned short h,
 
@@ -82,14 +123,22 @@ namespace ViRay
 			pixelColorType* frameBuffer);
 
 	void VisibilityTest(const CRay& ray,
+#ifndef SIMPLE_OBJECT_TRANSFORM_ENABLE
 						const mat4* objTransform,
 						const mat4* objTransformInv,
+#else
+						const SimpleTransform* objTransform,
+#endif
 						const unsigned* objType,
 						ShadeRec& closestSr);
 
 	void ShadowVisibilityTest(	const CRay& shadowRay,
+#ifndef SIMPLE_OBJECT_TRANSFORM_ENABLE
 								const mat4* objTransform,
 								const mat4* objTransformInv,
+#else
+								const SimpleTransform* objTransform,
+#endif
 								const unsigned* objType,
 								const ShadeRec& closestSr,
 								myType d2,
@@ -98,8 +147,12 @@ namespace ViRay
 	vec3 Shade(	const ShadeRec& closestSr,
 				const CRay& ray,
 
+#ifndef SIMPLE_OBJECT_TRANSFORM_ENABLE
 				const mat4* objTransform,
 				const mat4* objTransformInv,
+#else
+				const SimpleTransform* objTransform,
+#endif
 				const unsigned* objType,
 
 				const Light* lights,
@@ -109,16 +162,44 @@ namespace ViRay
 
 	void CreateRay(const CCamera& camera, const myType* posShift, unsigned short r, unsigned short c, CRay& ray);
 
+#ifndef SIMPLE_OBJECT_TRANSFORM_ENABLE
 	void TransformRay(const mat4& mat, const CRay& ray, CRay& transformedRay);
+#else
+	void TransformRay(const SimpleTransform& transform, const CRay& ray, CRay& transformedRay, bool isInverse = true);
+#endif
 
+#ifndef SIMPLE_OBJECT_TRANSFORM_ENABLE
 	myType PlaneTest(const CRay& transformedRay);
+#else
+	myType PlaneTest(const CRay& transformedRay, const vec3& orientation);
+#endif
 	myType CubeTest(const CRay& transformedRay, unsigned char& face);
 	vec3 GetCubeNormal(const unsigned char& faceIdx);
 
-	void PerformHits(const CRay& transformedRay, unsigned objType, ShadeRec& sr);
+	void PerformHits(const CRay& transformedRay,
+#ifdef SIMPLE_OBJECT_TRANSFORM_ENABLE
+						const vec3& objOrientation,
+#endif
+						unsigned objType, ShadeRec& sr);
 
-	void UpdateClosestObject(ShadeRec& current, const mat4& transform, const unsigned char& n, const CRay& ray, ShadeRec& best);
-	void UpdateClosestObjectShadow(const ShadeRec& current, const mat4& transform, const CRay& shadowRay, myType distanceToLightSqr, ShadeRec& best);
+	void UpdateClosestObject(ShadeRec& current,
+#ifndef SIMPLE_OBJECT_TRANSFORM_ENABLE
+			const mat4& transform,
+#else
+			const SimpleTransform& transform,
+#endif
+			const unsigned char& n,
+			const CRay& ray,
+			ShadeRec& best);
+	void UpdateClosestObjectShadow(const ShadeRec& current,
+#ifndef SIMPLE_OBJECT_TRANSFORM_ENABLE
+									const mat4& transform,
+#else
+									const SimpleTransform& transform,
+#endif
+									const CRay& shadowRay,
+									myType distanceToLightSqr,
+									ShadeRec& best);
 
 	void SaveColorToBuffer(vec3 color, pixelColorType& colorOut);
 

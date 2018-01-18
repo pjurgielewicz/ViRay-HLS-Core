@@ -1,8 +1,6 @@
 #ifndef TYPEDEFS__H_
 #define TYPEDEFS__H_
 
-#include "ap_int.h"
-#include "ap_fixed.h"
 #include "hls_math.h"
 
 #define PRAGMA_SUB(x) _Pragma (#x)
@@ -14,6 +12,9 @@
 //#define USE_FIXEDPOINT
 
 #ifdef USE_FIXEDPOINT
+
+#include "ap_int.h"
+#include "ap_fixed.h"
 
 #define FIXEDPOINT_WIDTH 32
 #define FIXEDPOINT_INTEGER_BITS 22
@@ -73,6 +74,8 @@ enum ObjectType{
  * ENABLE/DISABLE
  */
 
+#define SIMPLE_OBJECT_TRANSFORM_ENABLE
+
 #define SPHERE_OBJECT_ENABLE
 #define PLANE_OBJECT_ENABLE
 #define DISK_OBJECT_ENABLE
@@ -87,7 +90,7 @@ enum ObjectType{
 #define PRIMARY_COLOR_ENABLE
 #define DIRECT_SHADOW_ENABLE
 #define REFLECTION_ENABLE
-//#define REFLECTION_SHADOW_ENABLE
+#define REFLECTION_SHADOW_ENABLE
 //#define FRESNEL_REFLECTION_ENABLE
 //#define FAST_INV_SQRT_ENABLE
 //#define FAST_DIVISION_ENABLE
@@ -100,7 +103,7 @@ enum ObjectType{
 #define HEIGHT 						((unsigned short)(1080))
 #define FRAME_BUFFER_SIZE (WIDTH)
 #define LIGHTS_NUM 					((unsigned char)(2))
-#define OBJ_NUM 					((unsigned char)(8))
+#define OBJ_NUM 					((unsigned char)(10))
 
 #define FAST_INV_SQRT_ORDER 		((unsigned char)(2))
 #define FAST_DIVISION_ORDER 		((unsigned char)(2))
