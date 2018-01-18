@@ -215,6 +215,7 @@ namespace ViRay
 		myType Sqrt(myType val);
 		myType Divide(myType N, myType D);
 		myType Abs(myType val);
+		void Swap(myType& val1, myType& val2);
 	}
 
 }

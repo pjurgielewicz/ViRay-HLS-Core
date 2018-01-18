@@ -15,8 +15,8 @@ vec3& loadVectorFromStream(ifstream& file, vec3& vec)
 
 int main()
 {
-	string dataPath("C:\\Users\\pjurgiel\\Source\\FFCore\\src\\SimData\\");
-//	string dataPath("D:\\Dokumenty\\WorkspaceXilinx\\FFCore\\src\\SimData\\");
+//	string dataPath("C:\\Users\\pjurgiel\\Source\\FFCore\\src\\SimData\\");
+	string dataPath("D:\\Dokumenty\\WorkspaceXilinx\\FFCore\\src\\SimData\\");
 
 	ifstream dataFile((dataPath + "data.dat").c_str());
 	ifstream lightFile((dataPath + "light.dat").c_str());
@@ -105,8 +105,9 @@ int main()
 	translation[0] = vec3(myType(-2.0), myType(0.0), myType(0.0));
 	scale[0][0] = myType(0.5);	invScale[0][0] = myType(1.0) / scale[0][0];
 	// CYLINDER
-	translation[1] = vec3(myType(2.0), myType(1.0), myType(-1.0));
-	scale[1][1] = myType(0.5);	invScale[1][1] = myType(1.0) / scale[1][1];
+	translation[1] = vec3(myType(2.0), myType(-1.0), myType(-1.0));
+	scale[1][0] = myType(-2.0);	invScale[1][0] = myType(1.0) / scale[1][0];
+	orientation[1] = vec3(myType(1.0), myType(0.0), myType(0.0));
 	// PLANE
 	translation[2] = vec3(myType(0.0), myType(-2.0), myType(0.0));
 	orientation[2] = vec3(myType(0.0), myType(1.0), myType(0.0));

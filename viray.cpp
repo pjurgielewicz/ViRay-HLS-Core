@@ -9,10 +9,10 @@ namespace ViRay
 void RenderScene(const CCamera& camera,
 					const myType* posShift,
 #ifndef SIMPLE_OBJECT_TRANSFORM_ENABLE
-			const mat4* objTransform,
-			const mat4* objTransformInv,
+					const mat4* objTransform,
+					const mat4* objTransformInv,
 #else
-			const SimpleTransform* objTransform,
+					const SimpleTransform* objTransform,
 #endif
 					const unsigned* objType,
 
@@ -47,10 +47,10 @@ void RenderScene(const CCamera& camera,
 void InnerLoop(const CCamera& camera,
 				const myType* posShift,
 #ifndef SIMPLE_OBJECT_TRANSFORM_ENABLE
-			const mat4* objTransform,
-			const mat4* objTransformInv,
+				const mat4* objTransform,
+				const mat4* objTransformInv,
 #else
-			const SimpleTransform* objTransform,
+				const SimpleTransform* objTransform,
 #endif
 				const unsigned* objType,
 				unsigned short h,
@@ -514,12 +514,29 @@ void PerformHits(const CRay& transformedRay,
 	unsigned char faceIdx(0);
 
 	vec3 abc;
+	CRay transformedRayByObjectDirection(transformedRay);
 
 #if defined(SPHERE_OBJECT_ENABLE) || defined(CYLINDER_OBJECT_ENABLE) || defined(CONE_OBJECT_ENABLE)
 	if (objType == SPHERE 	||
 		objType == CYLINDER ||
 		objType == CONE)
 	{
+#ifdef SIMPLE_OBJECT_TRANSFORM_ENABLE
+		/*
+		 * SWAPPING COORDINATES IN ORDER TO ORIENT OBJECT
+		 * ALONG CHOSEN AXIS - IT IS BETTER THAN NOTHING...
+		 */
+		if (objOrientation[0] != myType(0.0))
+		{
+			ViRayUtils::Swap(transformedRayByObjectDirection.direction[0], transformedRayByObjectDirection.direction[1]);
+			ViRayUtils::Swap(transformedRayByObjectDirection.origin[0], transformedRayByObjectDirection.origin[1]);
+		}
+		else if (objOrientation[2] != myType(0.0))
+		{
+			ViRayUtils::Swap(transformedRayByObjectDirection.direction[2], transformedRayByObjectDirection.direction[1]);
+			ViRayUtils::Swap(transformedRayByObjectDirection.origin[2], transformedRayByObjectDirection.origin[1]);
+		}
+#endif
 		switch(objType)
 		{
 		/*
@@ -528,38 +545,38 @@ void PerformHits(const CRay& transformedRay,
 		 */
 #ifdef SPHERE_OBJECT_ENABLE
 		case SPHERE:
-			abc[0] = transformedRay.direction * transformedRay.direction;
-			abc[1] = transformedRay.direction * transformedRay.origin;
-			abc[2] = transformedRay.origin * transformedRay.origin - myType(1.0);
+			abc[0] = transformedRayByObjectDirection.direction * transformedRayByObjectDirection.direction;
+			abc[1] = transformedRayByObjectDirection.direction * transformedRayByObjectDirection.origin;
+			abc[2] = transformedRayByObjectDirection.origin * transformedRayByObjectDirection.origin - myType(1.0);
 			break;
 #endif
 #ifdef CYLINDER_OBJECT_ENABLE
 		case CYLINDER:
-			abc[0] = transformedRay.direction[0] * transformedRay.direction[0] +
-			 	 	 transformedRay.direction[2] * transformedRay.direction[2];
-			abc[1] = transformedRay.direction[0] * transformedRay.origin[0] +
-					 transformedRay.direction[2] * transformedRay.origin[2];
-			abc[2] = transformedRay.origin[0] * transformedRay.origin[0] +
-					 transformedRay.origin[2] * transformedRay.origin[2] - myType(1.0);
+			abc[0] = transformedRayByObjectDirection.direction[0] * transformedRayByObjectDirection.direction[0] +
+			 	 	 transformedRayByObjectDirection.direction[2] * transformedRayByObjectDirection.direction[2];
+			abc[1] = transformedRayByObjectDirection.direction[0] * transformedRayByObjectDirection.origin[0] +
+					 transformedRayByObjectDirection.direction[2] * transformedRayByObjectDirection.origin[2];
+			abc[2] = transformedRayByObjectDirection.origin[0] * transformedRayByObjectDirection.origin[0] +
+					 transformedRayByObjectDirection.origin[2] * transformedRayByObjectDirection.origin[2] - myType(1.0);
 			break;
 #endif
 #ifdef CONE_OBJECT_ENABLE
 		case CONE:
-			abc[0] = transformedRay.direction[0] * transformedRay.direction[0] -
-					 transformedRay.direction[1] * transformedRay.direction[1] +
-					 transformedRay.direction[2] * transformedRay.direction[2];
-			abc[1] = transformedRay.direction[0] * transformedRay.origin[0] -
-					 transformedRay.direction[1] * (transformedRay.origin[1] - myType(1.0)) +
-					 transformedRay.direction[2] * transformedRay.origin[2];
-			abc[2] = transformedRay.origin[0] * transformedRay.origin[0] -
-					(transformedRay.origin[1] - myType(1.0)) * (transformedRay.origin[1] - myType(1.0)) +
-					 transformedRay.origin[2] * transformedRay.origin[2];
+			abc[0] = transformedRayByObjectDirection.direction[0] * transformedRayByObjectDirection.direction[0] -
+					 transformedRayByObjectDirection.direction[1] * transformedRayByObjectDirection.direction[1] +
+					 transformedRayByObjectDirection.direction[2] * transformedRayByObjectDirection.direction[2];
+			abc[1] = transformedRayByObjectDirection.direction[0] * transformedRayByObjectDirection.origin[0] -
+					 transformedRayByObjectDirection.direction[1] * (transformedRayByObjectDirection.origin[1] - myType(1.0)) +
+					 transformedRayByObjectDirection.direction[2] * transformedRayByObjectDirection.origin[2];
+			abc[2] = transformedRayByObjectDirection.origin[0] * transformedRayByObjectDirection.origin[0] -
+					(transformedRayByObjectDirection.origin[1] - myType(1.0)) * (transformedRayByObjectDirection.origin[1] - myType(1.0)) +
+					 transformedRayByObjectDirection.origin[2] * transformedRayByObjectDirection.origin[2];
 			break;
 #endif
 		default:
 			break;
 		}
-		res = ViRayUtils::QuadraticObjectSolve(abc, transformedRay);
+		res = ViRayUtils::QuadraticObjectSolve(abc, transformedRayByObjectDirection);
 	}
 	else
 #endif
@@ -604,25 +621,36 @@ void PerformHits(const CRay& transformedRay,
 #endif
 #ifdef CYLINDER_OBJECT_ENABLE
 	case CYLINDER:
+#ifndef SIMPLE_OBJECT_TRANSFORM_ENABLE
 		sr.localNormal = vec3(sr.localHitPoint[0], myType(0.0), sr.localHitPoint[2]);
+#else
+		if (objOrientation[0] != myType(0.0)) 		sr.localNormal = vec3(myType(0.0), sr.localHitPoint[1], sr.localHitPoint[2]);
+		else if (objOrientation[1] != myType(0.0)) 	sr.localNormal = vec3(sr.localHitPoint[0], myType(0.0), sr.localHitPoint[2]);
+		else 										sr.localNormal = vec3(sr.localHitPoint[0], sr.localHitPoint[1], myType(0.0));
+#endif
 		break;
+
 #endif
 #ifdef CONE_OBJECT_ENABLE
 	case CONE:
+#ifndef SIMPLE_OBJECT_TRANSFORM_ENABLE
 		sr.localNormal = vec3(sr.localHitPoint[0], -sr.localHitPoint[1] + myType(1.0), sr.localHitPoint[2]);
+#else
+		if (objOrientation[0] != myType(0.0))		sr.localNormal = vec3(-sr.localHitPoint[0] + myType(1.0), sr.localHitPoint[1], sr.localHitPoint[2]);
+		else if (objOrientation[1] != myType(0.0)) 	sr.localNormal = vec3(sr.localHitPoint[0], -sr.localHitPoint[1] + myType(1.0), sr.localHitPoint[2]);
+		else										sr.localNormal = vec3(sr.localHitPoint[0], sr.localHitPoint[1], -sr.localHitPoint[2] + myType(1.0));
+#endif
 		break;
 #endif
 #ifdef DISK_OBJECT_ENABLE
 	case DISK:
-		if (sr.localHitPoint * sr.localHitPoint > myType(1.0)) 	res = MAX_DISTANCE;
+		if (sr.localHitPoint * sr.localHitPoint > myType(1.0)) 		res = MAX_DISTANCE;
 		break;
 #endif
 #ifdef SQUARE_OBJECT_ENABLE
 	case SQUARE:
 		if (ViRayUtils::Abs(sr.localHitPoint[0]) > myType(1.0) ||
 			ViRayUtils::Abs(sr.localHitPoint[2]) > myType(1.0))		res = MAX_DISTANCE;
-
-
 		break;
 #endif
 #ifdef CUBE_OBJECT_ENABLE
@@ -863,6 +891,13 @@ myType ViRayUtils::Abs(myType val)
 #else
 	return hls::abs(val);
 #endif
+}
+
+void ViRayUtils::Swap(myType& val1, myType& val2)
+{
+	myType tmp = val1;
+	val1 = val2;
+	val2 = tmp;
 }
 
 };

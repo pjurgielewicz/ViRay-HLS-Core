@@ -32,62 +32,62 @@ int ViRayMain(
 #ifndef SIMPLE_OBJECT_TRANSFORM_ENABLE
 
 #pragma HLS INTERFACE s_axilite port=objTransformIn bundle=AXI_LITE_1
-#pragma HLS INTERFACE m_axi port=objTransformIn offset=slave bundle=MAXI_IN_1
+#pragma HLS INTERFACE m_axi port=objTransformIn offset=slave bundle=MAXI_DATA
 
 #pragma HLS INTERFACE s_axilite port=objInvTransformIn bundle=AXI_LITE_1
-#pragma HLS INTERFACE m_axi port=objInvTransformIn offset=slave bundle=MAXI_IN_1
+#pragma HLS INTERFACE m_axi port=objInvTransformIn offset=slave bundle=MAXI_DATA
 
 #else
 
 #pragma HLS INTERFACE s_axilite port=orientationIn bundle=AXI_LITE_1
-#pragma HLS INTERFACE m_axi port=orientationIn offset=slave bundle=MAXI_IN_1
+#pragma HLS INTERFACE m_axi port=orientationIn offset=slave bundle=MAXI_DATA
 
 #pragma HLS INTERFACE s_axilite port=scaleIn bundle=AXI_LITE_1
-#pragma HLS INTERFACE m_axi port=scaleIn offset=slave bundle=MAXI_IN_1
+#pragma HLS INTERFACE m_axi port=scaleIn offset=slave bundle=MAXI_DATA
 
 #pragma HLS INTERFACE s_axilite port=invScaleIn bundle=AXI_LITE_1
-#pragma HLS INTERFACE m_axi port=invScaleIn offset=slave bundle=MAXI_IN_1
+#pragma HLS INTERFACE m_axi port=invScaleIn offset=slave bundle=MAXI_DATA
 
 #pragma HLS INTERFACE s_axilite port=translationIn bundle=AXI_LITE_1
-#pragma HLS INTERFACE m_axi port=translationIn offset=slave bundle=MAXI_IN_1
+#pragma HLS INTERFACE m_axi port=translationIn offset=slave bundle=MAXI_DATA
 
 #endif
 
 #pragma HLS INTERFACE s_axilite port=objTypeIn bundle=AXI_LITE_1
-#pragma HLS INTERFACE m_axi port=objTypeIn offset=slave bundle=MAXI_IN_2
+#pragma HLS INTERFACE m_axi port=objTypeIn offset=slave bundle=MAXI_DATA_2
 
 	/*
 	 * LIGHTS
 	 */
 
 #pragma HLS INTERFACE s_axilite port=lightPositionIn bundle=AXI_LITE_1
-#pragma HLS INTERFACE m_axi port=lightPositionIn offset=slave bundle=MAXI_IN_LIGHT
+#pragma HLS INTERFACE m_axi port=lightPositionIn offset=slave bundle=MAXI_DATA
 
 #pragma HLS INTERFACE s_axilite port=lightDirIn bundle=AXI_LITE_1
-#pragma HLS INTERFACE m_axi port=lightDirIn offset=slave bundle=MAXI_IN_LIGHT
+#pragma HLS INTERFACE m_axi port=lightDirIn offset=slave bundle=MAXI_DATA
 
 #pragma HLS INTERFACE s_axilite port=lightColorIn bundle=AXI_LITE_1
-#pragma HLS INTERFACE m_axi port=lightColorIn offset=slave bundle=MAXI_IN_LIGHT
+#pragma HLS INTERFACE m_axi port=lightColorIn offset=slave bundle=MAXI_DATA
 
 #pragma HLS INTERFACE s_axilite port=lightCoeffIn bundle=AXI_LITE_1
-#pragma HLS INTERFACE m_axi port=lightCoeffIn offset=slave bundle=MAXI_IN_LIGHT
+#pragma HLS INTERFACE m_axi port=lightCoeffIn offset=slave bundle=MAXI_DATA
 
 	/*
 	 * MATERIALS
 	 */
 
 #pragma HLS INTERFACE s_axilite port=materialCoeffIn bundle=AXI_LITE_1
-#pragma HLS INTERFACE m_axi port=materialCoeffIn offset=slave bundle=MAXI_IN_MATERIALS
+#pragma HLS INTERFACE m_axi port=materialCoeffIn offset=slave bundle=MAXI_DATA
 
 #pragma HLS INTERFACE s_axilite port=materialColorsIn bundle=AXI_LITE_1
-#pragma HLS INTERFACE m_axi port=materialColorsIn offset=slave bundle=MAXI_IN_MATERIALS
+#pragma HLS INTERFACE m_axi port=materialColorsIn offset=slave bundle=MAXI_DATA
 
 	/*
 	 * CAMERA
 	 */
 
 #pragma HLS INTERFACE s_axilite port=cameraDataIn bundle=AXI_LITE_1
-#pragma HLS INTERFACE m_axi port=cameraDataIn offset=slave bundle=MAXI_IN_CAMERA
+#pragma HLS INTERFACE m_axi port=cameraDataIn offset=slave bundle=MAXI_DATA
 
 #pragma HLS INTERFACE s_axilite port=cameraZoom bundle=AXI_LITE_1
 
