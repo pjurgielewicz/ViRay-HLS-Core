@@ -145,10 +145,6 @@ int ViRayMain(
 	ViRay::Material materials[OBJ_NUM];
 //#pragma HLS ARRAY_PARTITION variable=materials complete dim=1
 
-
-
-
-
 	AssignmentLoops:{
 #pragma HLS LOOP_MERGE
 
@@ -172,7 +168,7 @@ int ViRayMain(
 			lights[i].coeff 	= lightCoeffIn[i];
 		}
 
-		CopyLoop: for (unsigned i = 0; i < OBJ_NUM; ++i)
+		MaterialAssignmentLoop: for (unsigned i = 0; i < OBJ_NUM; ++i)
 		{
 #pragma HLS PIPELINE
 			materials[i].k 				= materialCoeffIn[i * 2];

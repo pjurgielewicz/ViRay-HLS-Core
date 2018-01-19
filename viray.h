@@ -16,7 +16,7 @@ namespace ViRay
 		vec3 localHitPoint;
 		vec3 hitPoint;
 
-		myType localDistance;
+//		myType localDistance;
 		myType distanceSqr;
 
 		unsigned char objIdx;
@@ -25,13 +25,18 @@ namespace ViRay
 
 		ShadeRec()
 		{
-			localNormal = vec3();
+			/*
+			 * DO NOT TOUCH INITIALIZATION SINCE IT MAY RUIN SHADING
+			 * WITH GREAT PROBABILITY
+			 */
+
+			localNormal = vec3(myType(0.0), myType(-1.0), myType(0.0));
 			normal = vec3(myType(0.0), myType(-1.0), myType(0.0));
 
-			localHitPoint = vec3();
-			hitPoint = vec3();
+			localHitPoint = vec3(myType(0.0));
+			hitPoint = vec3(myType(0.0));
 
-			localDistance = myType(MAX_DISTANCE);
+//			localDistance = myType(MAX_DISTANCE);
 			distanceSqr = myType(MAX_DISTANCE);
 
 			objIdx = 0;
@@ -76,15 +81,15 @@ namespace ViRay
 		/*
 		 * TODO: THESE ARE THE SAME FUNCTIONS
 		 */
-		vec3 TransformDir(const vec3 vec) const
+		vec3 TransformDir(const vec3& vec) const
 		{
 			return vec.CompWiseMul(invScale);
 		}
-		vec3 TransformDirInv(const vec3 vec) const
+		vec3 TransformDirInv(const vec3& vec) const
 		{
 			return vec.CompWiseMul(invScale);
 		}
-		vec3 TransposeTransformDir(const vec3 vec) const
+		vec3 TransposeTransformDir(const vec3& vec) const
 		{
 			return vec.CompWiseMul(invScale);
 		}

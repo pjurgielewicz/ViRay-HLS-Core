@@ -104,6 +104,8 @@ enum ObjectType{
 #define LIGHTS_NUM 					((unsigned char)(2))
 #define OBJ_NUM 					((unsigned char)(10))
 
+#define MAX_POWER_LOOP_ITER			((unsigned char)(7))
+
 #define FAST_INV_SQRT_ORDER 		((unsigned char)(2))
 #define FAST_DIVISION_ORDER 		((unsigned char)(2))
 

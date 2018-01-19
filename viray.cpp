@@ -107,7 +107,7 @@ DO_PRAGMA(HLS UNROLL factor=INNER_LOOP_UNROLL_FACTOR)
 		/*
 		 * SHADING
 		 */
-
+		vec3 secondaryColor(myType(0.0));
 		ShadingBlock: {
 //#pragma HLS LOOP_MERGE
 
@@ -130,7 +130,7 @@ DO_PRAGMA(HLS UNROLL factor=INNER_LOOP_UNROLL_FACTOR)
 #else
 		myType reflectivity = materials[closestSr.objIdx].k[1];
 #endif
-
+		myType doesItMakeSense = (closestSr.isHit) ? myType(1.0) : myType(0.0);
 		colorAccum += Shade(closestReflectedSr, reflectedRay,
 #ifndef SIMPLE_OBJECT_TRANSFORM_ENABLE
 							objTransform, objTransformInv,
@@ -139,10 +139,11 @@ DO_PRAGMA(HLS UNROLL factor=INNER_LOOP_UNROLL_FACTOR)
 #endif
 							objType, lights, materials) *
 							reflectivity *
-							closestSr.isHit;
+							doesItMakeSense;
+							//closestSr.isHit;
 #endif
-
 		}
+
 		SaveColorToBuffer(colorAccum, frameBuffer[w]);
 	}
 }
@@ -664,8 +665,8 @@ void PerformHits(const CRay& transformedRay,
 
 	// IT IS REQUIRED FOR SHADOW PASS ANALYSIS
 	sr.localHitPoint = transformedRay.origin + transformedRay.direction * res;
-	// the most important at this point
-	sr.localDistance = res;
+	// NOT NEEDED ANYMORE
+//	sr.localDistance = res;
 }
 
 void UpdateClosestObject(ShadeRec& current,
@@ -685,7 +686,7 @@ void UpdateClosestObject(ShadeRec& current,
 
 	if (realDistanceSqr < best.distanceSqr)
 	{
-		best.localDistance 	= current.localDistance;
+//		best.localDistance 	= current.localDistance;
 		best.distanceSqr 	= realDistanceSqr;
 
 		best.localHitPoint 	= current.localHitPoint;
@@ -778,7 +779,7 @@ myType ViRayUtils::NaturalPow(myType valIn, unsigned char n)
 
 	if (n == 0) return myType(1.0);
 
-	PoweringLoop: for (int i = 0; i < 7; ++i)
+	PoweringLoop: for (unsigned char i = 0; i < MAX_POWER_LOOP_ITER; ++i)
 	{
 #pragma HLS PIPELINE
 		if (n == 1) continue;
@@ -818,7 +819,7 @@ myType ViRayUtils::InvSqrt(myType val)
 
 		y  = * ( float * ) &i;
 
-		for (unsigned k = 0; k < FAST_INV_SQRT_ORDER; ++k)
+		for (unsigned char k = 0; k < FAST_INV_SQRT_ORDER; ++k)
 		{
 			y  = y * ( threehalfs - ( x2 * y * y ) );   // NR iteration
 		}
@@ -868,7 +869,7 @@ myType ViRayUtils::Divide(myType N, myType D)
 
     for (unsigned i = 0; i < FAST_DIVISION_ORDER; ++i)
     {
-        xi = xi * (float(2.0) - Dunion.fp_num * xi);
+        xi = xi * (myType(2.0) - Dunion.fp_num * xi);
     }
 
     return xi * Nunion.fp_num;

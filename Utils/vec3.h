@@ -56,7 +56,7 @@ struct vec3
 		return temp;
 	}
 
-	vec3 operator+=(const vec3& v)
+	vec3& operator+=(const vec3& v)
 	{
 		data[0] += v[0];
 		data[1] += v[1];
@@ -74,7 +74,7 @@ struct vec3
 		return temp;
 	}
 
-	vec3 operator-=(const vec3& v)
+	vec3& operator-=(const vec3& v)
 	{
 		data[0] -= v[0];
 		data[1] -= v[1];
@@ -100,7 +100,7 @@ struct vec3
 		return temp;
 	}
 
-	vec3 operator*=(myType s)
+	vec3& operator*=(myType s)
 	{
 		data[0] *= s;
 		data[1] *= s;

@@ -15,8 +15,8 @@ vec3& loadVectorFromStream(ifstream& file, vec3& vec)
 
 int main()
 {
-//	string dataPath("C:\\Users\\pjurgiel\\Source\\FFCore\\src\\SimData\\");
-	string dataPath("D:\\Dokumenty\\WorkspaceXilinx\\FFCore\\src\\SimData\\");
+	string dataPath("C:\\Users\\pjurgiel\\Source\\FFCore\\src\\SimData\\");
+//	string dataPath("D:\\Dokumenty\\WorkspaceXilinx\\FFCore\\src\\SimData\\");
 
 	ifstream dataFile((dataPath + "data.dat").c_str());
 	ifstream lightFile((dataPath + "light.dat").c_str());
@@ -41,8 +41,8 @@ int main()
 
 	// SPHERE II
 	T.TranslationMatrix(loadVectorFromStream(dataFile, tmp));
-	R.RotationMatrix(PI * 0.2, vec3(myType(1.0), myType(1.0), myType(1.0)));
-	S.ScaleMatrix(vec3(myType(1.0), myType(0.5), myType(1.0)));
+	R.RotationMatrix(PI * 0.5, vec3(myType(1.0), myType(0.0), myType(0.0)));
+	S.ScaleMatrix(vec3(myType(2.0), myType(1.0), myType(1.0)));
 	objTransform[1] = T * R * S;
 	objInvTransform[1] = objTransform[1].Inverse();
 
@@ -75,8 +75,8 @@ int main()
 
 	// SPHERE I
 	T.TranslationMatrix(loadVectorFromStream(dataFile, tmp));
-	R.RotationMatrix(PI * 1.0, vec3(myType(1.0), myType(0.0), myType(0.0)));
-	S.ScaleMatrix(vec3(0.5, 1.0, 0.5));
+	R.RotationMatrix(PI * 0.0, vec3(myType(1.0), myType(0.0), myType(0.0)));
+	S.ScaleMatrix(vec3(1.0, 1.0, 1.0));
 	objTransform[6] = T * R * S;
 	objInvTransform[6] = objTransform[6].Inverse();
 
@@ -106,8 +106,8 @@ int main()
 	scale[0][0] = myType(0.5);	invScale[0][0] = myType(1.0) / scale[0][0];
 	// CYLINDER
 	translation[1] = vec3(myType(2.0), myType(-1.0), myType(-1.0));
-	scale[1][0] = myType(-2.0);	invScale[1][0] = myType(1.0) / scale[1][0];
-	orientation[1] = vec3(myType(1.0), myType(0.0), myType(0.0));
+	scale[1][0] = myType(2.0);	invScale[1][0] = myType(1.0) / scale[1][0];
+	orientation[1] = vec3(myType(0.0), myType(0.0), myType(1.0));
 	// PLANE
 	translation[2] = vec3(myType(0.0), myType(-2.0), myType(0.0));
 	orientation[2] = vec3(myType(0.0), myType(1.0), myType(0.0));
@@ -129,7 +129,7 @@ int main()
 	scale[5][2] = myType(5.0); invScale[5][2] = myType(1.0) / scale[5][2];
 
 	// CONE
-	translation[6] = vec3(myType(0.0), myType(0.0), myType(0.0));
+	translation[6] = vec3(myType(2.0), myType(-1.0), myType(-1.0));
 //	scale[6][0] = myType(0.5);	invScale[6][0] = myType(1.0) / scale[6][0];
 
 #endif
@@ -145,7 +145,7 @@ int main()
 		else if (i == 3) objTypeIn[i] = DISK;
 		else if (i == 4) objTypeIn[i] = SQUARE;
 		else if (i == 5) objTypeIn[i] = SQUARE;
-//		else if (i == 6) objTypeIn[i] = SPHERE;
+		else if (i == 6) objTypeIn[i] = SPHERE;
 		else objTypeIn[i] = INVALID;
 	}
 
