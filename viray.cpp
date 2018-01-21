@@ -64,7 +64,6 @@ void InnerLoop(const CCamera& camera,
 
 	const vec3 clearColor(myType(0.0), myType(0.0), myType(0.0));
 	vec3 colorAccum;
-	vec3 reflectionColor;
 
 	InnerLoop: for (unsigned short w = 0; w < WIDTH; ++w)
 	{
@@ -72,7 +71,6 @@ DO_PRAGMA(HLS PIPELINE II=DESIRED_INNER_LOOP_II)
 DO_PRAGMA(HLS UNROLL factor=INNER_LOOP_UNROLL_FACTOR)
 
 		colorAccum = vec3(myType(0.0));
-		reflectionColor = vec3(myType(1.0));
 
 		CRay ray, transformedRay, reflectedRay, previousRay;
 		ShadeRec closestSr, closestReflectedSr, previousClosestSr;
@@ -81,6 +79,7 @@ DO_PRAGMA(HLS UNROLL factor=INNER_LOOP_UNROLL_FACTOR)
 
 #ifdef DEEP_RAYTRACING_ENABLE
 		myType doesItMakeSense(1.0);
+		myType currentReflectivity(1.0);
 		for (unsigned char depth = 0; depth < RAYTRACING_DEPTH; ++depth)
 		{
 			VisibilityTest(ray,
@@ -107,24 +106,22 @@ DO_PRAGMA(HLS UNROLL factor=INNER_LOOP_UNROLL_FACTOR)
 #else
 			myType reflectivity = materials[previousClosestSr.objIdx].k[1];
 #endif
-			if (depth == 0)
-			{
-				colorAccum = depthColor;
-			}
-			else
-			{
-				reflectionColor = reflectionColor.CompWiseMul(depthColor * reflectivity * doesItMakeSense);
-			}
+//			if (depth == 0) reflectivity = myType(1.0);
+
+			colorAccum += depthColor * currentReflectivity * doesItMakeSense;
+
 			//// next step preparation
 			previousRay = ray;
 			ray = CRay(closestSr.hitPoint, (-ray.direction).Reflect(closestSr.normal));
 
-			doesItMakeSense = (closestSr.isHit) ? myType(1.0) : myType(0.0);
+			doesItMakeSense *= (closestSr.isHit) ? myType(1.0) : myType(0.0);
 			previousClosestSr = closestSr;
 
-//			if (!doesItMakeSense) break;
+			currentReflectivity *= reflectivity;
+
+			if (!doesItMakeSense) break;
 		}
-		colorAccum += reflectionColor;
+
 #else
 
 		VisibilityTest(ray,
