@@ -15,8 +15,8 @@ vec3& loadVectorFromStream(ifstream& file, vec3& vec)
 
 int main()
 {
-	string dataPath("C:\\Users\\pjurgiel\\Source\\FFCore\\src\\SimData\\");
-//	string dataPath("D:\\Dokumenty\\WorkspaceXilinx\\FFCore\\src\\SimData\\");
+//	string dataPath("C:\\Users\\pjurgiel\\Source\\FFCore\\src\\SimData\\");
+	string dataPath("D:\\Dokumenty\\WorkspaceXilinx\\FFCore\\src\\SimData\\");
 
 	ifstream dataFile((dataPath + "data.dat").c_str());
 	ifstream lightFile((dataPath + "light.dat").c_str());
@@ -31,6 +31,8 @@ int main()
 	mat4* objTransform = new mat4[OBJ_NUM];
 	mat4* objInvTransform = new mat4[OBJ_NUM];
 	mat4 S, R, T;
+
+	myType* transformationArray = new myType[OBJ_NUM * 2 * sizeof(mat4)];
 
 	// CUBE I
 	T.TranslationMatrix(loadVectorFromStream(dataFile, tmp));
@@ -87,11 +89,27 @@ int main()
 		objTransform[i].IdentityMatrix();
 		objInvTransform[i].IdentityMatrix();
 	}
+
+	unsigned objTransformBufferPos = 0;
+	for (unsigned i = 0; i < OBJ_NUM; ++i)
+	{
+		for (unsigned j = 0; j < 12; ++j)
+		{
+			transformationArray[objTransformBufferPos++] = objTransform[i].data[j];
+		}
+		for (unsigned j = 0; j < 12; ++j)
+		{
+			transformationArray[objTransformBufferPos++] = objInvTransform[i].data[j];
+		}
+	}
+
 #else
 	vec3* translation = new vec3[OBJ_NUM];
 	vec3* scale = new vec3[OBJ_NUM];
 	vec3* invScale = new vec3[OBJ_NUM];
 	vec3* orientation = new vec3[OBJ_NUM];
+
+	myType* transformationArray = new myType[OBJ_NUM * 4 * sizeof(vec3)];
 
 	for (unsigned i = 0; i < OBJ_NUM; ++i)
 	{
@@ -132,6 +150,28 @@ int main()
 	translation[6] = vec3(myType(2.0), myType(-1.0), myType(-1.0));
 //	scale[6][0] = myType(0.5);	invScale[6][0] = myType(1.0) / scale[6][0];
 
+	// SAVING TO LINE BUFFER
+	unsigned objTransformBufferPos = 0;
+	for (unsigned i = 0; i < OBJ_NUM; ++i)
+	{
+		for (unsigned j = 0; j < 3; ++j)
+		{
+			transformationArray[objTransformBufferPos++] = orientation[i][j];
+		}
+		for (unsigned j = 0; j < 3; ++j)
+		{
+			transformationArray[objTransformBufferPos++] = scale[i][j];
+		}
+		for (unsigned j = 0; j < 3; ++j)
+		{
+			transformationArray[objTransformBufferPos++] = invScale[i][j];
+		}
+		for (unsigned j = 0; j < 3; ++j)
+		{
+			transformationArray[objTransformBufferPos++] = translation[i][j];
+		}
+	}
+
 #endif
 
 /////////////////////////////////////////////////////////
@@ -139,14 +179,17 @@ int main()
 	int* objTypeIn = new int[OBJ_NUM];
 	for (unsigned i = 0; i < OBJ_NUM; ++i)
 	{
-		if (i == 0) objTypeIn[i] = SPHERE;
-		else if (i == 1) objTypeIn[i] = CYLINDER;
-		else if (i == 2) objTypeIn[i] = PLANE;
-		else if (i == 3) objTypeIn[i] = DISK;
-		else if (i == 4) objTypeIn[i] = SQUARE;
-		else if (i == 5) objTypeIn[i] = SQUARE;
-		else if (i == 6) objTypeIn[i] = SPHERE;
-		else objTypeIn[i] = INVALID;
+		switch(i)
+		{
+		case 0: objTypeIn[i] = SPHERE; break;
+		case 1: objTypeIn[i] = CYLINDER; break;
+		case 2: objTypeIn[i] = PLANE; break;
+		case 3: objTypeIn[i] = DISK; break;
+		case 4: objTypeIn[i] = SQUARE; break;
+		case 5: objTypeIn[i] = SQUARE; break;
+		case 6: objTypeIn[i] = SPHERE; break;
+		default: objTypeIn[i] = INVALID; break;
+		}
 	}
 
 /////////////////////////////////////////////////////////
@@ -156,6 +199,9 @@ int main()
 	vec3* lightColor = new vec3[LIGHTS_NUM];
 	vec3* lightCoeff = new vec3[LIGHTS_NUM];
 
+	myType* lightArray = new myType[4 * sizeof(vec3) * LIGHTS_NUM];
+
+	unsigned lightBufferPos = 0;
 	for (unsigned i = 0; i < LIGHTS_NUM; ++i)
 	{
 		lightPosition[i] = loadVectorFromStream(lightFile, tmp);
@@ -169,6 +215,24 @@ int main()
 		myType outerMinusInnerInv = (outerMinusInner > CORE_BIAS) ? myType(1.0) / (outerMinusInner) : MAX_DISTANCE;
 
 		lightCoeff[i] = vec3(temp[0], outerMinusInnerInv, temp[2]);
+
+		// SAVING TO LINE BUFFER
+		for (unsigned j = 0; j < 3; ++j)
+		{
+			lightArray[lightBufferPos++] = lightPosition[i][j];
+		}
+		for (unsigned j = 0; j < 3; ++j)
+		{
+			lightArray[lightBufferPos++] = lightDir[i][j];
+		}
+		for (unsigned j = 0; j < 3; ++j)
+		{
+			lightArray[lightBufferPos++] = lightColor[i][j];
+		}
+		for (unsigned j = 0; j < 3; ++j)
+		{
+			lightArray[lightBufferPos++] = lightCoeff[i][j];
+		}
 	}
 
 /////////////////////////////////////////////////////////
@@ -176,6 +240,9 @@ int main()
 	vec3* materialCoeff = new vec3[OBJ_NUM * 2];
 	vec3* materialColors = new vec3[OBJ_NUM * 3];
 
+	myType* materialArray = new myType[5 * sizeof(vec3) * OBJ_NUM];
+
+	unsigned materialBufferPos = 0;
 	for (unsigned i = 0; i < OBJ_NUM; ++i)
 	{
 		for (unsigned j = 0; j < 2; ++j)
@@ -191,18 +258,34 @@ int main()
 		}
 
 		materialColors[i * 3 + 1] *= materialCoeff[i * 2 + 0][0]; 	// DIFFUSE 	* K[0]
-		materialColors[i * 3 + 2] *= materialCoeff[i * 2 + 1][1];  	// SPECULAR * K[1]
+		materialColors[i * 3 + 2] *= materialCoeff[i * 2 + 0][1];  	// SPECULAR * K[1] /*???? TODEBUG*/
+
+		// SAVING TO LINE BUFFER
+		for (unsigned j = 0; j < 2; ++j)
+		{
+			for (unsigned k = 0; k < 3; ++k)
+			{
+				materialArray[materialBufferPos++] = materialCoeff[i * 2 + j][k];
+			}
+		}
+		for (unsigned j = 0; j < 3; ++j)
+		{
+			for (unsigned k = 0; k < 3; ++k)
+			{
+				materialArray[materialBufferPos++] = materialColors[i * 3 + j][k];
+			}
+		}
 	}
 
 /////////////////////////////////////////////////////////
 
-	vec3* cameraData = new vec3[3];
+	myType* cameraArray = new myType[3 * sizeof(vec3)];
 	myType zoom;
 
 	cameraFile >> zoom;
-	for (unsigned i = 0; i < 3; ++i)
+	for (unsigned i = 0; i < 9; ++i)
 	{
-		cameraData[i] = loadVectorFromStream(cameraFile, tmp);
+		cameraFile >> cameraArray[i];
 	}
 
 /////////////////////////////////////////////////////////
@@ -215,26 +298,13 @@ int main()
 	timer = clock();
 
 	ViRayMain(
-#ifndef SIMPLE_OBJECT_TRANSFORM_ENABLE
-			objTransform,
-			objInvTransform,
-#else
-			orientation,
-			scale,
-			invScale,
-			translation,
-#endif
+			transformationArray,
 			objTypeIn,
 
-			lightPosition,
-			lightDir,
-			lightColor,
-			lightCoeff,
+			lightArray,
+			materialArray,
 
-			materialCoeff,
-			materialColors,
-
-			cameraData,
+			cameraArray,
 			zoom,
 
 			frame);
@@ -265,11 +335,13 @@ int main()
 
 	delete[] frame;
 
-	delete[] cameraData;
+	delete[] cameraArray;
 
+	delete[] materialArray;
 	delete[] materialColors;
 	delete[] materialCoeff;
 
+	delete[] lightArray;
 	delete[] lightColor;
 	delete[] lightPosition;
 
@@ -283,6 +355,8 @@ int main()
 	delete[] scale;
 	delete[] translation;
 #endif
+
+	delete[] transformationArray;
 
 	dataFile.close();
 	lightFile.close();

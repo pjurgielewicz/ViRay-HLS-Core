@@ -1,57 +1,35 @@
 #include "main.h"
 
+using namespace std;
+
+vec3 GetVectorFromStream(const myType* s, unsigned& pos)
+{
+#pragma HLS INLINE
+	vec3 tmp(s[pos], s[pos + 1], s[pos + 2]);
+	pos += 3;
+
+	return tmp;
+}
+
 int ViRayMain(
-#ifndef SIMPLE_OBJECT_TRANSFORM_ENABLE
-			const mat4* objTransformIn,
-			const mat4* objInvTransformIn,
-#else
-			const vec3* orientationIn,
-			const vec3* scaleIn,
-			const vec3* invScaleIn,
-			const vec3* translationIn,
-#endif
-			const int* objTypeIn,
+				const myType* objTransformationArrayIn,
+				const int* objTypeIn,
 
-			vec3* lightPositionIn,
-			vec3* lightDirIn,
-			vec3* lightColorIn,
-			vec3* lightCoeffIn,
+				const myType* lightArrayIn,
+				const myType* materialArrayIn,
 
-			vec3* materialCoeffIn,
-			vec3* materialColorsIn,
+				const myType* cameraArrayIn,
+				myType cameraZoom,
 
-			vec3* cameraDataIn,
-			myType cameraZoom,
-
-			pixelColorType* outColor)
+				pixelColorType* outColor)
 {
 	/*
 	 * OBJECTS
 	 */
 
-#ifndef SIMPLE_OBJECT_TRANSFORM_ENABLE
 
-#pragma HLS INTERFACE s_axilite port=objTransformIn bundle=AXI_LITE_1
-#pragma HLS INTERFACE m_axi port=objTransformIn offset=slave bundle=MAXI_DATA
-
-#pragma HLS INTERFACE s_axilite port=objInvTransformIn bundle=AXI_LITE_1
-#pragma HLS INTERFACE m_axi port=objInvTransformIn offset=slave bundle=MAXI_DATA
-
-#else
-
-#pragma HLS INTERFACE s_axilite port=orientationIn bundle=AXI_LITE_1
-#pragma HLS INTERFACE m_axi port=orientationIn offset=slave bundle=MAXI_DATA
-
-#pragma HLS INTERFACE s_axilite port=scaleIn bundle=AXI_LITE_1
-#pragma HLS INTERFACE m_axi port=scaleIn offset=slave bundle=MAXI_DATA
-
-#pragma HLS INTERFACE s_axilite port=invScaleIn bundle=AXI_LITE_1
-#pragma HLS INTERFACE m_axi port=invScaleIn offset=slave bundle=MAXI_DATA
-
-#pragma HLS INTERFACE s_axilite port=translationIn bundle=AXI_LITE_1
-#pragma HLS INTERFACE m_axi port=translationIn offset=slave bundle=MAXI_DATA
-
-#endif
+#pragma HLS INTERFACE s_axilite port=objTransformationArrayIn bundle=AXI_LITE_1
+#pragma HLS INTERFACE m_axi port=objTransformationArrayIn offset=slave bundle=MAXI_DATA
 
 #pragma HLS INTERFACE s_axilite port=objTypeIn bundle=AXI_LITE_1
 #pragma HLS INTERFACE m_axi port=objTypeIn offset=slave bundle=MAXI_DATA_2
@@ -60,34 +38,22 @@ int ViRayMain(
 	 * LIGHTS
 	 */
 
-#pragma HLS INTERFACE s_axilite port=lightPositionIn bundle=AXI_LITE_1
-#pragma HLS INTERFACE m_axi port=lightPositionIn offset=slave bundle=MAXI_DATA
-
-#pragma HLS INTERFACE s_axilite port=lightDirIn bundle=AXI_LITE_1
-#pragma HLS INTERFACE m_axi port=lightDirIn offset=slave bundle=MAXI_DATA
-
-#pragma HLS INTERFACE s_axilite port=lightColorIn bundle=AXI_LITE_1
-#pragma HLS INTERFACE m_axi port=lightColorIn offset=slave bundle=MAXI_DATA
-
-#pragma HLS INTERFACE s_axilite port=lightCoeffIn bundle=AXI_LITE_1
-#pragma HLS INTERFACE m_axi port=lightCoeffIn offset=slave bundle=MAXI_DATA
+#pragma HLS INTERFACE s_axilite port=lightArrayIn bundle=AXI_LITE_1
+#pragma HLS INTERFACE m_axi port=lightArrayIn offset=slave bundle=MAXI_DATA
 
 	/*
 	 * MATERIALS
 	 */
 
-#pragma HLS INTERFACE s_axilite port=materialCoeffIn bundle=AXI_LITE_1
-#pragma HLS INTERFACE m_axi port=materialCoeffIn offset=slave bundle=MAXI_DATA
-
-#pragma HLS INTERFACE s_axilite port=materialColorsIn bundle=AXI_LITE_1
-#pragma HLS INTERFACE m_axi port=materialColorsIn offset=slave bundle=MAXI_DATA
+#pragma HLS INTERFACE s_axilite port=materialArrayIn bundle=AXI_LITE_1
+#pragma HLS INTERFACE m_axi port=materialArrayIn offset=slave bundle=MAXI_DATA
 
 	/*
 	 * CAMERA
 	 */
 
-#pragma HLS INTERFACE s_axilite port=cameraDataIn bundle=AXI_LITE_1
-#pragma HLS INTERFACE m_axi port=cameraDataIn offset=slave bundle=MAXI_DATA
+#pragma HLS INTERFACE s_axilite port=cameraArrayIn bundle=AXI_LITE_1
+#pragma HLS INTERFACE m_axi port=cameraArrayIn offset=slave bundle=MAXI_DATA
 
 #pragma HLS INTERFACE s_axilite port=cameraZoom bundle=AXI_LITE_1
 
@@ -105,7 +71,8 @@ int ViRayMain(
 	 */
 
 	vec3 cameraData[3];
-	memcpy(cameraData, cameraDataIn, sizeof(vec3) * 3);
+	memcpy(cameraData, cameraArrayIn, sizeof(vec3) * 3);
+
 
 	CCamera camera(cameraZoom, cameraZoom * (myType(WIDTH) / myType(HEIGHT)),
 				   HEIGHT, WIDTH,
@@ -120,9 +87,12 @@ int ViRayMain(
 #pragma HLS ARRAY_PARTITION variable=objInvTransform complete dim=1
 //#pragma HLS ARRAY_PARTITION variable=objTransform cyclic factor=2 dim=1
 #pragma HLS ARRAY_PARTITION variable=objTransform complete dim=1
-	memcpy(objTransform, objTransformIn, sizeof(mat4) * OBJ_NUM);
-	memcpy(objInvTransform, objInvTransformIn, sizeof(mat4) * OBJ_NUM);
+
+	myType objTransformArray[2 * 12 * OBJ_NUM];
+	memcpy(objTransformArray, objTransformationArrayIn, 2 * sizeof(mat4) * OBJ_NUM );
 #else
+	myType objTransformationArray[4 * 3 * OBJ_NUM];
+	memcpy(objTransformationArray, objTransformationArrayIn, 4 * sizeof(vec3) * OBJ_NUM);
 	ViRay::SimpleTransform objTransform[OBJ_NUM];
 #pragma HLS ARRAY_PARTITION variable=objTransform complete dim=1
 
@@ -138,45 +108,64 @@ int ViRayMain(
 	/*
 	 * LIGHTING AND MATERIALS
 	 */
-
+	myType lightArray[4 * 3 * LIGHTS_NUM];
+	memcpy(lightArray, lightArrayIn, 4 * sizeof(vec3) * LIGHTS_NUM);
 	ViRay::Light lights[LIGHTS_NUM];
 #pragma HLS ARRAY_PARTITION variable=lights complete dim=1
 
+	myType materialArray[5 * 3 * OBJ_NUM];
+	memcpy(materialArray, materialArrayIn, 5 * sizeof(vec3) * OBJ_NUM);
 	ViRay::Material materials[OBJ_NUM];
 //#pragma HLS ARRAY_PARTITION variable=materials complete dim=1
 
 	AssignmentLoops:{
 #pragma HLS LOOP_MERGE
 
-#ifdef SIMPLE_OBJECT_TRANSFORM_ENABLE
+#ifndef SIMPLE_OBJECT_TRANSFORM_ENABLE
+		unsigned objTransformBufferPos = 0;
+		for (unsigned i = 0; i < OBJ_NUM; ++i)
+		{
+#pragma HLS PIPELINE
+			for (unsigned j = 0; j < 12; ++j)
+			{
+				objTransform[i].data[j] 	=  objTransformArray[objTransformBufferPos];
+				objInvTransform[i].data[j] 	=  objTransformArray[objTransformBufferPos + 12];
+				++objTransformBufferPos;
+			}
+			objTransformBufferPos += 12;
+		}
+#else
+		unsigned objTransformationBufferPos = 0;
 		SimpleTransformAssignmentLoop: for (unsigned i = 0; i < OBJ_NUM; ++i)
 		{
 #pragma HLS PIPELINE
-			objTransform[i].orientation = orientationIn[i];
-			objTransform[i].scale 		= scaleIn[i];
-			objTransform[i].invScale 	= invScaleIn[i];
-			objTransform[i].translation = translationIn[i];
+			objTransform[i].orientation = GetVectorFromStream(objTransformationArray, objTransformationBufferPos);
+			objTransform[i].scale 		= GetVectorFromStream(objTransformationArray, objTransformationBufferPos);
+			objTransform[i].invScale 	= GetVectorFromStream(objTransformationArray, objTransformationBufferPos);
+			objTransform[i].translation = GetVectorFromStream(objTransformationArray, objTransformationBufferPos);
 		}
 #endif
 
+		unsigned lightBufferPos = 0;
 		LightsAssignmentLoop: for (unsigned i = 0; i < LIGHTS_NUM; ++i)
 		{
 #pragma HLS PIPELINE
-			lights[i].position 	= lightPositionIn[i];
-			lights[i].dir 		= lightDirIn[i];
-			lights[i].color 	= lightColorIn[i];
-			lights[i].coeff 	= lightCoeffIn[i];
+			lights[i].position 	= GetVectorFromStream(lightArray, lightBufferPos);
+			lights[i].dir 		= GetVectorFromStream(lightArray, lightBufferPos);
+			lights[i].color 	= GetVectorFromStream(lightArray, lightBufferPos);
+			lights[i].coeff 	= GetVectorFromStream(lightArray, lightBufferPos);
 		}
 
+		unsigned materialBufferPos = 0;
 		MaterialAssignmentLoop: for (unsigned i = 0; i < OBJ_NUM; ++i)
 		{
 #pragma HLS PIPELINE
-			materials[i].k 				= materialCoeffIn[i * 2];
-			materials[i].fresnelData	= materialCoeffIn[i * 2 + 1];
+			materials[i].k 				= GetVectorFromStream(materialArray, materialBufferPos);
+			materials[i].fresnelData	= GetVectorFromStream(materialArray, materialBufferPos);
 
-			materials[i].ambientColor 	= materialColorsIn[i * 3 + 0];
-			materials[i].diffuseColor 	= materialColorsIn[i * 3 + 1];
-			materials[i].specularColor 	= materialColorsIn[i * 3 + 2];
+			materials[i].ambientColor 	= GetVectorFromStream(materialArray, materialBufferPos);
+			materials[i].diffuseColor 	= GetVectorFromStream(materialArray, materialBufferPos);
+			materials[i].specularColor 	= GetVectorFromStream(materialArray, materialBufferPos);
 		}
 	}
 

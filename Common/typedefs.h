@@ -1,9 +1,19 @@
 #ifndef TYPEDEFS__H_
 #define TYPEDEFS__H_
 
+//#define UC_OPERATION
+
+#ifndef UC_OPERATION
+
 #include "ap_int.h"
 #include "ap_fixed.h"
 #include "hls_math.h"
+
+#else
+
+#include <cmath>
+
+#endif
 
 #define PRAGMA_SUB(x) _Pragma (#x)
 #define DO_PRAGMA(x) PRAGMA_SUB(x)
@@ -75,6 +85,8 @@ enum ObjectType{
 
 #define SIMPLE_OBJECT_TRANSFORM_ENABLE
 
+#define DEEP_RAYTRACING_ENABLE
+
 #define SPHERE_OBJECT_ENABLE
 #define PLANE_OBJECT_ENABLE
 #define DISK_OBJECT_ENABLE
@@ -87,9 +99,8 @@ enum ObjectType{
 #define DIFFUSE_COLOR_ENABLE
 #define SPECULAR_HIGHLIGHT_ENABLE
 #define PRIMARY_COLOR_ENABLE
-#define DIRECT_SHADOW_ENABLE
-//#define REFLECTION_ENABLE
-//#define REFLECTION_SHADOW_ENABLE
+#define REFLECTION_ENABLE
+#define SHADOW_ENABLE
 //#define FRESNEL_REFLECTION_ENABLE
 //#define FAST_INV_SQRT_ENABLE
 //#define FAST_DIVISION_ENABLE
@@ -103,6 +114,10 @@ enum ObjectType{
 #define FRAME_BUFFER_SIZE (WIDTH)
 #define LIGHTS_NUM 					((unsigned char)(2))
 #define OBJ_NUM 					((unsigned char)(10))
+
+#ifdef DEEP_RAYTRACING_ENABLE
+#define RAYTRACING_DEPTH			((unsigned char)(4))
+#endif
 
 #define MAX_POWER_LOOP_ITER			((unsigned char)(7))
 

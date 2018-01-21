@@ -30,17 +30,17 @@ namespace ViRay
 			 * WITH GREAT PROBABILITY
 			 */
 
-			localNormal = vec3(myType(0.0), myType(-1.0), myType(0.0));
-			normal = vec3(myType(0.0), myType(-1.0), myType(0.0));
+			localNormal 	= vec3(myType(0.0), myType(-1.0), myType(0.0));
+			normal 			= vec3(myType(0.0), myType(-1.0), myType(0.0));
 
-			localHitPoint = vec3(myType(0.0));
-			hitPoint = vec3(myType(0.0));
+			localHitPoint 	= vec3(myType(0.0));
+			hitPoint 		= vec3(myType(0.0));
 
-//			localDistance = myType(MAX_DISTANCE);
-			distanceSqr = myType(MAX_DISTANCE);
+//			localDistance 	= myType(MAX_DISTANCE);
+			distanceSqr 	= myType(MAX_DISTANCE);
 
-			objIdx = 0;
-			isHit = false;
+			objIdx 			= 0;
+			isHit 			= false;
 		}
 	};
 

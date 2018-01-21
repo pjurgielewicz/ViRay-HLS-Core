@@ -64,18 +64,69 @@ void InnerLoop(const CCamera& camera,
 
 	const vec3 clearColor(myType(0.0), myType(0.0), myType(0.0));
 	vec3 colorAccum;
+	vec3 reflectionColor;
 
 	InnerLoop: for (unsigned short w = 0; w < WIDTH; ++w)
 	{
 DO_PRAGMA(HLS PIPELINE II=DESIRED_INNER_LOOP_II)
 DO_PRAGMA(HLS UNROLL factor=INNER_LOOP_UNROLL_FACTOR)
 
-		colorAccum = vec3(myType(0.0), myType(0.0), myType(0.0));
+		colorAccum = vec3(myType(0.0));
+		reflectionColor = vec3(myType(1.0));
 
-		CRay ray, transformedRay, reflectedRay;
-		ShadeRec closestSr, closestReflectedSr;
+		CRay ray, transformedRay, reflectedRay, previousRay;
+		ShadeRec closestSr, closestReflectedSr, previousClosestSr;
 
 		CreateRay(camera, posShift, h, w, ray);
+
+#ifdef DEEP_RAYTRACING_ENABLE
+		myType doesItMakeSense(1.0);
+		for (unsigned char depth = 0; depth < RAYTRACING_DEPTH; ++depth)
+		{
+			VisibilityTest(ray,
+#ifndef SIMPLE_OBJECT_TRANSFORM_ENABLE
+							objTransform, objTransformInv,
+#else
+							objTransform,
+#endif
+							objType, closestSr);
+
+			vec3 depthColor = Shade(closestSr, ray,
+#ifndef SIMPLE_OBJECT_TRANSFORM_ENABLE
+									objTransform, objTransformInv,
+#else
+									objTransform,
+#endif
+									objType, lights, materials);
+
+#ifdef FRESNEL_REFLECTION_ENABLE
+			myType reflectivity = (materials[previousClosestSr.objIdx].fresnelData[0] != myType(0.0)) ? GetFresnelReflectionCoeff(previousRay.direction,
+																																	previousClosestSr.normal,
+																																	materials[previousClosestSr.objIdx].fresnelData[1],
+																																	materials[previousClosestSr.objIdx].fresnelData[2]) : materials[previousClosestSr.objIdx].k[1];
+#else
+			myType reflectivity = materials[previousClosestSr.objIdx].k[1];
+#endif
+			if (depth == 0)
+			{
+				colorAccum = depthColor;
+			}
+			else
+			{
+				reflectionColor = reflectionColor.CompWiseMul(depthColor * reflectivity * doesItMakeSense);
+			}
+			//// next step preparation
+			previousRay = ray;
+			ray = CRay(closestSr.hitPoint, (-ray.direction).Reflect(closestSr.normal));
+
+			doesItMakeSense = (closestSr.isHit) ? myType(1.0) : myType(0.0);
+			previousClosestSr = closestSr;
+
+//			if (!doesItMakeSense) break;
+		}
+		colorAccum += reflectionColor;
+#else
+
 		VisibilityTest(ray,
 #ifndef SIMPLE_OBJECT_TRANSFORM_ENABLE
 						objTransform, objTransformInv,
@@ -107,7 +158,6 @@ DO_PRAGMA(HLS UNROLL factor=INNER_LOOP_UNROLL_FACTOR)
 		/*
 		 * SHADING
 		 */
-		vec3 secondaryColor(myType(0.0));
 		ShadingBlock: {
 //#pragma HLS LOOP_MERGE
 
@@ -143,6 +193,8 @@ DO_PRAGMA(HLS UNROLL factor=INNER_LOOP_UNROLL_FACTOR)
 							//closestSr.isHit;
 #endif
 		}
+
+#endif
 
 		SaveColorToBuffer(colorAccum, frameBuffer[w]);
 	}
@@ -288,7 +340,7 @@ vec3 Shade(	const ShadeRec& closestSr,
 		ShadeRec shadowSr;
 		shadowSr.objIdx = int(1);
 
-#ifdef DIRECT_SHADOW_ENABLE
+#ifdef SHADOW_ENABLE
 		CRay shadowRay(closestSr.hitPoint, dirToLight);
 		ShadowVisibilityTest(shadowRay,
 #ifndef SIMPLE_OBJECT_TRANSFORM_ENABLE
@@ -310,19 +362,18 @@ vec3 Shade(	const ShadeRec& closestSr,
 
 		// DIFFUSE + SPECULAR
 		// (HLS::POW() -> SUBOPTIMAL QoR)
-		// Coeffs (k) can be moved to the color at the stage of preparation
 		// COLORS SHOULD BE ATTENUATED BEFOREHAND (AT MICROCONTROLLER STAGE)
 		vec3 baseColor =
 #ifdef DIFFUSE_COLOR_ENABLE
 							materials[closestSr.objIdx].diffuseColor  // * materials[closestSr.objIdx].k[0]
 #else
-						   colorOut(myType(0.0), myType(0.0), myType(0.0))
+						   vec3(myType(0.0), myType(0.0), myType(0.0))
 #endif
 							+
 #ifdef SPECULAR_HIGHLIGHT_ENABLE
 							materials[closestSr.objIdx].specularColor * ViRayUtils::NaturalPow(specularDot, materials[closestSr.objIdx].k[2])// * materials[closestSr.objIdx].k[1]
 #else
-						   colorOut(myType(0.0), myType(0.0), myType(0.0))
+						   vec3(myType(0.0), myType(0.0), myType(0.0))
 #endif
 							;
 
@@ -337,11 +388,12 @@ vec3 Shade(	const ShadeRec& closestSr,
 		colorOut += baseColor.CompWiseMul(lights[l].color) * shadowSr.objIdx * d2Inv * lightSpotCoeff * dot;
 
 	}
-	return (colorOut
+	return (closestSr.isHit) ?
+								(colorOut
 #ifdef AMBIENT_COLOR_ENABLE
-			+ materials[closestSr.objIdx].ambientColor.CompWiseMul(lights[0].color)
+								+ materials[closestSr.objIdx].ambientColor.CompWiseMul(lights[0].color)
 #endif
-			) * closestSr.isHit;
+								) : vec3(myType(0.0));
 }
 
 // ****************   !THE REAL CORE OF THE PROCESSING   ****************

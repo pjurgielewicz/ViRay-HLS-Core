@@ -1,9 +1,13 @@
 #ifndef VEC3__H_
 #define VEC3__H_
 
-#include <iostream>
+
 #include "../Common/typedefs.h"
+
+#ifndef UC_OPERATION
+#include <iostream>
 #include "../viray.h"
+#endif
 
 namespace ViRay{
 	namespace ViRayUtils{
@@ -149,10 +153,16 @@ struct vec3
 	{
 //#pragma HLS INLINE
 
+#ifndef UC_OPERATION
+
 #if defined(FAST_INV_SQRT_ENABLE) && defined(USE_FLOAT)
 		return (*this) * ViRay::ViRayUtils::InvSqrt(((*this) * (*this)));
 #else
 		return (*this) * ViRay::ViRayUtils::Sqrt(myType(1.0) / ((*this) * (*this)));
+#endif
+
+#else
+		return (*this) * std::sqrt(myType(1.0) / ((*this) * (*this)));
 #endif
 	}
 
@@ -170,7 +180,7 @@ struct vec3
 	{
 		return data[i];
 	}
-	
+#ifndef UC_OPERATION
 	friend std::ostream& operator<<(std::ostream& cout, const vec3& v)
 	{
 		for (unsigned i = 0; i < 3; ++i)
@@ -179,7 +189,7 @@ struct vec3
 		}
 		return cout;
 	}
-
+#endif
 };
 
 #endif

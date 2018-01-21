@@ -1,9 +1,11 @@
 #ifndef MAT4__H_
 #define MAT4__H_
 
-#include <iostream>
-
 #include "vec3.h"
+
+#ifndef UC_OPERATION
+#include <iostream>
+#endif
 
 struct mat4
 {
@@ -173,12 +175,19 @@ struct mat4
 		myType xx, yy, zz, xy, yz, zx, xs, ys, zs, one_c;
 		vec3 rotVec;
 
+#ifndef UC_OPERATION
+
 #ifdef USE_FIXEDPOINT
 		s = myType(hls::sin((float)rad));
 		c = myType(hls::cos((float)rad));
 #else
 		s = myType(hls::sin(rad));
 		c = myType(hls::cos(rad));
+#endif
+
+#else
+		s = myType(std::sin(rad));
+		c = myType(std::cos(rad));
 #endif
 		mag = v.Magnitude();
 
@@ -212,6 +221,7 @@ struct mat4
 #undef M
 	}
 
+#ifndef UC_OPERATION
 	friend std::ostream& operator<<(std::ostream& cout, const mat4& mat)
 	{
 		for (unsigned r = 0; r < 3; ++r)
@@ -224,6 +234,7 @@ struct mat4
 		}
 		return cout;
 	}
+#endif
 };
 
 #endif
