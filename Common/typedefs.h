@@ -102,7 +102,7 @@ enum ObjectType{
 #define REFLECTION_ENABLE
 #define SHADOW_ENABLE
 //#define FRESNEL_REFLECTION_ENABLE
-//#define FAST_INV_SQRT_ENABLE
+#define FAST_INV_SQRT_ENABLE
 //#define FAST_DIVISION_ENABLE
 
 /*
@@ -116,7 +116,7 @@ enum ObjectType{
 #define OBJ_NUM 					((unsigned char)(10))
 
 #ifdef DEEP_RAYTRACING_ENABLE
-#define RAYTRACING_DEPTH			((unsigned char)(4))
+#define RAYTRACING_DEPTH			((unsigned char)(2))
 #endif
 
 #define MAX_POWER_LOOP_ITER			((unsigned char)(7))

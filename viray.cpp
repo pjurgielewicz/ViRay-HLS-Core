@@ -98,16 +98,6 @@ DO_PRAGMA(HLS UNROLL factor=INNER_LOOP_UNROLL_FACTOR)
 #endif
 									objType, lights, materials);
 
-#ifdef FRESNEL_REFLECTION_ENABLE
-			myType reflectivity = (materials[previousClosestSr.objIdx].fresnelData[0] != myType(0.0)) ? GetFresnelReflectionCoeff(previousRay.direction,
-																																	previousClosestSr.normal,
-																																	materials[previousClosestSr.objIdx].fresnelData[1],
-																																	materials[previousClosestSr.objIdx].fresnelData[2]) : materials[previousClosestSr.objIdx].k[1];
-#else
-			myType reflectivity = materials[previousClosestSr.objIdx].k[1];
-#endif
-//			if (depth == 0) reflectivity = myType(1.0);
-
 			colorAccum += depthColor * currentReflectivity * doesItMakeSense;
 
 			//// next step preparation
@@ -117,9 +107,15 @@ DO_PRAGMA(HLS UNROLL factor=INNER_LOOP_UNROLL_FACTOR)
 			doesItMakeSense *= (closestSr.isHit) ? myType(1.0) : myType(0.0);
 			previousClosestSr = closestSr;
 
+#ifdef FRESNEL_REFLECTION_ENABLE
+			myType reflectivity = (materials[closestSr.objIdx].fresnelData[0] != myType(0.0)) ? GetFresnelReflectionCoeff(ray.direction,
+																															closestSr.normal,
+																															materials[closestSr.objIdx].fresnelData[1],
+																															materials[closestSr.objIdx].fresnelData[2]) : materials[closestSr.objIdx].k[1];
+#else
+			myType reflectivity = materials[closestSr.objIdx].k[1];
+#endif
 			currentReflectivity *= reflectivity;
-
-			if (!doesItMakeSense) break;
 		}
 
 #else
