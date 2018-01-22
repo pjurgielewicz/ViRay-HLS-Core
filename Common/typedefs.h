@@ -85,7 +85,7 @@ enum ObjectType{
 
 #define SIMPLE_OBJECT_TRANSFORM_ENABLE
 
-#define DEEP_RAYTRACING_ENABLE
+//#define DEEP_RAYTRACING_ENABLE
 
 #define SPHERE_OBJECT_ENABLE
 #define PLANE_OBJECT_ENABLE
@@ -98,8 +98,6 @@ enum ObjectType{
 #define AMBIENT_COLOR_ENABLE
 #define DIFFUSE_COLOR_ENABLE
 #define SPECULAR_HIGHLIGHT_ENABLE
-#define PRIMARY_COLOR_ENABLE
-#define REFLECTION_ENABLE
 #define SHADOW_ENABLE
 //#define FRESNEL_REFLECTION_ENABLE
 #define FAST_INV_SQRT_ENABLE
@@ -116,7 +114,14 @@ enum ObjectType{
 #define OBJ_NUM 					((unsigned char)(10))
 
 #ifdef DEEP_RAYTRACING_ENABLE
-#define RAYTRACING_DEPTH			((unsigned char)(2))
+
+#define RAYTRACING_DEPTH			((unsigned char)(10))
+
+#else
+
+#define PRIMARY_COLOR_ENABLE
+#define REFLECTION_ENABLE
+
 #endif
 
 #define MAX_POWER_LOOP_ITER			((unsigned char)(7))

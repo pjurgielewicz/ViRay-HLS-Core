@@ -15,8 +15,8 @@ vec3& loadVectorFromStream(ifstream& file, vec3& vec)
 
 int main()
 {
-//	string dataPath("C:\\Users\\pjurgiel\\Source\\FFCore\\src\\SimData\\");
-	string dataPath("D:\\Dokumenty\\WorkspaceXilinx\\FFCore\\src\\SimData\\");
+	string dataPath("C:\\Users\\pjurgiel\\Source\\FFCore\\src\\SimData\\");
+//	string dataPath("D:\\Dokumenty\\WorkspaceXilinx\\FFCore\\src\\SimData\\");
 
 	ifstream dataFile((dataPath + "data.dat").c_str());
 	ifstream lightFile((dataPath + "light.dat").c_str());
@@ -131,7 +131,7 @@ int main()
 	orientation[2] = vec3(myType(0.0), myType(1.0), myType(0.0));
 
 	// DISK
-	translation[3] = vec3(myType(0.0), myType(0.0), myType(-5.0));
+	translation[3] = vec3(myType(0.0), myType(0.0), myType(-6.0));
 	orientation[3] = vec3(myType(0.0), myType(0.0), myType(1.0));
 	scale[3][0] = myType(5.0); invScale[3][0] = myType(1.0) / scale[3][0];
 	scale[3][1] = myType(5.0); invScale[3][1] = myType(1.0) / scale[3][1];
@@ -184,7 +184,7 @@ int main()
 		case 0: objTypeIn[i] = SPHERE; break;
 		case 1: objTypeIn[i] = CYLINDER; break;
 		case 2: objTypeIn[i] = PLANE; break;
-		case 3: objTypeIn[i] = DISK; break;
+		case 3: objTypeIn[i] = SPHERE; break;
 		case 4: objTypeIn[i] = SQUARE; break;
 		case 5: objTypeIn[i] = SQUARE; break;
 		case 6: objTypeIn[i] = SPHERE; break;

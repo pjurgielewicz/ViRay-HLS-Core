@@ -72,16 +72,18 @@ DO_PRAGMA(HLS UNROLL factor=INNER_LOOP_UNROLL_FACTOR)
 
 		colorAccum = vec3(myType(0.0));
 
-		CRay ray, transformedRay, reflectedRay, previousRay;
-		ShadeRec closestSr, closestReflectedSr, previousClosestSr;
+		CRay ray, transformedRay, reflectedRay;
+		ShadeRec closestSr, closestReflectedSr;
 
 		CreateRay(camera, posShift, h, w, ray);
 
-#ifdef DEEP_RAYTRACING_ENABLE
+#if defined(DEEP_RAYTRACING_ENABLE) && !defined (__SYNTHESIS__)
 		myType doesItMakeSense(1.0);
 		myType currentReflectivity(1.0);
 		for (unsigned char depth = 0; depth < RAYTRACING_DEPTH; ++depth)
 		{
+			closestSr = ShadeRec();
+
 			VisibilityTest(ray,
 #ifndef SIMPLE_OBJECT_TRANSFORM_ENABLE
 							objTransform, objTransformInv,
@@ -89,6 +91,8 @@ DO_PRAGMA(HLS UNROLL factor=INNER_LOOP_UNROLL_FACTOR)
 							objTransform,
 #endif
 							objType, closestSr);
+
+			if (!closestSr.isHit) break;
 
 			vec3 depthColor = Shade(closestSr, ray,
 #ifndef SIMPLE_OBJECT_TRANSFORM_ENABLE
@@ -100,13 +104,9 @@ DO_PRAGMA(HLS UNROLL factor=INNER_LOOP_UNROLL_FACTOR)
 
 			colorAccum += depthColor * currentReflectivity * doesItMakeSense;
 
-			//// next step preparation
-			previousRay = ray;
-			ray = CRay(closestSr.hitPoint, (-ray.direction).Reflect(closestSr.normal));
-
-			doesItMakeSense *= (closestSr.isHit) ? myType(1.0) : myType(0.0);
-			previousClosestSr = closestSr;
-
+			/*
+			 * NEXT DEPTH STEP PREPARATION
+			 */
 #ifdef FRESNEL_REFLECTION_ENABLE
 			myType reflectivity = (materials[closestSr.objIdx].fresnelData[0] != myType(0.0)) ? GetFresnelReflectionCoeff(ray.direction,
 																															closestSr.normal,
@@ -116,6 +116,11 @@ DO_PRAGMA(HLS UNROLL factor=INNER_LOOP_UNROLL_FACTOR)
 			myType reflectivity = materials[closestSr.objIdx].k[1];
 #endif
 			currentReflectivity *= reflectivity;
+
+			// RAY ALREADY USED TO COMPUTE REFLECTIVITY -> REFLECT
+			ray = CRay(closestSr.hitPoint, (-ray.direction).Reflect(closestSr.normal));
+
+			doesItMakeSense = (closestSr.isHit) ? doesItMakeSense : myType(0.0);
 		}
 
 #else
