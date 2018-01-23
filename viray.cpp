@@ -783,7 +783,7 @@ void SaveColorToBuffer(vec3 color, pixelColorType& colorOut)
 #pragma HLS UNROLL
 		if (color[i] > myType(1.0))	color[i] = myType(1.0);
 
-		tempColor += (( unsigned(color[i] * myType(255.0)) & 0xFF ) << ((3 - i) * 8));
+		tempColor += (( unsigned(color[i] * myType(255.0)) & 0xFF ) << ((2 - i) * 8));
 	}
 	colorOut = tempColor;
 }

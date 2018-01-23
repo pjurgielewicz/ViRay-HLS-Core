@@ -299,6 +299,8 @@ int main()
 
 	ViRayMain(
 			transformationArray,
+			transformationArray,
+
 			objTypeIn,
 
 			lightArray,
@@ -318,7 +320,7 @@ int main()
 	{
 		for (unsigned w = 0; w < WIDTH; ++w)
 		{
-			unsigned val = (frame[h * WIDTH + w] >> 8);
+			unsigned val = frame[h * WIDTH + w] & 0xFFFFFF;
 
 			unsigned char R = (val >> 16) & 0xFF;
 			unsigned char G = (val >> 8 ) & 0xFF;

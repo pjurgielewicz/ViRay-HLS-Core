@@ -99,7 +99,7 @@ enum ObjectType{
 #define DIFFUSE_COLOR_ENABLE
 #define SPECULAR_HIGHLIGHT_ENABLE
 #define SHADOW_ENABLE
-//#define FRESNEL_REFLECTION_ENABLE
+#define FRESNEL_REFLECTION_ENABLE
 
 //#ifndef __SYNTHESIS__
 //#define FAST_INV_SQRT_ENABLE
@@ -123,7 +123,7 @@ enum ObjectType{
 #else
 
 #define PRIMARY_COLOR_ENABLE
-#define REFLECTION_ENABLE
+//#define REFLECTION_ENABLE
 
 #endif
 
