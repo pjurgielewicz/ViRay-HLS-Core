@@ -100,8 +100,11 @@ enum ObjectType{
 #define SPECULAR_HIGHLIGHT_ENABLE
 #define SHADOW_ENABLE
 //#define FRESNEL_REFLECTION_ENABLE
-#define FAST_INV_SQRT_ENABLE
-//#define FAST_DIVISION_ENABLE
+
+//#ifndef __SYNTHESIS__
+//#define FAST_INV_SQRT_ENABLE
+////#define FAST_DIVISION_ENABLE
+//#endif
 
 /*
  * SCENE 'RANGE' DEFINITION
@@ -115,7 +118,7 @@ enum ObjectType{
 
 #ifdef DEEP_RAYTRACING_ENABLE
 
-#define RAYTRACING_DEPTH			((unsigned char)(10))
+#define RAYTRACING_DEPTH			((unsigned char)(4))
 
 #else
 

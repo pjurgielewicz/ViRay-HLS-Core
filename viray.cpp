@@ -12,7 +12,7 @@ void RenderScene(const CCamera& camera,
 					const mat4* objTransform,
 					const mat4* objTransformInv,
 #else
-					const SimpleTransform* objTransform,
+					const SimpleTransform* objTransform, const SimpleTransform* objTransformCopy,
 #endif
 					const unsigned* objType,
 
@@ -32,7 +32,7 @@ void RenderScene(const CCamera& camera,
 					objTransform,
 					objTransformInv,
 #else
-					objTransform,
+					objTransform, objTransformCopy,
 #endif
 					objType,
 					HEIGHT - 1 - h,
@@ -50,7 +50,7 @@ void InnerLoop(const CCamera& camera,
 				const mat4* objTransform,
 				const mat4* objTransformInv,
 #else
-				const SimpleTransform* objTransform,
+				const SimpleTransform* objTransform, const SimpleTransform* objTransformCopy,
 #endif
 				const unsigned* objType,
 				unsigned short h,
@@ -77,7 +77,7 @@ DO_PRAGMA(HLS UNROLL factor=INNER_LOOP_UNROLL_FACTOR)
 
 		CreateRay(camera, posShift, h, w, ray);
 
-#if defined(DEEP_RAYTRACING_ENABLE) && !defined (__SYNTHESIS__)
+#if defined(DEEP_RAYTRACING_ENABLE)
 		myType doesItMakeSense(1.0);
 		myType currentReflectivity(1.0);
 		for (unsigned char depth = 0; depth < RAYTRACING_DEPTH; ++depth)
@@ -149,7 +149,7 @@ DO_PRAGMA(HLS UNROLL factor=INNER_LOOP_UNROLL_FACTOR)
 #ifndef SIMPLE_OBJECT_TRANSFORM_ENABLE
 						objTransform, objTransformInv,
 #else
-						objTransform,
+						objTransformCopy,
 #endif
 						objType, closestReflectedSr);
 #endif
@@ -183,7 +183,7 @@ DO_PRAGMA(HLS UNROLL factor=INNER_LOOP_UNROLL_FACTOR)
 #ifndef SIMPLE_OBJECT_TRANSFORM_ENABLE
 							objTransform, objTransformInv,
 #else
-							objTransform,
+							objTransformCopy,
 #endif
 							objType, lights, materials) *
 							reflectivity *

@@ -101,7 +101,7 @@ namespace ViRay
 			const mat4* objTransform,
 			const mat4* objTransformInv,
 #else
-			const SimpleTransform* objTransform,
+			const SimpleTransform* objTransform, const SimpleTransform* objTransformCopy,
 #endif
 			const unsigned* objType,
 
@@ -117,7 +117,7 @@ namespace ViRay
 			const mat4* objTransform,
 			const mat4* objTransformInv,
 #else
-			const SimpleTransform* objTransform,
+			const SimpleTransform* objTransform, const SimpleTransform* objTransformCopy,
 #endif
 			const unsigned* objType,
 			unsigned short h,
