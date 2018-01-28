@@ -120,7 +120,7 @@ enum ObjectType{
 
 #ifdef DEEP_RAYTRACING_ENABLE
 
-#define RAYTRACING_DEPTH			((unsigned char)(4))
+#define RAYTRACING_DEPTH			((unsigned char)(2))
 
 #else
 

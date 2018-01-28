@@ -36,7 +36,6 @@ namespace ViRay
 			localHitPoint 	= vec3(myType(0.0));
 			hitPoint 		= vec3(myType(0.0));
 
-//			localDistance 	= myType(MAX_DISTANCE);
 			distanceSqr 	= myType(MAX_DISTANCE);
 
 			objIdx 			= 0;
@@ -161,22 +160,18 @@ namespace ViRay
 				const unsigned* objType,
 
 				const Light* lights,
-				const Material* materials);
+				const Material* materials,
 
-	myType GetFresnelReflectionCoeff(const vec3& rayDirection, const vec3 surfaceNormal, const myType& relativeEta, const myType& invRelativeEtaSqr);
+				const myType ndir2min);
+
+	myType GetFresnelReflectionCoeff(/*const vec3& rayDirection, const vec3 surfaceNormal,*/ const myType& cosRefl, const myType& relativeEta, const myType& invRelativeEtaSqr);
 
 	void CreateRay(const CCamera& camera, const myType* posShift, unsigned short r, unsigned short c, CRay& ray);
 
 #ifndef SIMPLE_OBJECT_TRANSFORM_ENABLE
 	void TransformRay(const mat4& mat, const CRay& ray, CRay& transformedRay);
 #else
-	void TransformRay(const SimpleTransform& transform, const CRay& ray, CRay& transformedRay, bool isInverse = true);
-#endif
-
-#ifndef SIMPLE_OBJECT_TRANSFORM_ENABLE
-	myType PlaneTest(const CRay& transformedRay);
-#else
-	myType PlaneTest(const CRay& transformedRay, const vec3& orientation);
+	void TransformRay(const SimpleTransform& transform, const CRay& ray, CRay& transformedRay);
 #endif
 	myType CubeTest(const CRay& transformedRay, unsigned char& face);
 	vec3 GetCubeNormal(const unsigned char& faceIdx);
@@ -213,7 +208,7 @@ namespace ViRay
 	 */
 	namespace ViRayUtils
 	{
-		myType QuadraticObjectSolve(const vec3& abc, const CRay& transformedRay);
+		myType GeomObjectSolve(const vec3& abc, const CRay& transformedRay, myType& aInv);
 		myType NaturalPow(myType valIn, unsigned char n);
 		myType Clamp(myType val, myType min = myType(0.0), myType max = myType(1.0));
 		myType InvSqrt(myType val);
