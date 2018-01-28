@@ -4,6 +4,8 @@
 
 #include "../Common/typedefs.h"
 
+//#include "typedefs.h"
+
 #ifndef UC_OPERATION
 #include <iostream>
 #include "../viray.h"
@@ -146,7 +148,11 @@ struct vec3
 
 	myType Magnitude() const
 	{
+#ifndef UC_OPERATION
 		return ViRay::ViRayUtils::Sqrt((*this) * (*this));
+#else
+		return std::sqrt((*this) * (*this));
+#endif
 	}
 
 	vec3 Normalize() const

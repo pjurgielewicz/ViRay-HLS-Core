@@ -188,7 +188,6 @@ DO_PRAGMA(HLS UNROLL factor=INNER_LOOP_UNROLL_FACTOR)
 							objType, lights, materials) *
 							reflectivity *
 							doesItMakeSense;
-							//closestSr.isHit;
 #endif
 		}
 
@@ -266,7 +265,10 @@ void VisibilityTest(const CRay& ray,
 	/*
 	 * ALLOW TO SHADE INTERNAL SURFACES
 	 */
+#ifdef INTERNAL_SHADING_ENABLE
 	if (closestSr.normal * ray.direction > myType(0.0)) closestSr.normal = -closestSr.normal;
+#endif
+
 }
 
 void ShadowVisibilityTest(	const CRay& shadowRay,
@@ -288,7 +290,9 @@ void ShadowVisibilityTest(	const CRay& shadowRay,
 	ShadowLoop: for (unsigned char n = 0; n < OBJ_NUM; ++n)
 	{
 #pragma HLS PIPELINE
+#ifndef SELF_SHADOW_ENABLE
 		if ( n == closestSr.objIdx ) continue;
+#endif
 
 #ifndef SIMPLE_OBJECT_TRANSFORM_ENABLE
 		TransformRay(objTransformInv[n], shadowRay, transformedRay);

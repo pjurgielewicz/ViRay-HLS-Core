@@ -19,7 +19,7 @@
 #define DO_PRAGMA(x) PRAGMA_SUB(x)
 
 #define INNER_LOOP_UNROLL_FACTOR 1
-#define DESIRED_INNER_LOOP_II 10
+#define DESIRED_INNER_LOOP_II 8
 
 //#define USE_FIXEDPOINT
 
@@ -98,7 +98,9 @@ enum ObjectType{
 #define AMBIENT_COLOR_ENABLE
 #define DIFFUSE_COLOR_ENABLE
 #define SPECULAR_HIGHLIGHT_ENABLE
+#define INTERNAL_SHADING_ENABLE
 #define SHADOW_ENABLE
+#define SELF_SHADOW_ENABLE
 #define FRESNEL_REFLECTION_ENABLE
 
 //#ifndef __SYNTHESIS__
@@ -114,7 +116,7 @@ enum ObjectType{
 #define HEIGHT 						((unsigned short)(1080))
 #define FRAME_BUFFER_SIZE (WIDTH)
 #define LIGHTS_NUM 					((unsigned char)(2))
-#define OBJ_NUM 					((unsigned char)(10))
+#define OBJ_NUM 					((unsigned char)(8))
 
 #ifdef DEEP_RAYTRACING_ENABLE
 
@@ -123,7 +125,7 @@ enum ObjectType{
 #else
 
 #define PRIMARY_COLOR_ENABLE
-//#define REFLECTION_ENABLE
+#define REFLECTION_ENABLE
 
 #endif
 
