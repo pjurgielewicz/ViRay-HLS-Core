@@ -37,7 +37,7 @@ int main()
 	// CUBE I
 	T.TranslationMatrix(loadVectorFromStream(dataFile, tmp));
 	R.RotationMatrix(PI * 0.3, vec3(myType(1.0), myType(1.0), myType(1.0)));
-	S.ScaleMatrix(vec3(0.5, 0.5, 0.5));
+	S.ScaleMatrix(vec3(1.0));
 	objTransform[0] = T * R * S;
 	objInvTransform[0] = objTransform[0].Inverse();
 
@@ -64,14 +64,14 @@ int main()
 	// PLANE III
 	T.TranslationMatrix(loadVectorFromStream(dataFile, tmp));
 	R.RotationMatrix(myType(PI * 0.5), vec3(0.0, 0.0, 1.0));
-	S.ScaleMatrix(vec3(5.0, 1.0, 5.0));
+	S.ScaleMatrix(vec3(4.0));
 	objTransform[4] = T * R * S;
 	objInvTransform[4] = objTransform[4].Inverse();
 
 	// PLANE IV
 	T.TranslationMatrix(loadVectorFromStream(dataFile, tmp));
 	R.RotationMatrix(myType(-PI * 0.5), vec3(0.0, 0.0, 1.0));
-	S.ScaleMatrix(vec3(5.0, 1.0, 5.0));
+	S.ScaleMatrix(vec3(4.0));
 	objTransform[5] = T * R * S;
 	objInvTransform[5] = objTransform[5].Inverse();
 
@@ -120,34 +120,34 @@ int main()
 	}
 
 	// SPHERE
-	translation[0] = vec3(myType(-2.0), myType(0.0), myType(0.0));
-	scale[0][0] = myType(0.5);	invScale[0][0] = myType(1.0) / scale[0][0];
+	translation[0] = loadVectorFromStream(dataFile, tmp);
+	scale[0][0] = myType(1.0);	invScale[0][0] = myType(1.0) / scale[0][0];
 	// CYLINDER
-	translation[1] = vec3(myType(2.0), myType(-1.0), myType(-1.0));
+	translation[1] = loadVectorFromStream(dataFile, tmp);
 	scale[1][0] = myType(2.0);	invScale[1][0] = myType(1.0) / scale[1][0];
 	orientation[1] = vec3(myType(0.0), myType(0.0), myType(1.0));
 	// PLANE
-	translation[2] = vec3(myType(0.0), myType(-2.0), myType(0.0));
+	translation[2] = loadVectorFromStream(dataFile, tmp);
 	orientation[2] = vec3(myType(0.0), myType(1.0), myType(0.0));
 
 	// DISK
-	translation[3] = vec3(myType(0.0), myType(0.0), myType(-6.0));
+	translation[3] = loadVectorFromStream(dataFile, tmp);
 	orientation[3] = vec3(myType(0.0), myType(0.0), myType(1.0));
 	scale[3][0] = myType(5.0); invScale[3][0] = myType(1.0) / scale[3][0];
 	scale[3][1] = myType(5.0); invScale[3][1] = myType(1.0) / scale[3][1];
 	// SQUARE
-	translation[4] = vec3(myType(-4.0), myType(-2.0), myType(0.0));
+	translation[4] = loadVectorFromStream(dataFile, tmp);
 	orientation[4] = vec3(myType(1.0), myType(0.0), myType(0.0));
-	scale[4][1] = myType(5.0); invScale[4][1] = myType(1.0) / scale[4][1];
-	scale[4][2] = myType(5.0); invScale[4][2] = myType(1.0) / scale[4][2];
+	scale[4][1] = myType(4.0); invScale[4][1] = myType(1.0) / scale[4][1];
+	scale[4][2] = myType(4.0); invScale[4][2] = myType(1.0) / scale[4][2];
 	// SQUARE
-	translation[5] = vec3(myType(4.0), myType(-2.0), myType(0.0));
+	translation[5] = loadVectorFromStream(dataFile, tmp);
 	orientation[5] = vec3(myType(-1.0), myType(0.0), myType(0.0));
-	scale[5][1] = myType(5.0); invScale[5][1] = myType(1.0) / scale[5][1];
-	scale[5][2] = myType(5.0); invScale[5][2] = myType(1.0) / scale[5][2];
+	scale[5][1] = myType(4.0); invScale[5][1] = myType(1.0) / scale[5][1];
+	scale[5][2] = myType(4.0); invScale[5][2] = myType(1.0) / scale[5][2];
 
 	// CONE
-	translation[6] = vec3(myType(2.0), myType(-1.0), myType(-1.0));
+	translation[6] = loadVectorFromStream(dataFile, tmp);
 //	scale[6][0] = myType(0.5);	invScale[6][0] = myType(1.0) / scale[6][0];
 
 	// SAVING TO LINE BUFFER
@@ -184,7 +184,7 @@ int main()
 		case 0: objTypeIn[i] = SPHERE; break;
 		case 1: objTypeIn[i] = CYLINDER; break;
 		case 2: objTypeIn[i] = PLANE; break;
-		case 3: objTypeIn[i] = SPHERE; break;
+		case 3: objTypeIn[i] = DISK; break;
 		case 4: objTypeIn[i] = SQUARE; break;
 		case 5: objTypeIn[i] = SQUARE; break;
 		case 6: objTypeIn[i] = SPHERE; break;
@@ -237,10 +237,10 @@ int main()
 
 /////////////////////////////////////////////////////////
 
-	vec3* materialCoeff = new vec3[OBJ_NUM * 2];
-	vec3* materialColors = new vec3[OBJ_NUM * 3];
+	vec3* materialCoeff 	= new vec3[OBJ_NUM * 2];
+	vec3* materialColors 	= new vec3[OBJ_NUM * 4];
 
-	myType* materialArray = new myType[5 * sizeof(vec3) * OBJ_NUM];
+	myType* materialArray 	= new myType[6 * sizeof(vec3) * OBJ_NUM];
 
 	unsigned materialBufferPos = 0;
 	for (unsigned i = 0; i < OBJ_NUM; ++i)
@@ -252,13 +252,14 @@ int main()
 
 		materialCoeff[i * 2 + 1][2] = myType(1.0) / (materialCoeff[i * 2 + 1][1] * materialCoeff[i * 2 + 1][1]);
 
-		for (unsigned j = 0; j < 3; ++j)
+		for (unsigned j = 0; j < 4; ++j)
 		{
-			materialColors[i * 3 + j] = loadVectorFromStream(materialFile, tmp);
+			materialColors[i * 4 + j] = loadVectorFromStream(materialFile, tmp);
 		}
 
-		materialColors[i * 3 + 1] *= materialCoeff[i * 2 + 0][0]; 	// DIFFUSE 	* K[0]
-		materialColors[i * 3 + 2] *= materialCoeff[i * 2 + 0][1];  	// SPECULAR * K[1] /*???? TODEBUG*/
+		materialColors[i * 4 + 1] *= materialCoeff[i * 2 + 0][0]; 	// PRIMARY_DIFFUSE 		* K[0]
+		materialColors[i * 4 + 2] *= materialCoeff[i * 2 + 0][0]; 	// SECONDARY_DIFFUSE 	* K[0]
+		materialColors[i * 4 + 3] *= materialCoeff[i * 2 + 0][1];  	// SPECULAR 			* K[1] /*???? TODEBUG*/
 
 		// SAVING TO LINE BUFFER
 		for (unsigned j = 0; j < 2; ++j)
@@ -268,11 +269,11 @@ int main()
 				materialArray[materialBufferPos++] = materialCoeff[i * 2 + j][k];
 			}
 		}
-		for (unsigned j = 0; j < 3; ++j)
+		for (unsigned j = 0; j < 4; ++j)
 		{
 			for (unsigned k = 0; k < 3; ++k)
 			{
-				materialArray[materialBufferPos++] = materialColors[i * 3 + j][k];
+				materialArray[materialBufferPos++] = materialColors[i * 4 + j][k];
 			}
 		}
 	}
@@ -290,6 +291,58 @@ int main()
 
 /////////////////////////////////////////////////////////
 
+	myType_union* textureData = new myType_union[MAX_TEXTURE_NUM * TEXT_WIDTH * TEXT_HEIGHT];
+	int* textureBind = new int[OBJ_NUM];
+	int* textureType = new int[OBJ_NUM];
+
+	for (unsigned i = 0; i < OBJ_NUM; ++i)
+	{
+		textureBind[i] = 0;
+		textureType[i] = ViRay::Material::CONSTANT;
+	}
+
+	// RGB DOTS PIXEL TYPE TEXTURE
+	unsigned shift = 1;
+	for (unsigned w = 0; w < TEXT_WIDTH; ++w)
+	{
+		for (unsigned h = 0; h < TEXT_HEIGHT; ++h)
+		{
+			textureData[w * TEXT_HEIGHT + h].raw_bits = (130 << (shift * 8));
+			shift = (shift == 3) ? 1 : shift + 1;
+		}
+	}
+	// CHECKERBOX
+	unsigned basePos = TEXT_WIDTH * TEXT_HEIGHT;
+	for (unsigned w = 0; w < TEXT_WIDTH; ++w)
+	{
+		unsigned xc = w / 16;
+		for (unsigned h = 0; h < TEXT_HEIGHT; ++h)
+		{
+			unsigned yc = h / 16;
+
+			unsigned s = xc + yc;
+			if (s & 0x1)
+			{
+				textureData[basePos + w * TEXT_HEIGHT + h].raw_bits = 0xFFFFFF00;
+//				cout << 1;
+			}
+			else
+			{
+				textureData[basePos + w * TEXT_HEIGHT + h].raw_bits = 0;
+//				cout << 0;
+			}
+		}
+//		cout << endl;
+	}
+
+	textureBind[4] = 0;
+	textureType[4] = ViRay::Material::PIXEL_MAP;
+
+	textureBind[5] = 1;
+	textureType[5] = ViRay::Material::PIXEL_MAP;
+
+/////////////////////////////////////////////////////////
+
 	pixelColorType* frame = new pixelColorType[WIDTH * HEIGHT];
 
 /////////////////////////////////////////////////////////
@@ -300,7 +353,6 @@ int main()
 	ViRayMain(
 			transformationArray,
 			transformationArray,
-
 			objTypeIn,
 
 			lightArray,
@@ -308,6 +360,10 @@ int main()
 
 			cameraArray,
 			zoom,
+
+			(myType*)textureData,
+			textureBind,
+			textureType,
 
 			frame);
 
@@ -336,6 +392,10 @@ int main()
 /////////////////////////////////////////////////////////
 
 	delete[] frame;
+
+	delete[] textureType;
+	delete[] textureBind;
+	delete[] textureData;
 
 	delete[] cameraArray;
 

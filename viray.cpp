@@ -19,6 +19,8 @@ void RenderScene(const CCamera& camera,
 					const Light* lights,
 					const Material* materials,
 
+					const myType_union textureData[MAX_TEXTURE_NUM][TEXT_WIDTH * TEXT_HEIGHT],
+
 					pixelColorType* frameBuffer,
 					pixelColorType* outColor)
 {
@@ -38,6 +40,7 @@ void RenderScene(const CCamera& camera,
 					HEIGHT - 1 - h,
 					lights,
 					materials,
+					textureData,
 					frameBuffer);
 		memcpy(outColor + FRAME_BUFFER_SIZE * h, frameBuffer, sizeof(pixelColorType) * FRAME_BUFFER_SIZE);
 	}
@@ -57,6 +60,8 @@ void InnerLoop(const CCamera& camera,
 
 				const Light* lights,
 				const Material* materials,
+
+				const myType_union textureData[MAX_TEXTURE_NUM][TEXT_WIDTH * TEXT_HEIGHT],
 
 				pixelColorType* frameBuffer)
 {
@@ -170,7 +175,7 @@ DO_PRAGMA(HLS UNROLL factor=INNER_LOOP_UNROLL_FACTOR)
 #else
 						objTransform,
 #endif
-						objType, lights, materials, ndir2min);
+						objType, lights, materials, textureData, ndir2min);
 #endif
 
 #ifdef REFLECTION_ENABLE
@@ -190,7 +195,7 @@ DO_PRAGMA(HLS UNROLL factor=INNER_LOOP_UNROLL_FACTOR)
 #else
 							objTransformCopy,
 #endif
-							objType, lights, materials, ndir2minRefl) * reflectivity : vec3(myType(0.0));
+							objType, lights, materials, textureData, ndir2minRefl) * reflectivity : vec3(myType(0.0));
 #endif
 		}
 
@@ -322,6 +327,8 @@ vec3 Shade(	const ShadeRec& closestSr,
 			const Light* lights,
 			const Material* materials,
 
+			const myType_union textureData[MAX_TEXTURE_NUM][TEXT_WIDTH * TEXT_HEIGHT],
+
 			const myType ndir2min)
 {
 #pragma HLS INLINE
@@ -330,6 +337,13 @@ vec3 Shade(	const ShadeRec& closestSr,
 	vec3 colorOut(myType(0.0), myType(0.0), myType(0.0));
 	CRay transformedRay;
 	ShadeRec sr;
+
+	vec3 diffuseColor = materials[closestSr.objIdx].GetDiffuseColor(closestSr.localHitPoint,
+#ifdef SIMPLE_OBJECT_TRANSFORM_ENABLE
+			 	 	 	 	 	 	 	 	 	 	 	 	 	 	closestSr.orientation,
+#endif
+																	textureData);
+	vec3 ambientColor = (materials[closestSr.objIdx].textureType == ViRay::Material::CONSTANT ? materials[closestSr.objIdx].ambientColor : diffuseColor );
 
 	for (unsigned char l = 1; l < LIGHTS_NUM; ++l)
 	{
@@ -371,9 +385,12 @@ vec3 Shade(	const ShadeRec& closestSr,
 		// DIFFUSE + SPECULAR
 		// (HLS::POW() -> SUBOPTIMAL QoR)
 		// COLORS SHOULD BE ATTENUATED BEFOREHAND (AT MICROCONTROLLER STAGE)
+
+//		vec3 diffuseColor = materials[closestSr.objIdx].diffuseColor;
+
 		vec3 baseColor =
 #ifdef DIFFUSE_COLOR_ENABLE
-							materials[closestSr.objIdx].diffuseColor  // * materials[closestSr.objIdx].k[0]
+							diffuseColor  // * materials[closestSr.objIdx].k[0]
 #else
 						   vec3(myType(0.0), myType(0.0), myType(0.0))
 #endif
@@ -393,13 +410,15 @@ vec3 Shade(	const ShadeRec& closestSr,
 		 * - SPOT LIGHT
 		 * - NORMAL LIGHT DIRECTION DOT
 		 */
-		colorOut += (shadowSr.objIdx) ? baseColor.CompWiseMul(lights[l].color) * d2Inv * lightSpotCoeff * dot : vec3(myType(0.0));
+		colorOut += (shadowSr.objIdx) ? baseColor.CompWiseMul(lights[l].color) * d2Inv * lightSpotCoeff * dot : (/*materials[closestSr.objIdx].textureType != ViRay::Material::CONSTANT ? diffuseColor : */vec3(myType(0.0)));
 
 	}
 	return (closestSr.isHit) ?
 								(colorOut
 #ifdef AMBIENT_COLOR_ENABLE
-								+ materials[closestSr.objIdx].ambientColor.CompWiseMul(lights[0].color)
+//								+ materials[closestSr.objIdx].ambientColor.CompWiseMul(lights[0].color)
+								+ ambientColor.CompWiseMul(lights[0].color)
+
 #endif
 								) : vec3(myType(0.0));
 }
@@ -530,7 +549,7 @@ void PerformHits(const CRay& transformedRay,
 #endif
 				unsigned objType, ShadeRec& sr)
 {
-//#pragma HLS INLINE
+#pragma HLS INLINE
 //#pragma HLS PIPELINE
 	myType res = MAX_DISTANCE;
 	myType aInv = myType(1.0);
@@ -671,6 +690,7 @@ void PerformHits(const CRay& transformedRay,
 	}
 
 	sr.localHitPoint = transformedRay.origin + transformedRay.direction * res;
+
 #ifndef SIMPLE_OBJECT_TRANSFORM_ENABLE
 	sr.localNormal = vec3(myType(0.0), myType(1.0), myType(0.0));
 #else
@@ -715,6 +735,7 @@ void PerformHits(const CRay& transformedRay,
 #ifdef SQUARE_OBJECT_ENABLE
 	case SQUARE:
 		if (ViRayUtils::Abs(sr.localHitPoint[0]) > myType(1.0) ||
+			ViRayUtils::Abs(sr.localHitPoint[1]) > myType(1.0) ||
 			ViRayUtils::Abs(sr.localHitPoint[2]) > myType(1.0))		sr.localHitPoint = vec3(MAX_DISTANCE);//res = MAX_DISTANCE;
 		break;
 #endif
@@ -751,6 +772,10 @@ void UpdateClosestObject(ShadeRec& current,
 		best.hitPoint 		= current.hitPoint;
 
 		best.localNormal 	= current.localNormal;
+
+#ifdef SIMPLE_OBJECT_TRANSFORM_ENABLE
+		best.orientation	= transform.orientation;
+#endif
 
 		best.isHit 	= true;
 		best.objIdx = n;

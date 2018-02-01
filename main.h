@@ -6,7 +6,6 @@
 int ViRayMain(
 				const myType* objTransformationArrayIn,
 				const myType* objTransformationArrayCopyIn,
-
 				const int* objTypeIn,
 
 				const myType* lightArrayIn,
@@ -14,6 +13,10 @@ int ViRayMain(
 
 				const myType* cameraArrayIn,
 				myType cameraZoom,
+
+				const myType* textureDataIn,
+				const int* textureBindIn,
+				const int* textureTypeIn,
 
 				pixelColorType* outColor);
 
