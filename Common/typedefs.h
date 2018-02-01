@@ -43,7 +43,7 @@ typedef float myType;
 // SEE << fp_mul_pow2 >> example project
 typedef union {
     myType fp_num;
-//    unsigned raw_bits;
+    unsigned raw_bits;
     struct {
     	unsigned mant : 23;
     	unsigned bexp : 8;
@@ -103,6 +103,9 @@ enum ObjectType{
 #define SELF_SHADOW_ENABLE
 #define FRESNEL_REFLECTION_ENABLE
 
+#define TEXTURE_ENABLE
+#define TEXTURE_URAM_STORAGE
+#define BILINEAR_TEXTURE_FILTERING_ENABLE
 //#ifndef __SYNTHESIS__
 //#define FAST_INV_SQRT_ENABLE
 ////#define FAST_DIVISION_ENABLE
@@ -114,7 +117,11 @@ enum ObjectType{
 
 #define WIDTH 						((unsigned short)(1920))
 #define HEIGHT 						((unsigned short)(1080))
-#define FRAME_BUFFER_SIZE (WIDTH)
+
+#define TEXT_WIDTH					((unsigned short)(128))
+#define TEXT_HEIGHT					((unsigned short)(128))
+
+#define FRAME_BUFFER_SIZE 			(WIDTH)
 #define LIGHTS_NUM 					((unsigned char)(2))
 #define OBJ_NUM 					((unsigned char)(8))
 
@@ -128,6 +135,8 @@ enum ObjectType{
 #define REFLECTION_ENABLE
 
 #endif
+
+#define	MAX_TEXTURE_NUM				((unsigned char)(5))
 
 #define MAX_POWER_LOOP_ITER			((unsigned char)(7))
 

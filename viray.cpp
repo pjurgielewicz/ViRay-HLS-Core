@@ -19,6 +19,8 @@ void RenderScene(const CCamera& camera,
 					const Light* lights,
 					const Material* materials,
 
+					const myType_union textureData[MAX_TEXTURE_NUM][TEXT_WIDTH * TEXT_HEIGHT],
+
 					pixelColorType* frameBuffer,
 					pixelColorType* outColor)
 {
@@ -38,6 +40,7 @@ void RenderScene(const CCamera& camera,
 					HEIGHT - 1 - h,
 					lights,
 					materials,
+					textureData,
 					frameBuffer);
 		memcpy(outColor + FRAME_BUFFER_SIZE * h, frameBuffer, sizeof(pixelColorType) * FRAME_BUFFER_SIZE);
 	}
@@ -58,6 +61,8 @@ void InnerLoop(const CCamera& camera,
 				const Light* lights,
 				const Material* materials,
 
+				const myType_union textureData[MAX_TEXTURE_NUM][TEXT_WIDTH * TEXT_HEIGHT],
+
 				pixelColorType* frameBuffer)
 {
 //#pragma HLS INLINE
@@ -75,7 +80,7 @@ DO_PRAGMA(HLS UNROLL factor=INNER_LOOP_UNROLL_FACTOR)
 		CRay ray, transformedRay, reflectedRay;
 		ShadeRec closestSr, closestReflectedSr;
 
-		CreateRay(camera, posShift, h, w, ray);
+		CreatePrimaryRay(camera, posShift, h, w, ray);
 
 #if defined(DEEP_RAYTRACING_ENABLE)
 		myType currentReflectivity(1.0);
@@ -170,7 +175,7 @@ DO_PRAGMA(HLS UNROLL factor=INNER_LOOP_UNROLL_FACTOR)
 #else
 						objTransform,
 #endif
-						objType, lights, materials, ndir2min);
+						objType, lights, materials, textureData, ndir2min);
 #endif
 
 #ifdef REFLECTION_ENABLE
@@ -190,7 +195,7 @@ DO_PRAGMA(HLS UNROLL factor=INNER_LOOP_UNROLL_FACTOR)
 #else
 							objTransformCopy,
 #endif
-							objType, lights, materials, ndir2minRefl) * reflectivity : vec3(myType(0.0));
+							objType, lights, materials, textureData, ndir2minRefl) * reflectivity : vec3(myType(0.0));
 #endif
 		}
 
@@ -322,6 +327,8 @@ vec3 Shade(	const ShadeRec& closestSr,
 			const Light* lights,
 			const Material* materials,
 
+			const myType_union textureData[MAX_TEXTURE_NUM][TEXT_WIDTH * TEXT_HEIGHT],
+
 			const myType ndir2min)
 {
 #pragma HLS INLINE
@@ -371,9 +378,13 @@ vec3 Shade(	const ShadeRec& closestSr,
 		// DIFFUSE + SPECULAR
 		// (HLS::POW() -> SUBOPTIMAL QoR)
 		// COLORS SHOULD BE ATTENUATED BEFOREHAND (AT MICROCONTROLLER STAGE)
+
+//		vec3 diffuseColor = materials[closestSr.objIdx].diffuseColor;
+		vec3 diffuseColor = materials[closestSr.objIdx].GetDiffuseColor(closestSr.localHitPoint, textureData);
+
 		vec3 baseColor =
 #ifdef DIFFUSE_COLOR_ENABLE
-							materials[closestSr.objIdx].diffuseColor  // * materials[closestSr.objIdx].k[0]
+							diffuseColor  // * materials[closestSr.objIdx].k[0]
 #else
 						   vec3(myType(0.0), myType(0.0), myType(0.0))
 #endif
@@ -406,7 +417,7 @@ vec3 Shade(	const ShadeRec& closestSr,
 
 // ****************   !THE REAL CORE OF THE PROCESSING   ****************
 
-void CreateRay(const CCamera& camera, const myType* posShift, unsigned short r, unsigned short c, CRay& ray)
+void CreatePrimaryRay(const CCamera& camera, const myType* posShift, unsigned short r, unsigned short c, CRay& ray)
 {
 #pragma HLS PIPELINE
 	myType samplePoint[2] = {posShift[0] + /*myType(0.5) +*/ c,
