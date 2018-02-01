@@ -166,7 +166,7 @@ namespace ViRay
 
 	myType GetFresnelReflectionCoeff(/*const vec3& rayDirection, const vec3 surfaceNormal,*/ const myType& cosRefl, const myType& relativeEta, const myType& invRelativeEtaSqr);
 
-	void CreateRay(const CCamera& camera, const myType* posShift, unsigned short r, unsigned short c, CRay& ray);
+	void CreatePrimaryRay(const CCamera& camera, const myType* posShift, unsigned short r, unsigned short c, CRay& ray);
 
 #ifndef SIMPLE_OBJECT_TRANSFORM_ENABLE
 	void TransformRay(const mat4& mat, const CRay& ray, CRay& transformedRay);
