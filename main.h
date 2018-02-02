@@ -6,7 +6,6 @@
 int ViRayMain(
 				const myType* objTransformationArrayIn,
 				const myType* objTransformationArrayCopyIn,
-
 				const int* objTypeIn,
 
 				const myType* lightArrayIn,

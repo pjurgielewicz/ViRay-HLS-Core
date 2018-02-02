@@ -357,6 +357,7 @@ vec3 Shade(	const ShadeRec& closestSr,
 #endif
 																	textureData);
 */
+
 	for (unsigned char l = 1; l < LIGHTS_NUM; ++l)
 	{
 #pragma HLS PIPELINE
@@ -590,6 +591,23 @@ void PerformHits(const CRay& transformedRay,
 			ViRayUtils::Swap(transformedRayByObjectDirection.origin[2], 	transformedRayByObjectDirection.origin[1]);
 		}
 #endif
+
+		myType dxdx = transformedRayByObjectDirection.direction[0] * transformedRayByObjectDirection.direction[0];
+		myType dydy = transformedRayByObjectDirection.direction[1] * transformedRayByObjectDirection.direction[1];
+		myType dzdz = transformedRayByObjectDirection.direction[2] * transformedRayByObjectDirection.direction[2];
+
+		myType dxox = transformedRayByObjectDirection.direction[0] * transformedRayByObjectDirection.origin[0];
+		myType dyoy = transformedRayByObjectDirection.direction[1] * transformedRayByObjectDirection.origin[1];
+		myType dzoz = transformedRayByObjectDirection.direction[2] * transformedRayByObjectDirection.origin[2];
+
+		myType oxox = transformedRayByObjectDirection.origin[0] * transformedRayByObjectDirection.origin[0];
+		myType oyoy = transformedRayByObjectDirection.origin[1] * transformedRayByObjectDirection.origin[1];
+		myType ozoz = transformedRayByObjectDirection.origin[2] * transformedRayByObjectDirection.origin[2];
+
+		myType dxdxdzdz = dxdx + dzdz;
+		myType dxoxdzoz = dxox + dzoz;
+		myType oxoxozoz = oxox + ozoz;
+
 		switch(objType)
 		{
 		/*
@@ -598,32 +616,47 @@ void PerformHits(const CRay& transformedRay,
 		 */
 #ifdef SPHERE_OBJECT_ENABLE
 		case SPHERE:
-			abc[0] = transformedRayByObjectDirection.direction * transformedRayByObjectDirection.direction;
-			abc[1] = transformedRayByObjectDirection.direction * transformedRayByObjectDirection.origin;
-			abc[2] = transformedRayByObjectDirection.origin * transformedRayByObjectDirection.origin - myType(1.0);
+//			abc[0] = transformedRayByObjectDirection.direction * transformedRayByObjectDirection.direction;
+//			abc[1] = transformedRayByObjectDirection.direction * transformedRayByObjectDirection.origin;
+//			abc[2] = transformedRayByObjectDirection.origin * transformedRayByObjectDirection.origin - myType(1.0);
+
+			abc[0] = dxdxdzdz + dydy;
+			abc[1] = dxoxdzoz + dyoy;
+			abc[2] = oxoxozoz + oyoy - myType(1.0);
+
 			break;
 #endif
 #ifdef CYLINDER_OBJECT_ENABLE
 		case CYLINDER:
-			abc[0] = transformedRayByObjectDirection.direction[0] * transformedRayByObjectDirection.direction[0] +
-			 	 	 transformedRayByObjectDirection.direction[2] * transformedRayByObjectDirection.direction[2];
-			abc[1] = transformedRayByObjectDirection.direction[0] * transformedRayByObjectDirection.origin[0] +
-					 transformedRayByObjectDirection.direction[2] * transformedRayByObjectDirection.origin[2];
-			abc[2] = transformedRayByObjectDirection.origin[0] * transformedRayByObjectDirection.origin[0] +
-					 transformedRayByObjectDirection.origin[2] * transformedRayByObjectDirection.origin[2] - myType(1.0);
+//			abc[0] = transformedRayByObjectDirection.direction[0] * transformedRayByObjectDirection.direction[0] +
+//			 	 	 transformedRayByObjectDirection.direction[2] * transformedRayByObjectDirection.direction[2];
+//			abc[1] = transformedRayByObjectDirection.direction[0] * transformedRayByObjectDirection.origin[0] +
+//					 transformedRayByObjectDirection.direction[2] * transformedRayByObjectDirection.origin[2];
+//			abc[2] = transformedRayByObjectDirection.origin[0] * transformedRayByObjectDirection.origin[0] +
+//					 transformedRayByObjectDirection.origin[2] * transformedRayByObjectDirection.origin[2] - myType(1.0);
+
+			abc[0] = dxdxdzdz;
+			abc[1] = dxoxdzoz;
+			abc[2] = oxoxozoz - myType(1.0);
+
 			break;
 #endif
 #ifdef CONE_OBJECT_ENABLE
 		case CONE:
-			abc[0] = transformedRayByObjectDirection.direction[0] * transformedRayByObjectDirection.direction[0] -
-					 transformedRayByObjectDirection.direction[1] * transformedRayByObjectDirection.direction[1] +
-					 transformedRayByObjectDirection.direction[2] * transformedRayByObjectDirection.direction[2];
-			abc[1] = transformedRayByObjectDirection.direction[0] * transformedRayByObjectDirection.origin[0] -
-					 transformedRayByObjectDirection.direction[1] * (transformedRayByObjectDirection.origin[1] - myType(1.0)) +
-					 transformedRayByObjectDirection.direction[2] * transformedRayByObjectDirection.origin[2];
-			abc[2] = transformedRayByObjectDirection.origin[0] * transformedRayByObjectDirection.origin[0] -
-					(transformedRayByObjectDirection.origin[1] - myType(1.0)) * (transformedRayByObjectDirection.origin[1] - myType(1.0)) +
-					 transformedRayByObjectDirection.origin[2] * transformedRayByObjectDirection.origin[2];
+//			abc[0] = transformedRayByObjectDirection.direction[0] * transformedRayByObjectDirection.direction[0] -
+//					 transformedRayByObjectDirection.direction[1] * transformedRayByObjectDirection.direction[1] +
+//					 transformedRayByObjectDirection.direction[2] * transformedRayByObjectDirection.direction[2];
+//			abc[1] = transformedRayByObjectDirection.direction[0] * transformedRayByObjectDirection.origin[0] -
+//					 transformedRayByObjectDirection.direction[1] * (transformedRayByObjectDirection.origin[1] - myType(1.0)) +
+//					 transformedRayByObjectDirection.direction[2] * transformedRayByObjectDirection.origin[2];
+//			abc[2] = transformedRayByObjectDirection.origin[0] * transformedRayByObjectDirection.origin[0] -
+//					(transformedRayByObjectDirection.origin[1] - myType(1.0)) * (transformedRayByObjectDirection.origin[1] - myType(1.0)) +
+//					 transformedRayByObjectDirection.origin[2] * transformedRayByObjectDirection.origin[2];
+
+			abc[0] = dxdxdzdz - dydy;
+			abc[1] = dxoxdzoz - dyoy + transformedRayByObjectDirection.direction[1];
+			abc[2] = oxoxozoz - oyoy + myType(2.0) * transformedRayByObjectDirection.origin[1] - myType(1.0);
+
 			break;
 #endif
 #if	defined(PLANE_OBJECT_ENABLE) || defined (DISK_OBJECT_ENABLE) || defined(SQUARE_OBJECT_ENABLE)
@@ -654,20 +687,19 @@ void PerformHits(const CRay& transformedRay,
 #endif
 	}
 	else
+	{
 #endif
 #if defined(CUBE_OBJECT_ENABLE)
-	if (objType == CUBE)
-	{
-		res = CubeTest(transformedRay, faceIdx);
-	}
+		if (objType == CUBE)
+		{
+			res = CubeTest(transformedRay, faceIdx);
+		}
 #endif
-	// JUST IN CASE IF-ELSE BLOCK TERMINATION
-	{
-		// WHATEVER
 		;
 	}
 
 	sr.localHitPoint = transformedRay.origin + transformedRay.direction * res;
+
 #ifndef SIMPLE_OBJECT_TRANSFORM_ENABLE
 	sr.localNormal = vec3(myType(0.0), myType(1.0), myType(0.0));
 #else
@@ -696,11 +728,11 @@ void PerformHits(const CRay& transformedRay,
 #ifdef CONE_OBJECT_ENABLE
 	case CONE:
 #ifndef SIMPLE_OBJECT_TRANSFORM_ENABLE
-		sr.localNormal = vec3(sr.localHitPoint[0], -sr.localHitPoint[1] + myType(1.0), sr.localHitPoint[2]);
+		sr.localNormal = vec3(sr.localHitPoint[0], myType(1.0) -sr.localHitPoint[1], sr.localHitPoint[2]);
 #else
-		if 		(objOrientation[0] != myType(0.0))	sr.localNormal = vec3(-sr.localHitPoint[0] + myType(1.0), sr.localHitPoint[1], sr.localHitPoint[2]);
-		else if (objOrientation[1] != myType(0.0)) 	sr.localNormal = vec3(sr.localHitPoint[0], -sr.localHitPoint[1] + myType(1.0), sr.localHitPoint[2]);
-		else										sr.localNormal = vec3(sr.localHitPoint[0], sr.localHitPoint[1], -sr.localHitPoint[2] + myType(1.0));
+		if 		(objOrientation[0] != myType(0.0))	sr.localNormal = vec3(myType(1.0) - sr.localHitPoint[0], sr.localHitPoint[1], sr.localHitPoint[2]);
+		else if (objOrientation[1] != myType(0.0)) 	sr.localNormal = vec3(sr.localHitPoint[0], myType(1.0) - sr.localHitPoint[1], sr.localHitPoint[2]);
+		else										sr.localNormal = vec3(sr.localHitPoint[0], sr.localHitPoint[1], myType(1.0) - sr.localHitPoint[2]);
 #endif
 		break;
 #endif
@@ -724,11 +756,6 @@ void PerformHits(const CRay& transformedRay,
 	default:
 		break;
 	}
-
-	// IT IS REQUIRED FOR SHADOW PASS ANALYSIS
-//	sr.localHitPoint = transformedRay.origin + transformedRay.direction * res;
-	// NOT NEEDED ANYMORE
-//	sr.localDistance = res;
 }
 
 void UpdateClosestObject(ShadeRec& current,
@@ -755,8 +782,9 @@ void UpdateClosestObject(ShadeRec& current,
 
 		best.localNormal 	= current.localNormal;
 
+#ifdef SIMPLE_OBJECT_TRANSFORM_ENABLE
 		best.orientation	= transform.orientation;
-
+#endif
 		best.isHit 	= true;
 		best.objIdx = n;
 	}

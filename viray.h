@@ -18,7 +18,6 @@ namespace ViRay
 
 		vec3 orientation;
 
-//		myType localDistance;
 		myType distanceSqr;
 
 		unsigned char objIdx;
@@ -105,22 +104,22 @@ namespace ViRay
 
 			case BITMAP_MASK:
 #ifdef BILINEAR_TEXTURE_FILTERING_ENABLE
-				mix = 	bitmap[textureIdx][interpolationData.c1 * TEXT_WIDTH + interpolationData.r1].fp_num * interpolationData.wc1 * interpolationData.wr1 +
-						bitmap[textureIdx][interpolationData.c1 * TEXT_WIDTH + interpolationData.r2].fp_num * interpolationData.wc1 * interpolationData.wr2 +
-						bitmap[textureIdx][interpolationData.c2 * TEXT_WIDTH + interpolationData.r2].fp_num * interpolationData.wc2 * interpolationData.wr2 +
-						bitmap[textureIdx][interpolationData.c2 * TEXT_WIDTH + interpolationData.r1].fp_num * interpolationData.wc2 * interpolationData.wr1;
+				mix = 	bitmap[textureIdx][interpolationData.c1 * TEXT_HEIGHT + interpolationData.r1].fp_num * interpolationData.wc1 * interpolationData.wr1 +
+						bitmap[textureIdx][interpolationData.c1 * TEXT_HEIGHT + interpolationData.r2].fp_num * interpolationData.wc1 * interpolationData.wr2 +
+						bitmap[textureIdx][interpolationData.c2 * TEXT_HEIGHT + interpolationData.r2].fp_num * interpolationData.wc2 * interpolationData.wr2 +
+						bitmap[textureIdx][interpolationData.c2 * TEXT_HEIGHT + interpolationData.r1].fp_num * interpolationData.wc2 * interpolationData.wr1;
 #else
-				mix =	bitmap[textureIdx][interpolationData.c1 * TEXT_WIDTH + interpolationData.r1].fp_num;
+				mix =	bitmap[textureIdx][interpolationData.c1 * TEXT_HEIGHT + interpolationData.r1].fp_num;
 #endif
 				return primaryColor * mix + secondaryColor * (myType(1.0) - mix);
 			case PIXEL_MAP:
 #ifdef BILINEAR_TEXTURE_FILTERING_ENABLE
-				return 	ConvertFloatBufferToRGB(bitmap[textureIdx][interpolationData.c1 * TEXT_WIDTH + interpolationData.r1]) * interpolationData.wc1 * interpolationData.wr1 +
-						ConvertFloatBufferToRGB(bitmap[textureIdx][interpolationData.c1 * TEXT_WIDTH + interpolationData.r2]) * interpolationData.wc1 * interpolationData.wr2 +
-						ConvertFloatBufferToRGB(bitmap[textureIdx][interpolationData.c2 * TEXT_WIDTH + interpolationData.r2]) * interpolationData.wc2 * interpolationData.wr2 +
-						ConvertFloatBufferToRGB(bitmap[textureIdx][interpolationData.c2 * TEXT_WIDTH + interpolationData.r1]) * interpolationData.wc2 * interpolationData.wr1;
+				return 	ConvertFloatBufferToRGB(bitmap[textureIdx][interpolationData.c1 * TEXT_HEIGHT + interpolationData.r1]) * interpolationData.wc1 * interpolationData.wr1 +
+						ConvertFloatBufferToRGB(bitmap[textureIdx][interpolationData.c1 * TEXT_HEIGHT + interpolationData.r2]) * interpolationData.wc1 * interpolationData.wr2 +
+						ConvertFloatBufferToRGB(bitmap[textureIdx][interpolationData.c2 * TEXT_HEIGHT + interpolationData.r2]) * interpolationData.wc2 * interpolationData.wr2 +
+						ConvertFloatBufferToRGB(bitmap[textureIdx][interpolationData.c2 * TEXT_HEIGHT + interpolationData.r1]) * interpolationData.wc2 * interpolationData.wr1;
 #else
-				return 	ConvertFloatBufferToRGB(bitmap[textureIdx][interpolationData.c1 * TEXT_WIDTH + interpolationData.r1]);
+				return 	ConvertFloatBufferToRGB(bitmap[textureIdx][interpolationData.c1 * TEXT_HEIGHT + interpolationData.r1]);
 #endif
 			}
 
@@ -139,9 +138,7 @@ namespace ViRay
 							 InterpolationData& interpolationData) const
 		{
 #pragma HLS INLINE
-			// rectangular mapping for now
-			// TODO:
-			// it will not work properly -> more modfs to clamp local hit between -1 ... 1
+
 #ifdef SIMPLE_OBJECT_TRANSFORM_ENABLE
 			myType vx, vy, vz;
 			if (orientation[0] != myType(0.0))
@@ -203,7 +200,7 @@ namespace ViRay
 
 			myType dc, dr;
 			myType fc = hls::modf(realColumn, &dc);
-			myType fr = hls::modf(realRow, &dr);
+			myType fr = hls::modf(realRow,    &dr);
 
 			unsigned short uc = dc;
 			unsigned short ur = dr;
@@ -228,12 +225,12 @@ namespace ViRay
 		vec3 ConvertFloatBufferToRGB(myType_union buffVal) const
 		{
 #pragma HLS INLINE
-			const myType conversionFactor = myType(0.003921568627451); // = 1 / 255.0
+			const myType conversionFactor = myType(0.003921568627451); // = 1.0 / 255.0
 
 			unsigned rawBits = buffVal.raw_bits;
-			unsigned R       = (rawBits & 0xFF000000) >> 24;
-			unsigned G 		 = (rawBits & 0xFF0000)   >> 16;
-			unsigned B 		 = (rawBits & 0xFF00)	  >> 8;
+			myType R = ((rawBits & 0xFF000000) >> 24);
+			myType G = ((rawBits & 0xFF0000)   >> 16);
+			myType B = ((rawBits & 0xFF00)	   >> 8);
 
 			return vec3(R, G, B) * conversionFactor;
 		}
@@ -243,7 +240,7 @@ namespace ViRay
 		vec3 orientation;
 
 		vec3 scale;
-		vec3 invScale;				// ???
+		vec3 invScale;
 		vec3 translation;
 
 		vec3 Transform(const vec3& vec) const

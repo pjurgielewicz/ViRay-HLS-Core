@@ -292,6 +292,7 @@ int main()
 /////////////////////////////////////////////////////////
 
 	myType_union* textureData = new myType_union[MAX_TEXTURE_NUM * TEXT_WIDTH * TEXT_HEIGHT];
+
 	int* textureBind 	= new int[OBJ_NUM];
 	int* textureType 	= new int[OBJ_NUM];
 	int* textureMapping = new int[OBJ_NUM];
