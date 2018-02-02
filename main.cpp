@@ -25,6 +25,7 @@ int ViRayMain(
 				const myType* textureDataIn,
 				const int* textureBindIn,
 				const int* textureTypeIn,
+				const int* textureMappingIn,
 
 				pixelColorType* outColor)
 {
@@ -77,6 +78,9 @@ int ViRayMain(
 
 #pragma HLS INTERFACE s_axilite port=textureTypeIn bundle=AXI_LITE_1
 #pragma HLS INTERFACE m_axi port=textureTypeIn offset=slave bundle=MAXI_DATA_2
+
+#pragma HLS INTERFACE s_axilite port=textureMappingIn bundle=AXI_LITE_1
+#pragma HLS INTERFACE m_axi port=textureMappingIn offset=slave bundle=MAXI_DATA_2
 
 	/*
 	 * FRAMEBUFFER
@@ -153,6 +157,8 @@ int ViRayMain(
 	memcpy(textureType, textureTypeIn, sizeof(int) * OBJ_NUM);
 	int textureBind[OBJ_NUM];
 	memcpy(textureBind, textureBindIn, sizeof(int) * OBJ_NUM);
+	int textureMapping[OBJ_NUM];
+	memcpy(textureMapping, textureMappingIn, sizeof(int) * OBJ_NUM);
 
 	AssignmentLoops:{
 #pragma HLS LOOP_MERGE
@@ -210,22 +216,25 @@ int ViRayMain(
 			materials[i].fresnelData	= GetVectorFromStream(materialArray, materialBufferPos);
 
 			materials[i].ambientColor 	= GetVectorFromStream(materialArray, materialBufferPos);
-			// TODO: change encoding style - not compiling on purpose!
-			materials[i].diffuseColor 	= GetVectorFromStream(materialArray, materialBufferPos);
+			materials[i].primaryColor 	= GetVectorFromStream(materialArray, materialBufferPos);
+			materials[i].secondaryColor = GetVectorFromStream(materialArray, materialBufferPos);
 			materials[i].specularColor 	= GetVectorFromStream(materialArray, materialBufferPos);
 
-			/*
-			 * TODO: FILL !!!
-			 */
-			materials[i].primaryColor 	= vec3(1.0);
-			materials[i].secondaryColor = vec3(0.1);
-
 			materials[i].textureIdx		= textureBind[i];
+
+//			cout << "Primary Color: " << materials[i].primaryColor << endl;
+//			cout << "Secondary Color: " << materials[i].secondaryColor << endl << endl;
 
 #ifdef TEXTURE_ENABLE
 			materials[i].textureType	= textureType[i];
 #else
 			materials[i].textureType	= ViRay::Material::CONSTANT;
+#endif
+
+#ifdef ADVANCED_TEXTURE_MAPPING_ENABLE
+			materials[i].textureMapping = textureMapping[i];
+#else
+			materials[i].textureMapping = ViRay::Material::PLANAR;
 #endif
 		}
 	}

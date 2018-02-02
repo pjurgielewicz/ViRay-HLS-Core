@@ -15,6 +15,11 @@ int ViRayMain(
 				const myType* cameraArrayIn,
 				myType cameraZoom,
 
+				const myType* textureDataIn,
+				const int* textureBindIn,
+				const int* textureTypeIn,
+				const int* textureMappingIn,
+
 				pixelColorType* outColor);
 
 #endif

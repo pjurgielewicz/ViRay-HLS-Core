@@ -16,6 +16,8 @@ namespace ViRay
 		vec3 localHitPoint;
 		vec3 hitPoint;
 
+		vec3 orientation;
+
 //		myType localDistance;
 		myType distanceSqr;
 
@@ -35,6 +37,8 @@ namespace ViRay
 
 			localHitPoint 	= vec3(myType(0.0));
 			hitPoint 		= vec3(myType(0.0));
+
+			orientation		= vec3(myType(0.0));
 
 			distanceSqr 	= myType(MAX_DISTANCE);
 
@@ -57,13 +61,13 @@ namespace ViRay
 		vec3 fresnelData;			// 0 - use Fresnel, 1 - eta, 2 - invEtaSqr
 
 		vec3 ambientColor;
-//		vec3 diffuseColor;			// diffuse color will be figured out in the other way (combined with texturing mechanism)
 		vec3 specularColor;
 
 		// JUST PREPARATION
 		vec3 primaryColor, secondaryColor;
 		unsigned textureType;
 		unsigned textureIdx;
+		unsigned textureMapping;
 
 		enum TextureType{
 			CONSTANT,
@@ -71,14 +75,28 @@ namespace ViRay
 			PIXEL_MAP,
 		};
 
-		vec3 GetDiffuseColor(const vec3& localHitPoint, const myType_union bitmap[MAX_TEXTURE_NUM][TEXT_WIDTH * TEXT_HEIGHT]) const
+		enum TextureMapping{
+			PLANAR,
+			CYLINDRICAL,
+			SPHERICAL,
+		};
+
+		vec3 GetDiffuseColor(const vec3& localHitPoint,
+#ifdef SIMPLE_OBJECT_TRANSFORM_ENABLE
+							 const vec3& orientation,
+#endif
+							 const myType_union bitmap[MAX_TEXTURE_NUM][TEXT_WIDTH * TEXT_HEIGHT]) const
 		{
 			//CRITICAL INLINE
 #pragma HLS INLINE
 			InterpolationData interpolationData;
 			myType mix;
 
-			GetTexelCoord(localHitPoint, interpolationData);
+			GetTexelCoord(localHitPoint,
+#ifdef SIMPLE_OBJECT_TRANSFORM_ENABLE
+							orientation,
+#endif
+							interpolationData);
 
 			switch(textureType)
 			{
@@ -92,7 +110,7 @@ namespace ViRay
 						bitmap[textureIdx][interpolationData.c2 * TEXT_WIDTH + interpolationData.r2].fp_num * interpolationData.wc2 * interpolationData.wr2 +
 						bitmap[textureIdx][interpolationData.c2 * TEXT_WIDTH + interpolationData.r1].fp_num * interpolationData.wc2 * interpolationData.wr1;
 #else
-				mix =	bitmap[interpolationData.c1 * TEXT_WIDTH + interpolationData.r1].fp_num;
+				mix =	bitmap[textureIdx][interpolationData.c1 * TEXT_WIDTH + interpolationData.r1].fp_num;
 #endif
 				return primaryColor * mix + secondaryColor * (myType(1.0) - mix);
 			case PIXEL_MAP:
@@ -102,7 +120,7 @@ namespace ViRay
 						ConvertFloatBufferToRGB(bitmap[textureIdx][interpolationData.c2 * TEXT_WIDTH + interpolationData.r2]) * interpolationData.wc2 * interpolationData.wr2 +
 						ConvertFloatBufferToRGB(bitmap[textureIdx][interpolationData.c2 * TEXT_WIDTH + interpolationData.r1]) * interpolationData.wc2 * interpolationData.wr1;
 #else
-				return 	ConvertFloatBufferToRGB(bitmap[interpolationData.c1 * TEXT_WIDTH + interpolationData.r1]) * interpolationData.wc1 * interpolationData.wr1;
+				return 	ConvertFloatBufferToRGB(bitmap[textureIdx][interpolationData.c1 * TEXT_WIDTH + interpolationData.r1]);
 #endif
 			}
 
@@ -114,14 +132,71 @@ namespace ViRay
 			unsigned short c1, c2, r1, r2;		// row & column inside bitmap
 			myType wc1, wc2, wr1, wr2;			// weight of column and row
 		};
-		void GetTexelCoord(const vec3& localHitPoint, InterpolationData& interpolationData) const
+		void GetTexelCoord(const vec3& localHitPoint,
+#ifdef SIMPLE_OBJECT_TRANSFORM_ENABLE
+							 const vec3& orientation,
+#endif
+							 InterpolationData& interpolationData) const
 		{
 #pragma HLS INLINE
 			// rectangular mapping for now
 			// TODO:
 			// it will not work properly -> more modfs to clamp local hit between -1 ... 1
-			myType u = localHitPoint[0] + myType(0.5);
-			myType v = localHitPoint[1] + myType(0.5);
+#ifdef SIMPLE_OBJECT_TRANSFORM_ENABLE
+			myType vx, vy, vz;
+			if (orientation[0] != myType(0.0))
+			{
+				vx = localHitPoint[2];
+				vy = localHitPoint[0];
+				vz = -localHitPoint[1];
+			}
+			else if (orientation[1] != myType(0.0))
+			{
+				vx = localHitPoint[0];
+				vy = localHitPoint[1];
+				vz = localHitPoint[2];
+			}
+			else
+			{
+				vx = localHitPoint[0];
+				vy = localHitPoint[2];
+				vz = localHitPoint[1];
+			}
+#else
+			vx = localHitPoint[0];
+			vy = localHitPoint[1];
+			vz = localHitPoint[2];
+#endif
+
+			myType dummy;
+			vx = hls::modf(vx, &dummy);
+			vy = hls::modf(vy, &dummy);
+			vz = hls::modf(vz, &dummy);
+
+#ifdef ADVANCED_TEXTURE_MAPPING_ENABLE
+			myType phi 		= hls::atan2(vx, vz) + PI;
+			myType theta 	= hls::acos(vy);
+#endif
+
+			myType u, v;
+
+			switch(textureMapping)
+			{
+#ifdef ADVANCED_TEXTURE_MAPPING_ENABLE
+			case SPHERICAL:
+				u = phi * INV_TWOPI;
+				v = myType(1.0) - theta  * INV_PI;
+				break;
+			case CYLINDRICAL:
+				u = phi * INV_TWOPI;
+				v = (vy + myType(1.0)) * myType(0.5);
+				break;
+#endif
+			default: // RECTANGULAR
+				u = (vx + myType(1.0)) * myType(0.5);
+				v = (vz + myType(1.0)) * myType(0.5);
+				break;
+			}
 
 			myType realColumn = (TEXT_WIDTH  - 1) * u;
 			myType realRow    = (TEXT_HEIGHT - 1) * v;
@@ -137,13 +212,13 @@ namespace ViRay
 			interpolationData.c1 = uc;
 			interpolationData.c2 = uc + 1;
 			if (interpolationData.c2 == TEXT_WIDTH) interpolationData.c2 = interpolationData.c1;
-			interpolationData.wc1 = 1.0 - fc;
+			interpolationData.wc1 = myType(1.0) - fc;
 			interpolationData.wc2 = fc;
 
 			interpolationData.r1 = ur;
 			interpolationData.r2 = ur + 1;
 			if (interpolationData.r2 == TEXT_HEIGHT) interpolationData.r2 = interpolationData.r1;
-			interpolationData.wr1 = 1.0 - fr;
+			interpolationData.wr1 = myType(1.0) - fr;
 			interpolationData.wr2 = fr;
 #else
 			interpolationData.c1 = uc;
@@ -155,7 +230,6 @@ namespace ViRay
 #pragma HLS INLINE
 			const myType conversionFactor = myType(0.003921568627451); // = 1 / 255.0
 
-//			unsigned rawBits = *((unsigned *)(&buffVal));
 			unsigned rawBits = buffVal.raw_bits;
 			unsigned R       = (rawBits & 0xFF000000) >> 24;
 			unsigned G 		 = (rawBits & 0xFF0000)   >> 16;

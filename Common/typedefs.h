@@ -105,7 +105,8 @@ enum ObjectType{
 
 #define TEXTURE_ENABLE
 #define TEXTURE_URAM_STORAGE
-#define BILINEAR_TEXTURE_FILTERING_ENABLE
+//#define BILINEAR_TEXTURE_FILTERING_ENABLE
+#define ADVANCED_TEXTURE_MAPPING_ENABLE
 //#ifndef __SYNTHESIS__
 //#define FAST_INV_SQRT_ENABLE
 ////#define FAST_DIVISION_ENABLE
@@ -144,5 +145,7 @@ enum ObjectType{
 #define FAST_DIVISION_ORDER 		((unsigned char)(2))
 
 #define PI 							(myType(3.141592))
+#define INV_TWOPI					(myType(0.159155))
+#define INV_PI						(myType(0.31831))
 
 #endif

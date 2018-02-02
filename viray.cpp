@@ -338,6 +338,25 @@ vec3 Shade(	const ShadeRec& closestSr,
 	CRay transformedRay;
 	ShadeRec sr;
 
+	vec3 diffuseColor = materials[closestSr.objIdx].GetDiffuseColor(closestSr.localHitPoint,
+#ifdef SIMPLE_OBJECT_TRANSFORM_ENABLE
+																	closestSr.orientation,
+#endif
+																	textureData);
+
+	/*
+	 * WHAT IS THE REAL DIFFERENCE ???
+	 */
+//	vec3 ambientColor = (materials[closestSr.objIdx].textureType == ViRay::Material::CONSTANT ? materials[closestSr.objIdx].ambientColor : diffuseColor );
+	vec3 ambientColor = diffuseColor;
+	if (materials[closestSr.objIdx].textureType == ViRay::Material::CONSTANT) ambientColor = materials[closestSr.objIdx].ambientColor;
+/*
+	vec3 ambientColor = materials[closestSr.objIdx].GetAmbientColor(closestSr.localHitPoint,
+#ifdef SIMPLE_OBJECT_TRANSFORM_ENABLE
+																	closestSr.orientation,
+#endif
+																	textureData);
+*/
 	for (unsigned char l = 1; l < LIGHTS_NUM; ++l)
 	{
 #pragma HLS PIPELINE
@@ -379,9 +398,6 @@ vec3 Shade(	const ShadeRec& closestSr,
 		// (HLS::POW() -> SUBOPTIMAL QoR)
 		// COLORS SHOULD BE ATTENUATED BEFOREHAND (AT MICROCONTROLLER STAGE)
 
-//		vec3 diffuseColor = materials[closestSr.objIdx].diffuseColor;
-		vec3 diffuseColor = materials[closestSr.objIdx].GetDiffuseColor(closestSr.localHitPoint, textureData);
-
 		vec3 baseColor =
 #ifdef DIFFUSE_COLOR_ENABLE
 							diffuseColor  // * materials[closestSr.objIdx].k[0]
@@ -410,7 +426,7 @@ vec3 Shade(	const ShadeRec& closestSr,
 	return (closestSr.isHit) ?
 								(colorOut
 #ifdef AMBIENT_COLOR_ENABLE
-								+ materials[closestSr.objIdx].ambientColor.CompWiseMul(lights[0].color)
+								+ /*materials[closestSr.objIdx].*/ambientColor.CompWiseMul(lights[0].color)
 #endif
 								) : vec3(myType(0.0));
 }
@@ -696,6 +712,7 @@ void PerformHits(const CRay& transformedRay,
 #ifdef SQUARE_OBJECT_ENABLE
 	case SQUARE:
 		if (ViRayUtils::Abs(sr.localHitPoint[0]) > myType(1.0) ||
+			ViRayUtils::Abs(sr.localHitPoint[1]) > myType(1.0) ||
 			ViRayUtils::Abs(sr.localHitPoint[2]) > myType(1.0))		sr.localHitPoint = vec3(MAX_DISTANCE);//res = MAX_DISTANCE;
 		break;
 #endif
@@ -737,6 +754,8 @@ void UpdateClosestObject(ShadeRec& current,
 		best.hitPoint 		= current.hitPoint;
 
 		best.localNormal 	= current.localNormal;
+
+		best.orientation	= transform.orientation;
 
 		best.isHit 	= true;
 		best.objIdx = n;
