@@ -3,8 +3,7 @@
 
 #include "viray.h"
 
-int ViRayMain(
-				const myType* objTransformationArrayIn,
+int ViRayMain(	const myType* objTransformationArrayIn,
 				const myType* objTransformationArrayCopyIn,
 				const int* objTypeIn,
 
@@ -15,9 +14,7 @@ int ViRayMain(
 				myType cameraZoom,
 
 				const myType* textureDataIn,
-				const int* textureBindIn,
-				const int* textureTypeIn,
-				const int* textureMappingIn,
+				const unsigned* textureDescriptionIn,
 
 				pixelColorType* outColor);
 

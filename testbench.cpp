@@ -13,10 +13,23 @@ vec3& loadVectorFromStream(ifstream& file, vec3& vec)
 	return vec;
 }
 
+unsigned getTextureDescriptionCode(unsigned char textureIdx = 0,
+									unsigned char textureType = ViRay::Material::CONSTANT,
+									unsigned char textureMapping = ViRay::Material::PLANAR,
+									unsigned short textureWidth = TEXT_WIDTH,
+									unsigned short textureHeight = TEXT_HEIGHT)
+{
+	return 	((textureIdx & 0x3F) << 26) +
+			((textureType & 0x7) << 23) +
+			((textureMapping & 0x7) << 20) +
+			((textureWidth & 0x3FF) << 10) +
+			((textureHeight) & 0x3FF);
+}
+
 int main()
 {
-	string dataPath("C:\\Users\\pjurgiel\\Source\\FFCore\\src\\SimData\\");
-//	string dataPath("D:\\Dokumenty\\WorkspaceXilinx\\FFCore\\src\\SimData\\");
+//	string dataPath("C:\\Users\\pjurgiel\\Source\\FFCore\\src\\SimData\\");
+	string dataPath("D:\\Dokumenty\\WorkspaceXilinx\\FFCore\\src\\SimData\\");
 
 	ifstream dataFile((dataPath + "data.dat").c_str());
 	ifstream lightFile((dataPath + "light.dat").c_str());
@@ -104,19 +117,19 @@ int main()
 	}
 
 #else
-	vec3* translation = new vec3[OBJ_NUM];
-	vec3* scale = new vec3[OBJ_NUM];
-	vec3* invScale = new vec3[OBJ_NUM];
-	vec3* orientation = new vec3[OBJ_NUM];
+	vec3* translation 	= new vec3[OBJ_NUM];
+	vec3* scale 		= new vec3[OBJ_NUM];
+	vec3* invScale 		= new vec3[OBJ_NUM];
+	vec3* orientation 	= new vec3[OBJ_NUM];
 
 	myType* transformationArray = new myType[OBJ_NUM * 4 * sizeof(vec3)];
 
 	for (unsigned i = 0; i < OBJ_NUM; ++i)
 	{
-		translation[i] = vec3(myType(0.0));
-		scale[i] = vec3(myType(1.0));
-		invScale[i] = vec3(myType(1.0));
-		orientation[i] = vec3(myType(0.0), myType(1.0), myType(0.0));
+		translation[i] 	= vec3(myType(0.0));
+		scale[i] 		= vec3(myType(1.0));
+		invScale[i] 	= vec3(myType(1.0));
+		orientation[i] 	= vec3(myType(0.0), myType(1.0), myType(0.0));
 	}
 
 	// SPHERE
@@ -239,8 +252,9 @@ int main()
 
 	vec3* materialCoeff 	= new vec3[OBJ_NUM * 2];
 	vec3* materialColors 	= new vec3[OBJ_NUM * 4];
+	vec3* materialTransform = new vec3[OBJ_NUM * 2];
 
-	myType* materialArray 	= new myType[6 * sizeof(vec3) * OBJ_NUM];
+	myType* materialArray 	= new myType[8 * sizeof(vec3) * OBJ_NUM];
 
 	unsigned materialBufferPos = 0;
 	for (unsigned i = 0; i < OBJ_NUM; ++i)
@@ -255,6 +269,11 @@ int main()
 		for (unsigned j = 0; j < 4; ++j)
 		{
 			materialColors[i * 4 + j] = loadVectorFromStream(materialFile, tmp);
+		}
+
+		for (unsigned j = 0; j < 2; ++j)
+		{
+			materialTransform[i * 2 + j] = loadVectorFromStream(materialFile, tmp);
 		}
 
 		materialColors[i * 4 + 1] *= materialCoeff[i * 2 + 0][0]; 	// PRIMARY_DIFFUSE 		* K[0]
@@ -276,6 +295,14 @@ int main()
 				materialArray[materialBufferPos++] = materialColors[i * 4 + j][k];
 			}
 		}
+
+		for (unsigned j = 0; j < 2; ++j)
+		{
+			for (unsigned k = 0; k < 3; ++k)
+			{
+				materialArray[materialBufferPos++] = materialTransform[i * 2 + j][k];
+			}
+		}
 	}
 
 /////////////////////////////////////////////////////////
@@ -291,17 +318,12 @@ int main()
 
 /////////////////////////////////////////////////////////
 
-	myType_union* textureData = new myType_union[MAX_TEXTURE_NUM * TEXT_WIDTH * TEXT_HEIGHT];
-
-	int* textureBind 	= new int[OBJ_NUM];
-	int* textureType 	= new int[OBJ_NUM];
-	int* textureMapping = new int[OBJ_NUM];
+	float_union* textureData = new float_union[MAX_TEXTURE_NUM * TEXT_WIDTH * TEXT_HEIGHT];
+	unsigned* textureDescriptionData = new unsigned[OBJ_NUM];
 
 	for (unsigned i = 0; i < OBJ_NUM; ++i)
 	{
-		textureBind[i] = 0;
-		textureType[i] = ViRay::Material::CONSTANT;
-		textureMapping[i] = ViRay::Material::PLANAR;
+		textureDescriptionData[i] = getTextureDescriptionCode();
 	}
 
 	// RGB DOTS PIXEL TYPE TEXTURE
@@ -339,15 +361,10 @@ int main()
 		}
 //		cout << endl;
 	}
-	textureBind[0] = 1;
-	textureType[0] = ViRay::Material::BITMAP_MASK;
-	textureMapping[0] = ViRay::Material::SPHERICAL;
 
-	textureBind[4] = 0;
-	textureType[4] = ViRay::Material::PIXEL_MAP;
-
-	textureBind[5] = 1;
-	textureType[5] = ViRay::Material::BITMAP_MASK;
+	textureDescriptionData[0] = getTextureDescriptionCode(1, ViRay::Material::BITMAP_MASK, ViRay::Material::SPHERICAL);
+	textureDescriptionData[4] = getTextureDescriptionCode(0, ViRay::Material::PIXEL_MAP);
+	textureDescriptionData[5] = getTextureDescriptionCode(1, ViRay::Material::BITMAP_MASK);
 
 /////////////////////////////////////////////////////////
 
@@ -370,9 +387,7 @@ int main()
 			zoom,
 
 			(myType*)textureData,
-			textureBind,
-			textureType,
-			textureMapping,
+			textureDescriptionData,
 
 			frame);
 
@@ -402,14 +417,13 @@ int main()
 
 	delete[] frame;
 
-	delete[] textureMapping;
-	delete[] textureType;
-	delete[] textureBind;
+	delete[] textureDescriptionData;
 	delete[] textureData;
 
 	delete[] cameraArray;
 
 	delete[] materialArray;
+	delete[] materialTransform;
 	delete[] materialColors;
 	delete[] materialCoeff;
 

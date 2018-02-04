@@ -11,8 +11,7 @@ vec3 GetVectorFromStream(const myType* s, unsigned& pos)
 	return tmp;
 }
 
-int ViRayMain(
-				const myType* objTransformationArrayIn,
+int ViRayMain(	const myType* objTransformationArrayIn,
 				const myType* objTransformationArrayCopyIn,
 				const int* objTypeIn,
 
@@ -23,9 +22,7 @@ int ViRayMain(
 				myType cameraZoom,
 
 				const myType* textureDataIn,
-				const int* textureBindIn,
-				const int* textureTypeIn,
-				const int* textureMappingIn,
+				const unsigned* textureDescriptionIn,
 
 				pixelColorType* outColor)
 {
@@ -73,14 +70,8 @@ int ViRayMain(
 #pragma HLS INTERFACE s_axilite port=textureDataIn bundle=AXI_LITE_1
 #pragma HLS INTERFACE m_axi port=textureDataIn offset=slave bundle=MAXI_DATA
 
-#pragma HLS INTERFACE s_axilite port=textureBindIn bundle=AXI_LITE_1
-#pragma HLS INTERFACE m_axi port=textureBindIn offset=slave bundle=MAXI_DATA_2
-
-#pragma HLS INTERFACE s_axilite port=textureTypeIn bundle=AXI_LITE_1
-#pragma HLS INTERFACE m_axi port=textureTypeIn offset=slave bundle=MAXI_DATA_2
-
-#pragma HLS INTERFACE s_axilite port=textureMappingIn bundle=AXI_LITE_1
-#pragma HLS INTERFACE m_axi port=textureMappingIn offset=slave bundle=MAXI_DATA_2
+#pragma HLS INTERFACE s_axilite port=textureDescriptionIn bundle=AXI_LITE_1
+#pragma HLS INTERFACE m_axi port=textureDescriptionIn offset=slave bundle=MAXI_DATA_2
 
 	/*
 	 * FRAMEBUFFER
@@ -140,25 +131,22 @@ int ViRayMain(
 	ViRay::Light lights[LIGHTS_NUM];
 #pragma HLS ARRAY_PARTITION variable=lights complete dim=1
 
-	myType materialArray[5 * 3 * OBJ_NUM];
-	memcpy(materialArray, materialArrayIn, 5 * sizeof(vec3) * OBJ_NUM);
+	// TODO: Change Size appropriately: 5 -> 8
+	myType materialArray[8 * 3 * OBJ_NUM];
+	memcpy(materialArray, materialArrayIn, 8 * sizeof(vec3) * OBJ_NUM);
 	ViRay::Material materials[OBJ_NUM];
 //#pragma HLS ARRAY_PARTITION variable=materials complete dim=1
 
 	/*
 	 * TEXTURES
 	 */
-	myType_union textureData[MAX_TEXTURE_NUM][TEXT_WIDTH * TEXT_HEIGHT];
+	float_union textureData[MAX_TEXTURE_NUM][TEXT_WIDTH * TEXT_HEIGHT];
 #ifdef TEXTURE_URAM_STORAGE
 #pragma HLS RESOURCE variable=textureData core=XPM_MEMORY uram
 #endif
-	memcpy(textureData, textureDataIn, sizeof(myType_union) * TEXT_WIDTH * TEXT_HEIGHT * MAX_TEXTURE_NUM);
-	int textureType[OBJ_NUM];
-	memcpy(textureType, textureTypeIn, sizeof(int) * OBJ_NUM);
-	int textureBind[OBJ_NUM];
-	memcpy(textureBind, textureBindIn, sizeof(int) * OBJ_NUM);
-	int textureMapping[OBJ_NUM];
-	memcpy(textureMapping, textureMappingIn, sizeof(int) * OBJ_NUM);
+	memcpy(textureData, textureDataIn, sizeof(float_union) * TEXT_WIDTH * TEXT_HEIGHT * MAX_TEXTURE_NUM);
+	unsigned textureDescription[OBJ_NUM];
+	memcpy(textureDescription, textureDescriptionIn, sizeof(unsigned) * OBJ_NUM);
 
 	AssignmentLoops:{
 #pragma HLS LOOP_MERGE
@@ -220,22 +208,46 @@ int ViRayMain(
 			materials[i].secondaryColor = GetVectorFromStream(materialArray, materialBufferPos);
 			materials[i].specularColor 	= GetVectorFromStream(materialArray, materialBufferPos);
 
-			materials[i].textureIdx		= textureBind[i];
+			/*
+			 * THE USER IS RESPONSIBLE OF CARING ABOUT IDX IS LOWER THAN < MAX_TEXTURE_NUM >
+			 * -> LOGIC REDUCTION
+			 */
 
-//			cout << "Primary Color: " << materials[i].primaryColor << endl;
-//			cout << "Secondary Color: " << materials[i].secondaryColor << endl << endl;
+			unsigned description = textureDescription[i];
+			/*
+			 * THE WIDTH OF EACH ELEMENT IS BIGGER THAN NECESSARY FOR THE CURRENT IMPLEMENTATION
+			 * LEAVING ROOM FOR FUTURE UPGRADES
+			 *
+			 * MSB
+			 * |
+			 * 6b  : textureIdx
+			 * 3b  : textureType
+			 * 3b  : textureMapping
+			 * 10b : textureWidth
+			 * 10b : textureHeight
+			 * |
+			 * LSB
+			 */
 
+			materials[i].textureIdx 	= (description >> 26) & 0x3F;
 #ifdef TEXTURE_ENABLE
-			materials[i].textureType	= textureType[i];
+			materials[i].textureType	= (description >> 23) & 0x7;
 #else
 			materials[i].textureType	= ViRay::Material::CONSTANT;
 #endif
 
 #ifdef ADVANCED_TEXTURE_MAPPING_ENABLE
-			materials[i].textureMapping = textureMapping[i];
+			materials[i].textureMapping = (description >> 20) & 0x7;
 #else
 			materials[i].textureMapping = ViRay::Material::PLANAR;
 #endif
+
+			materials[i].textureWidth	= (description >> 10) & 0x3FF;
+			materials[i].textureHeight	= (description      ) & 0x3FF;
+
+			// TEXTURE TRANSFORM
+			materials[i].texturePos		= GetVectorFromStream(materialArray, materialBufferPos);
+			materials[i].textureScale	= GetVectorFromStream(materialArray, materialBufferPos);
 		}
 	}
 

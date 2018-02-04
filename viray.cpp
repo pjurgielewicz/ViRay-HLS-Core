@@ -19,7 +19,7 @@ void RenderScene(const CCamera& camera,
 					const Light* lights,
 					const Material* materials,
 
-					const myType_union textureData[MAX_TEXTURE_NUM][TEXT_WIDTH * TEXT_HEIGHT],
+					const float_union textureData[MAX_TEXTURE_NUM][TEXT_WIDTH * TEXT_HEIGHT],
 
 					pixelColorType* frameBuffer,
 					pixelColorType* outColor)
@@ -61,7 +61,7 @@ void InnerLoop(const CCamera& camera,
 				const Light* lights,
 				const Material* materials,
 
-				const myType_union textureData[MAX_TEXTURE_NUM][TEXT_WIDTH * TEXT_HEIGHT],
+				const float_union textureData[MAX_TEXTURE_NUM][TEXT_WIDTH * TEXT_HEIGHT],
 
 				pixelColorType* frameBuffer)
 {
@@ -327,7 +327,7 @@ vec3 Shade(	const ShadeRec& closestSr,
 			const Light* lights,
 			const Material* materials,
 
-			const myType_union textureData[MAX_TEXTURE_NUM][TEXT_WIDTH * TEXT_HEIGHT],
+			const float_union textureData[MAX_TEXTURE_NUM][TEXT_WIDTH * TEXT_HEIGHT],
 
 			const myType ndir2min)
 {
@@ -941,7 +941,7 @@ myType ViRayUtils::Divide(myType N, myType D)
 #ifdef FAST_DIVISION_ENABLE
 
 #ifdef USE_FLOAT
-	myType_union Nunion, Dunion;
+	float_union Nunion, Dunion;
 
 	Nunion.fp_num = N;
 	Dunion.fp_num = D;
@@ -982,6 +982,96 @@ myType ViRayUtils::Abs(myType val)
 	return hls::fabs(val);
 #else
 	return hls::abs(val);
+#endif
+}
+
+myType ViRayUtils::Atan2(myType y, myType x)
+{
+#ifdef FAST_ATAN2_ENABLE
+#pragma HLS PIPELINE
+	/*
+	 * BASED ON:
+	 *
+	 * https://www.dsprelated.com/showarticle/1052.php
+	 *
+	 *
+	 */
+
+    const myType n1 = myType(0.97239411);
+    const myType n2 = myType(-0.19194795);
+    myType result = 0.0f;
+
+    if (x != myType(0.0))
+    {
+        float_union tXSign, tYSign, tOffset;
+        tXSign.fp_num = x;
+        tYSign.fp_num = y;
+
+        if (hls::fabs(x) >= hls::fabs(y))
+        {
+        	tOffset.fp_num = PI;
+            // Add or subtract PI based on y's sign.
+            tOffset.raw_bits |= tYSign.raw_bits & 0x80000000u;
+            // No offset if x is positive, so multiply by 0 or based on x's sign.
+            tOffset.raw_bits *= tXSign.raw_bits >> 31;
+            result = tOffset.fp_num;
+            const myType z = y / x;
+            result += (n1 + n2 * z * z) * z;
+        }
+        else // Use atan(y/x) = pi/2 - atan(x/y) if |y/x| > 1.
+        {
+        	tOffset.fp_num = HALF_PI;
+            // Add or subtract PI/2 based on y's sign.
+            tOffset.raw_bits |= tYSign.raw_bits & 0x80000000u;
+            result = tOffset.fp_num;
+            const myType z = x / y;
+            result -= (n1 + n2 * z * z) * z;
+        }
+    }
+    else if (y > myType(0.0))
+    {
+        result = HALF_PI;
+    }
+    else if (y < myType(0.0))
+    {
+        result = -HALF_PI;
+    }
+    return result;
+#else
+	return hls::atan2(y, x);
+#endif
+}
+
+myType ViRayUtils::Acos(myType x)
+{
+#ifdef FAST_ACOS_ENABLE
+#pragma HLS PIPELINE
+	/*
+	 * LUT - BASED ACOS IMPLEMENTATION
+	 */
+	const unsigned LUT_SIZE = 32;
+	const myType acosLUT[LUT_SIZE + 2] = {	1.5708, 1.53954, 1.50826, 1.47691,
+											1.44547, 1.4139, 1.38218, 1.35026,
+											1.31812, 1.2857, 1.25297, 1.21989,
+											1.1864, 1.15245, 1.11798, 1.08292,
+											1.0472, 1.01072, 0.97339, 0.935085,
+											0.895665, 0.854958, 0.812756, 0.768794,
+											0.722734, 0.67413, 0.622369, 0.566564,
+											0.50536, 0.436469, 0.355421, 0.250656,
+											0.0, 0.0};	// one additional - just in case
+
+	myType lutIdxF = hls::fabs(x) * LUT_SIZE;
+	myType mix = hls::modf(lutIdxF, &lutIdxF);
+	unsigned lutIdx = lutIdxF;
+	unsigned nextLutIdx = lutIdx + 1;
+
+	// linear interpolation
+	myType calcAngle = (myType(1.0) - mix) * acosLUT[lutIdx] + mix * acosLUT[nextLutIdx];
+
+	return ((x < myType(0.0)) ? (PI - calcAngle) : calcAngle);
+#else
+#pragma HLS INLINE
+	return hls::acos(x);
 #endif
 }
 

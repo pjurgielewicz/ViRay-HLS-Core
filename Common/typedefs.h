@@ -49,7 +49,7 @@ typedef union {
     	unsigned bexp : 8;
     	unsigned sign : 1;
     };
-} myType_union;
+} float_union;
 
 #else
 
@@ -110,6 +110,8 @@ enum ObjectType{
 //#ifndef __SYNTHESIS__
 //#define FAST_INV_SQRT_ENABLE
 ////#define FAST_DIVISION_ENABLE
+#define FAST_ATAN2_ENABLE
+#define FAST_ACOS_ENABLE
 //#endif
 
 /*
@@ -145,6 +147,7 @@ enum ObjectType{
 #define FAST_DIVISION_ORDER 		((unsigned char)(2))
 
 #define PI 							(myType(3.141592))
+#define HALF_PI						(myType(1.570796))
 #define INV_TWOPI					(myType(0.159155))
 #define INV_PI						(myType(0.31831))
 

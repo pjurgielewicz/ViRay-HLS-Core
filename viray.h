@@ -8,6 +8,22 @@
 
 namespace ViRay
 {
+	/*
+	 * ViRay Utility Functions
+	 */
+	namespace ViRayUtils
+	{
+		myType GeomObjectSolve(const vec3& abc, const CRay& transformedRay, myType& aInv);
+		myType NaturalPow(myType valIn, unsigned char n);
+		myType Clamp(myType val, myType min = myType(0.0), myType max = myType(1.0));
+		myType InvSqrt(myType val);
+		myType Sqrt(myType val);
+		myType Divide(myType N, myType D);
+		myType Abs(myType val);
+		myType Atan2(myType y, myType x);
+		myType Acos(myType x);
+		void Swap(myType& val1, myType& val2);
+	}
 
 	struct ShadeRec{
 		vec3 localNormal;
@@ -60,22 +76,27 @@ namespace ViRay
 		vec3 fresnelData;			// 0 - use Fresnel, 1 - eta, 2 - invEtaSqr
 
 		vec3 ambientColor;
-		vec3 specularColor;
-
-		// JUST PREPARATION
 		vec3 primaryColor, secondaryColor;
-		unsigned textureType;
-		unsigned textureIdx;
-		unsigned textureMapping;
+		vec3 specularColor;
+		//////////////////////////////////
+		/*
+		 * TEXTURE HANDLING -> MOVE TO THE OTHER STRUCTURE
+		 */
+		vec3 texturePos, textureScale;
+
+		unsigned char textureIdx;
+		unsigned char textureType;
+		unsigned char textureMapping;
+		unsigned short textureWidth, textureHeight;
 
 		enum TextureType{
-			CONSTANT,
+			CONSTANT = 0,
 			BITMAP_MASK,
 			PIXEL_MAP,
 		};
 
 		enum TextureMapping{
-			PLANAR,
+			PLANAR = 0,
 			CYLINDRICAL,
 			SPHERICAL,
 		};
@@ -84,7 +105,7 @@ namespace ViRay
 #ifdef SIMPLE_OBJECT_TRANSFORM_ENABLE
 							 const vec3& orientation,
 #endif
-							 const myType_union bitmap[MAX_TEXTURE_NUM][TEXT_WIDTH * TEXT_HEIGHT]) const
+							 const float_union bitmap[MAX_TEXTURE_NUM][TEXT_WIDTH * TEXT_HEIGHT]) const
 		{
 			//CRITICAL INLINE
 #pragma HLS INLINE
@@ -104,22 +125,22 @@ namespace ViRay
 
 			case BITMAP_MASK:
 #ifdef BILINEAR_TEXTURE_FILTERING_ENABLE
-				mix = 	bitmap[textureIdx][interpolationData.c1 * TEXT_HEIGHT + interpolationData.r1].fp_num * interpolationData.wc1 * interpolationData.wr1 +
-						bitmap[textureIdx][interpolationData.c1 * TEXT_HEIGHT + interpolationData.r2].fp_num * interpolationData.wc1 * interpolationData.wr2 +
-						bitmap[textureIdx][interpolationData.c2 * TEXT_HEIGHT + interpolationData.r2].fp_num * interpolationData.wc2 * interpolationData.wr2 +
-						bitmap[textureIdx][interpolationData.c2 * TEXT_HEIGHT + interpolationData.r1].fp_num * interpolationData.wc2 * interpolationData.wr1;
+				mix = 	bitmap[textureIdx][interpolationData.c1 * textureHeight + interpolationData.r1].fp_num * interpolationData.wc1 * interpolationData.wr1 +
+						bitmap[textureIdx][interpolationData.c1 * textureHeight + interpolationData.r2].fp_num * interpolationData.wc1 * interpolationData.wr2 +
+						bitmap[textureIdx][interpolationData.c2 * textureHeight + interpolationData.r2].fp_num * interpolationData.wc2 * interpolationData.wr2 +
+						bitmap[textureIdx][interpolationData.c2 * textureHeight + interpolationData.r1].fp_num * interpolationData.wc2 * interpolationData.wr1;
 #else
-				mix =	bitmap[textureIdx][interpolationData.c1 * TEXT_HEIGHT + interpolationData.r1].fp_num;
+				mix =	bitmap[textureIdx][interpolationData.c1 * textureHeight + interpolationData.r1].fp_num;
 #endif
 				return primaryColor * mix + secondaryColor * (myType(1.0) - mix);
 			case PIXEL_MAP:
 #ifdef BILINEAR_TEXTURE_FILTERING_ENABLE
-				return 	ConvertFloatBufferToRGB(bitmap[textureIdx][interpolationData.c1 * TEXT_HEIGHT + interpolationData.r1]) * interpolationData.wc1 * interpolationData.wr1 +
-						ConvertFloatBufferToRGB(bitmap[textureIdx][interpolationData.c1 * TEXT_HEIGHT + interpolationData.r2]) * interpolationData.wc1 * interpolationData.wr2 +
-						ConvertFloatBufferToRGB(bitmap[textureIdx][interpolationData.c2 * TEXT_HEIGHT + interpolationData.r2]) * interpolationData.wc2 * interpolationData.wr2 +
-						ConvertFloatBufferToRGB(bitmap[textureIdx][interpolationData.c2 * TEXT_HEIGHT + interpolationData.r1]) * interpolationData.wc2 * interpolationData.wr1;
+				return 	ConvertFloatBufferToRGB(bitmap[textureIdx][interpolationData.c1 * textureHeight + interpolationData.r1]) * interpolationData.wc1 * interpolationData.wr1 +
+						ConvertFloatBufferToRGB(bitmap[textureIdx][interpolationData.c1 * textureHeight + interpolationData.r2]) * interpolationData.wc1 * interpolationData.wr2 +
+						ConvertFloatBufferToRGB(bitmap[textureIdx][interpolationData.c2 * textureHeight + interpolationData.r2]) * interpolationData.wc2 * interpolationData.wr2 +
+						ConvertFloatBufferToRGB(bitmap[textureIdx][interpolationData.c2 * textureHeight + interpolationData.r1]) * interpolationData.wc2 * interpolationData.wr1;
 #else
-				return 	ConvertFloatBufferToRGB(bitmap[textureIdx][interpolationData.c1 * TEXT_HEIGHT + interpolationData.r1]);
+				return 	ConvertFloatBufferToRGB(bitmap[textureIdx][interpolationData.c1 * textureHeight + interpolationData.r1]);
 #endif
 			}
 
@@ -171,8 +192,8 @@ namespace ViRay
 			vz = hls::modf(vz, &dummy);
 
 #ifdef ADVANCED_TEXTURE_MAPPING_ENABLE
-			myType phi 		= hls::atan2(vx, vz) + PI;
-			myType theta 	= hls::acos(vy);
+			myType phi 		= ViRayUtils::Atan2(vx, vz) + PI;  //hls::atan2(vx, vz) + PI;
+			myType theta 	= ViRayUtils::Acos(vy);
 #endif
 
 			myType u, v;
@@ -195,34 +216,72 @@ namespace ViRay
 				break;
 			}
 
-			myType realColumn = (TEXT_WIDTH  - 1) * u;
-			myType realRow    = (TEXT_HEIGHT - 1) * v;
+			myType realColumn = (textureWidth  - 1) * (u + texturePos[0]) * textureScale[0];
+			myType realRow    = (textureHeight - 1) * (v + texturePos[1]) * textureScale[1];
 
 			myType dc, dr;
 			myType fc = hls::modf(realColumn, &dc);
 			myType fr = hls::modf(realRow,    &dr);
 
-			unsigned short uc = dc;
-			unsigned short ur = dr;
+			unsigned short uc = (unsigned short)(dc) % textureWidth;
+			unsigned short ur = (unsigned short)(dr) % textureHeight;
 
 #ifdef BILINEAR_TEXTURE_FILTERING_ENABLE
-			interpolationData.c1 = uc;
+/*			interpolationData.c1 = uc;
 			interpolationData.c2 = uc + 1;
-			if (interpolationData.c2 == TEXT_WIDTH) interpolationData.c2 = interpolationData.c1;
+			if (interpolationData.c2 == textureWidth) interpolationData.c2 = interpolationData.c1;
 			interpolationData.wc1 = myType(1.0) - fc;
 			interpolationData.wc2 = fc;
 
 			interpolationData.r1 = ur;
 			interpolationData.r2 = ur + 1;
-			if (interpolationData.r2 == TEXT_HEIGHT) interpolationData.r2 = interpolationData.r1;
+			if (interpolationData.r2 == textureHeight) interpolationData.r2 = interpolationData.r1;
 			interpolationData.wr1 = myType(1.0) - fr;
-			interpolationData.wr2 = fr;
+			interpolationData.wr2 = fr;*/
+
+			/*
+			 * 2nd version: pixel hit center is in [0.5, 0.5]
+			 */
+			// HORIZONTAL FILTER
+			interpolationData.c1 = uc;
+			if (fc < myType(0.5))
+			{
+				interpolationData.c2 = uc - 1;
+				if (interpolationData.c1 == 0) interpolationData.c2 = textureWidth - 1;
+				interpolationData.wc1 = myType(0.5) + fc;
+				interpolationData.wc2 = myType(0.5) - fc;
+			}
+			else
+			{
+				interpolationData.c2 = uc + 1;
+				if (interpolationData.c2 == textureWidth) interpolationData.c2 = 0;
+				interpolationData.wc1 = myType(1.5) - fc;
+				interpolationData.wc2 = myType(-0.5) + fc;
+			}
+
+			// VERTICAL FILTER
+			interpolationData.r1 = ur;
+			if (fr < myType(0.5))
+			{
+				interpolationData.r2 = ur - 1;
+				if (interpolationData.r1 == 0) interpolationData.r2 = textureHeight - 1;
+				interpolationData.wr1 = myType(0.5) + fr;
+				interpolationData.wr2 = myType(0.5) - fr;
+			}
+			else
+			{
+				interpolationData.r2 = ur + 1;
+				if (interpolationData.r2 == textureHeight) interpolationData.r2 = 0;
+				interpolationData.wr1 = myType(1.5) - fr;
+				interpolationData.wr2 = myType(-0.5) + fr;
+			}
+
 #else
 			interpolationData.c1 = uc;
 			interpolationData.r1 = ur;
 #endif
 		}
-		vec3 ConvertFloatBufferToRGB(myType_union buffVal) const
+		vec3 ConvertFloatBufferToRGB(float_union buffVal) const
 		{
 #pragma HLS INLINE
 			const myType conversionFactor = myType(0.003921568627451); // = 1.0 / 255.0
@@ -282,7 +341,7 @@ namespace ViRay
 			const Light* lights,
 			const Material* materials,
 
-			const myType_union textureData[MAX_TEXTURE_NUM][TEXT_WIDTH * TEXT_HEIGHT],
+			const float_union textureData[MAX_TEXTURE_NUM][TEXT_WIDTH * TEXT_HEIGHT],
 
 			pixelColorType* frameBuffer,
 			pixelColorType* outColor);
@@ -301,7 +360,7 @@ namespace ViRay
 			const Light* lights,
 			const Material* materials,
 
-			const myType_union textureData[MAX_TEXTURE_NUM][TEXT_WIDTH * TEXT_HEIGHT],
+			const float_union textureData[MAX_TEXTURE_NUM][TEXT_WIDTH * TEXT_HEIGHT],
 
 			pixelColorType* frameBuffer);
 
@@ -341,7 +400,7 @@ namespace ViRay
 				const Light* lights,
 				const Material* materials,
 
-				const myType_union textureData[MAX_TEXTURE_NUM][TEXT_WIDTH * TEXT_HEIGHT],
+				const float_union textureData[MAX_TEXTURE_NUM][TEXT_WIDTH * TEXT_HEIGHT],
 
 				const myType ndir2min);
 
@@ -383,22 +442,6 @@ namespace ViRay
 									ShadeRec& best);
 
 	void SaveColorToBuffer(vec3 color, pixelColorType& colorOut);
-
-	/*
-	 * ViRay Utility Functions
-	 */
-	namespace ViRayUtils
-	{
-		myType GeomObjectSolve(const vec3& abc, const CRay& transformedRay, myType& aInv);
-		myType NaturalPow(myType valIn, unsigned char n);
-		myType Clamp(myType val, myType min = myType(0.0), myType max = myType(1.0));
-		myType InvSqrt(myType val);
-		myType Sqrt(myType val);
-		myType Divide(myType N, myType D);
-		myType Abs(myType val);
-		void Swap(myType& val1, myType& val2);
-	}
-
 }
 
 #endif
