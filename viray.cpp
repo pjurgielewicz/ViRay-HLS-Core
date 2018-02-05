@@ -347,7 +347,7 @@ void RenderSceneInnerLoop(const CCamera& camera,
 	const vec3 clearColor(myType(0.0));
 	vec3 colorAccum;
 
-	InnerLoop: for (unsigned short w = 0; w < WIDTH; ++w)
+	RenderPixelLoop: for (unsigned short w = 0; w < WIDTH; ++w)
 	{
 DO_PRAGMA(HLS PIPELINE II=DESIRED_INNER_LOOP_II)
 DO_PRAGMA(HLS UNROLL factor=INNER_LOOP_UNROLL_FACTOR)
@@ -392,12 +392,11 @@ DO_PRAGMA(HLS UNROLL factor=INNER_LOOP_UNROLL_FACTOR)
 			 * NEXT DEPTH STEP PREPARATION
 			 */
 #ifdef FRESNEL_REFLECTION_ENABLE
-			myType reflectivity = (materials[closestSr.objIdx].fresnelData[0] != myType(0.0)) ? GetFresnelReflectionCoeff(/*ray.direction,
-																															closestSr.normal,*/ -ndir,
-																															materials[closestSr.objIdx].fresnelData[1],
-																															materials[closestSr.objIdx].fresnelData[2]) : materials[closestSr.objIdx].k[1];
+			myType reflectivity = (materials[closestSr.objIdx].GetMaterialDescription().fresnelData[0] != myType(0.0)) ? GetFresnelReflectionCoeff( -ndir,
+																																					materials[closestSr.objIdx].GetMaterialDescription().fresnelData[1],
+																																					materials[closestSr.objIdx].GetMaterialDescription().fresnelData[2]) : materials[closestSr.objIdx].GetMaterialDescription().k[1];
 #else
-			myType reflectivity = materials[closestSr.objIdx].k[1];
+			myType reflectivity = materials[closestSr.objIdx].GetMaterialDescription().k[1];
 #endif
 			currentReflectivity *= reflectivity;
 
@@ -458,13 +457,11 @@ DO_PRAGMA(HLS UNROLL factor=INNER_LOOP_UNROLL_FACTOR)
 #ifdef REFLECTION_ENABLE
 		myType ndir2minRefl = (closestReflectedSr.normal * reflectedRay.direction) * myType(-2.0);
 #ifdef FRESNEL_REFLECTION_ENABLE
-		myType reflectivity = (materials[closestSr.objIdx].fresnelData[0] != myType(0.0)) ? GetFresnelReflectionCoeff(/*ray.direction,
-																														closestSr.normal,*/
-																														-ndir,
-																														materials[closestSr.objIdx].fresnelData[1],
-																														materials[closestSr.objIdx].fresnelData[2]) : materials[closestSr.objIdx].k[1];
+		myType reflectivity = (materials[closestSr.objIdx].GetMaterialDescription().fresnelData[0] != myType(0.0)) ? GetFresnelReflectionCoeff(	-ndir,
+																																				materials[closestSr.objIdx].GetMaterialDescription().fresnelData[1],
+																																				materials[closestSr.objIdx].GetMaterialDescription().fresnelData[2]) : materials[closestSr.objIdx].GetMaterialDescription().k[1];
 #else
-		myType reflectivity = materials[closestSr.objIdx].k[1];
+		myType reflectivity = materials[closestSr.objIdx].GetMaterialDescription().k[1];
 #endif
 		colorAccum += (closestSr.isHit) ? Shade(closestReflectedSr, reflectedRay,
 #ifndef SIMPLE_OBJECT_TRANSFORM_ENABLE
@@ -575,7 +572,7 @@ vec3 Shade(	const ShadeRec& closestSr,
 	 */
 //	vec3 ambientColor = (materials[closestSr.objIdx].textureType == ViRay::Material::CONSTANT ? materials[closestSr.objIdx].ambientColor : diffuseColor );
 	vec3 ambientColor = diffuseColor;
-	if (materials[closestSr.objIdx].textureType == ViRay::CMaterial::CONSTANT) ambientColor = materials[closestSr.objIdx].ambientColor;
+	if (materials[closestSr.objIdx].GetTextureDescription().textureType == ViRay::CMaterial::CONSTANT) ambientColor = materials[closestSr.objIdx].GetMaterialDescription().ambientColor;
 
 	for (unsigned char l = 1; l < LIGHTS_NUM; ++l)
 	{
@@ -626,7 +623,7 @@ vec3 Shade(	const ShadeRec& closestSr,
 #endif
 							+
 #ifdef SPECULAR_HIGHLIGHT_ENABLE
-							materials[closestSr.objIdx].specularColor * ViRayUtils::NaturalPow(specularDot, materials[closestSr.objIdx].k[2])// * materials[closestSr.objIdx].k[1]
+							materials[closestSr.objIdx].GetMaterialDescription().specularColor * ViRayUtils::NaturalPow(specularDot, materials[closestSr.objIdx].GetMaterialDescription().k[2])// * materials[closestSr.objIdx].k[1]
 #else
 						   vec3(myType(0.0), myType(0.0), myType(0.0))
 #endif

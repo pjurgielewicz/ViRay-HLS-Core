@@ -28,8 +28,8 @@ unsigned getTextureDescriptionCode(unsigned char textureIdx = 0,
 
 int main()
 {
-	string dataPath("C:\\Users\\pjurgiel\\Source\\FFCore\\src\\SimData\\");
-//	string dataPath("D:\\Dokumenty\\WorkspaceXilinx\\FFCore\\src\\SimData\\");
+//	string dataPath("C:\\Users\\pjurgiel\\Source\\FFCore\\src\\SimData\\");
+	string dataPath("D:\\Dokumenty\\WorkspaceXilinx\\FFCore\\src\\SimData\\");
 
 	ifstream dataFile((dataPath + "data.dat").c_str());
 	ifstream lightFile((dataPath + "light.dat").c_str());

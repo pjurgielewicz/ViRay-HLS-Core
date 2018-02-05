@@ -2,11 +2,11 @@
 
 using namespace std;
 
-vec3 GetVectorFromStream(const myType* s, unsigned& pos)
+vec3 GetVectorFromStream(const myType* s, unsigned pos)
 {
 #pragma HLS INLINE
 	vec3 tmp(s[pos], s[pos + 1], s[pos + 2]);
-	pos += 3;
+//	pos += 3;
 
 	return tmp;
 }
@@ -200,54 +200,67 @@ int ViRayMain(	const myType* objTransformationArrayIn,
 		MaterialAssignmentLoop: for (unsigned i = 0; i < OBJ_NUM; ++i)
 		{
 #pragma HLS PIPELINE
-			materials[i].k 				= GetVectorFromStream(materialArray, materialBufferPos);
-			materials[i].fresnelData	= GetVectorFromStream(materialArray, materialBufferPos);
+//			materials[i].k 				= GetVectorFromStream(materialArray, materialBufferPos);
+//			materials[i].fresnelData	= GetVectorFromStream(materialArray, materialBufferPos);
+//
+//			materials[i].ambientColor 	= GetVectorFromStream(materialArray, materialBufferPos);
+//			materials[i].primaryColor 	= GetVectorFromStream(materialArray, materialBufferPos);
+//			materials[i].secondaryColor = GetVectorFromStream(materialArray, materialBufferPos);
+//			materials[i].specularColor 	= GetVectorFromStream(materialArray, materialBufferPos);
 
-			materials[i].ambientColor 	= GetVectorFromStream(materialArray, materialBufferPos);
-			materials[i].primaryColor 	= GetVectorFromStream(materialArray, materialBufferPos);
-			materials[i].secondaryColor = GetVectorFromStream(materialArray, materialBufferPos);
-			materials[i].specularColor 	= GetVectorFromStream(materialArray, materialBufferPos);
+			materials[i] = ViRay::CMaterial(GetVectorFromStream(materialArray, materialBufferPos + 0),
+											GetVectorFromStream(materialArray, materialBufferPos + 3),
+											GetVectorFromStream(materialArray, materialBufferPos + 6),
+											GetVectorFromStream(materialArray, materialBufferPos + 9),
+											GetVectorFromStream(materialArray, materialBufferPos + 12),
+											GetVectorFromStream(materialArray, materialBufferPos + 15),
+											textureDescription[i],
+											GetVectorFromStream(materialArray, materialBufferPos + 18),
+											GetVectorFromStream(materialArray, materialBufferPos + 21));
+
+			cout << " " << i << ":\n" << materials[i] << endl;
+			materialBufferPos += 24;
 
 			/*
 			 * THE USER IS RESPONSIBLE OF CARING ABOUT IDX IS LOWER THAN < MAX_TEXTURE_NUM >
 			 * -> LOGIC REDUCTION
 			 */
 
-			unsigned description = textureDescription[i];
-			/*
-			 * THE WIDTH OF EACH ELEMENT IS BIGGER THAN NECESSARY FOR THE CURRENT IMPLEMENTATION
-			 * LEAVING ROOM FOR FUTURE UPGRADES
-			 *
-			 * MSB
-			 * |
-			 * 6b  : textureIdx
-			 * 3b  : textureType
-			 * 3b  : textureMapping
-			 * 10b : textureWidth
-			 * 10b : textureHeight
-			 * |
-			 * LSB
-			 */
-
-			materials[i].textureIdx 	= (description >> 26) & 0x3F;
-#ifdef TEXTURE_ENABLE
-			materials[i].textureType	= (description >> 23) & 0x7;
-#else
-			materials[i].textureType	= ViRay::CMaterial::CONSTANT;
-#endif
-
-#ifdef ADVANCED_TEXTURE_MAPPING_ENABLE
-			materials[i].textureMapping = (description >> 20) & 0x7;
-#else
-			materials[i].textureMapping = ViRay::CMaterial::PLANAR;
-#endif
-
-			materials[i].textureWidth	= (description >> 10) & 0x3FF;
-			materials[i].textureHeight	= (description      ) & 0x3FF;
-
-			// TEXTURE TRANSFORM
-			materials[i].texturePos		= GetVectorFromStream(materialArray, materialBufferPos);
-			materials[i].textureScale	= GetVectorFromStream(materialArray, materialBufferPos);
+//			unsigned description = textureDescription[i];
+//			/*
+//			 * THE WIDTH OF EACH ELEMENT IS BIGGER THAN NECESSARY FOR THE CURRENT IMPLEMENTATION
+//			 * LEAVING ROOM FOR FUTURE UPGRADES
+//			 *
+//			 * MSB
+//			 * |
+//			 * 6b  : textureIdx
+//			 * 3b  : textureType
+//			 * 3b  : textureMapping
+//			 * 10b : textureWidth
+//			 * 10b : textureHeight
+//			 * |
+//			 * LSB
+//			 */
+//
+//			materials[i].textureIdx 	= (description >> 26) & 0x3F;
+//#ifdef TEXTURE_ENABLE
+//			materials[i].textureType	= (description >> 23) & 0x7;
+//#else
+//			materials[i].textureType	= ViRay::CMaterial::CONSTANT;
+//#endif
+//
+//#ifdef ADVANCED_TEXTURE_MAPPING_ENABLE
+//			materials[i].textureMapping = (description >> 20) & 0x7;
+//#else
+//			materials[i].textureMapping = ViRay::CMaterial::PLANAR;
+//#endif
+//
+//			materials[i].textureWidth	= (description >> 10) & 0x3FF;
+//			materials[i].textureHeight	= (description      ) & 0x3FF;
+//
+//			// TEXTURE TRANSFORM
+//			materials[i].texturePos		= GetVectorFromStream(materialArray, materialBufferPos);
+//			materials[i].textureScale	= GetVectorFromStream(materialArray, materialBufferPos);
 		}
 	}
 
