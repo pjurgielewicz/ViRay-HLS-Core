@@ -3,18 +3,28 @@
 
 #include "vec3.h"
 
-class CRay
+/*
+ * Basic struct to keep origin and direction of rays
+ */
+struct Ray
 {
-public:
 	vec3 origin;
 	vec3 direction;
 
-	CRay(const vec3 &origin = vec3(0.0, 0.0, 0.0),
+	Ray(const vec3 &origin = vec3(0.0, 0.0, 0.0),
 		 const vec3 &direction = vec3(0.0, 0.0, -1.0)) : origin( origin ), direction( direction ) {}
 
-	CRay( const CRay &ray ) : origin( ray.origin ), direction( ray.direction ) {}
+	Ray( const Ray &r ) : origin( r.origin ), direction( r.direction ) {}
 };
 
+
+
+/*
+ * CCamera defines how the world is seen by the observer
+ * - position of the observer
+ * - viewing direction
+ * - space distortion & zoom
+ */
 class CCamera
 {
 public:
@@ -32,17 +42,23 @@ public:
 		ComputeUVW();
 	}
 
+	/*
+	 * Build camera coordinate system
+	 */
 	void ComputeUVW()
 	{
 		// DON'T HAVE TO NORMALIZE AS LONG AS INPUT VECTORS ARE UNIT VECTORS
-		w = -lookAtDir;
+		w = -lookAtDir;		// camera z
 //		w = w.Normalize();
-		u = up ^ w;
+		u = up ^ w;			// camera x
 //		u = u.Normalize();
-		v = w ^ u;
+		v = w ^ u;			// camera y
 	}
 
-	CRay GetCameraRayForPixel(const myType* p) const
+	/*
+	 * Get the ray that corresponds to the current camera frame and the position of the pixel
+	 */
+	Ray GetCameraRayForPixel(const myType* p) const
 	{
 //#pragma HLS INLINE
 		vec3 direction = u * p[0] * hFactor +
@@ -54,7 +70,7 @@ public:
 		 * IT IS USED DURING SHADING STAGE (FOR DOT PRODUCT)
 		 */
 
-		return CRay(eyePosition, direction.Normalize());
+		return Ray(eyePosition, direction.Normalize());
 	}
 
 	myType GetRefHRes() const { return refHRes; }

@@ -116,7 +116,7 @@ int ViRayMain(	const myType* objTransformationArrayIn,
 
 #endif
 
-	pixelColorType frameBuffer[FRAME_BUFFER_SIZE];
+	pixelColorType frameBuffer[FRAME_ROW_BUFFER_SIZE];
 //#pragma HLS ARRAY_PARTITION variable=frameBuffer complete dim=1
 
 	unsigned objType[OBJ_NUM];
@@ -134,7 +134,7 @@ int ViRayMain(	const myType* objTransformationArrayIn,
 	// TODO: Change Size appropriately: 5 -> 8
 	myType materialArray[8 * 3 * OBJ_NUM];
 	memcpy(materialArray, materialArrayIn, 8 * sizeof(vec3) * OBJ_NUM);
-	ViRay::Material materials[OBJ_NUM];
+	ViRay::CMaterial materials[OBJ_NUM];
 //#pragma HLS ARRAY_PARTITION variable=materials complete dim=1
 
 	/*
@@ -233,13 +233,13 @@ int ViRayMain(	const myType* objTransformationArrayIn,
 #ifdef TEXTURE_ENABLE
 			materials[i].textureType	= (description >> 23) & 0x7;
 #else
-			materials[i].textureType	= ViRay::Material::CONSTANT;
+			materials[i].textureType	= ViRay::CMaterial::CONSTANT;
 #endif
 
 #ifdef ADVANCED_TEXTURE_MAPPING_ENABLE
 			materials[i].textureMapping = (description >> 20) & 0x7;
 #else
-			materials[i].textureMapping = ViRay::Material::PLANAR;
+			materials[i].textureMapping = ViRay::CMaterial::PLANAR;
 #endif
 
 			materials[i].textureWidth	= (description >> 10) & 0x3FF;
@@ -255,13 +255,13 @@ int ViRayMain(	const myType* objTransformationArrayIn,
 	 *
 	 */
 #ifndef SIMPLE_OBJECT_TRANSFORM_ENABLE
-	ViRay::RenderScene(camera, posShift,
-						objTransform, objInvTransform, objType,
-						lights, materials, textureData, frameBuffer, outColor);
+	ViRay::RenderSceneOuterLoop(camera, posShift,
+								objTransform, objInvTransform, objType,
+								lights, materials, textureData, frameBuffer, outColor);
 #else
-	ViRay::RenderScene(camera, posShift,
-						objTransform, objTransformCopy,	objType,
-						lights, materials, textureData, frameBuffer, outColor);
+	ViRay::RenderSceneOuterLoop(camera, posShift,
+								objTransform, objTransformCopy,	objType,
+								lights, materials, textureData, frameBuffer, outColor);
 #endif
 	return 0;
 

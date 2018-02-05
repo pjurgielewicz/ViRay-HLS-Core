@@ -7,6 +7,9 @@
 #include <iostream>
 #endif
 
+/*
+ * 12-element 3 rows x 4 columns transformation matrix representation
+ */
 struct mat4
 {
 	myType data[12]; // is 16 really needed? Nope...
@@ -34,6 +37,9 @@ struct mat4
 		return temp;
 	}
 
+	/*
+	 * Matrix by matrix multiplication
+	 */
 	mat4 operator*(const mat4& m) const
 	{
 		mat4 temp;
@@ -62,11 +68,17 @@ struct mat4
 		return temp;
 	}
 
+	/*
+	 * Vector by matrix multiplication
+	 */
 	vec3 operator*(const vec3& v) const
 	{
 		return this->Transform(v);
 	}
 
+	/*
+	 * Vector by matrix multiplication
+	 */
 	vec3 Transform(const vec3& v) const
 	{
 #pragma HLS INLINE
@@ -77,6 +89,9 @@ struct mat4
 		return temp;
 	}
 
+	/*
+	 * Direction vector by matrix multiplication - free transformation terms are ommited
+	 */
 	vec3 TransformDir(const vec3& v) const
 	{
 //#pragma HLS INLINE
@@ -87,6 +102,9 @@ struct mat4
 		return temp;
 	}
 
+	/*
+	 * Direction vector by transposed matrix multiplication
+	 */
 	vec3 TransposeTransformDir(const vec3& v) const
 	{
 //#pragma HLS INLINE
@@ -99,11 +117,18 @@ struct mat4
 
 #define D3(n1, n2, n3) (data[n1]*data[n2]*data[n3])
 #define D2(n1, n2) (data[n1]*data[n2])
+	/*
+	 * Get matrix determinant
+	 */
 	myType Det() const
 	{
 		return D3(0, 4, 8) + D3(3, 7, 2) + D3(6, 1, 5) - (D3(6, 4, 2) + D3(3, 1, 8) + D3(0, 7, 5));
 	}
 
+	/*
+	 * Create inverse of the current matrix.
+	 * If it is not reversible return the same matrix.
+	 */
 	mat4 Inverse() const
 	{
 		myType det = Det();
@@ -133,6 +158,9 @@ struct mat4
 #undef D3
 #undef D2
 
+	/*
+	 * Reset matrix to the identity matrix
+	 */
 	void IdentityMatrix()
 	{
 		for (unsigned i = 0; i < 12; ++i)
@@ -141,6 +169,9 @@ struct mat4
 		}
 	}
 
+	/*
+	 * Set matrix to the translation matrix where v components are put as free terms
+	 */
 	void TranslationMatrix(const vec3& v)
 	{
 		for (unsigned i = 0; i < 9; ++i)
@@ -150,6 +181,9 @@ struct mat4
 		data[9] = v.data[0];	data[10] = v.data[1];	data[11] = v.data[2];
 	}
 
+	/*
+	 * Get the free terms as a vector
+	 */
 	vec3 ExtractTranslationVector()const
 	{
 		vec3 tmp;
@@ -157,6 +191,9 @@ struct mat4
 		return tmp;
 	}
 
+	/*
+	 * Build scale matrix
+	 */
 	void ScaleMatrix(const vec3& v)
 	{
 		for (unsigned i = 0; i < 4; ++i)
@@ -169,6 +206,9 @@ struct mat4
 		}
 	}
 
+	/*
+	 * Create rotation matrix around direction v by rad angle
+	 */
 	void RotationMatrix(myType rad, const vec3& v)
 	{
 		myType mag, s, c;
@@ -222,6 +262,9 @@ struct mat4
 	}
 
 #ifndef UC_OPERATION
+	/*
+	 * Flush matrix content to the std::cout stream
+	 */
 	friend std::ostream& operator<<(std::ostream& cout, const mat4& mat)
 	{
 		for (unsigned r = 0; r < 3; ++r)

@@ -5,6 +5,7 @@
 #include "Utils/mat4.h"
 #include "Utils/vec3.h"
 #include "Utils/vision.h"
+#include "Utils/material.h"
 
 namespace ViRay
 {
@@ -13,18 +14,86 @@ namespace ViRay
 	 */
 	namespace ViRayUtils
 	{
-		myType GeomObjectSolve(const vec3& abc, const CRay& transformedRay, myType& aInv);
-		myType NaturalPow(myType valIn, unsigned char n);
-		myType Clamp(myType val, myType min = myType(0.0), myType max = myType(1.0));
-		myType InvSqrt(myType val);
-		myType Sqrt(myType val);
-		myType Divide(myType N, myType D);
+		/*
+		 * Custom absolute value solution to help working with deifferent data types.
+		 * return |val|.
+		 */
 		myType Abs(myType val);
-		myType Atan2(myType y, myType x);
+
+		/*
+		 * Get arcus cosinus value for parameter x.
+		 * If FAST_ACOS_ENABLE is specified use LUT-based approximation with linear approximation between points.
+		 * This reduces FPGA LUT utilization by roughly 4k.
+		 * Call hls::acos() otherwise.
+		 */
 		myType Acos(myType x);
+
+		/*
+		 * Get arcus tangens value for parameters y and x.
+		 * If FAST_ATAN2_ENABLE is specified use polynomial approximation between y/x : [-1, 1].
+		 * The idea & code is based on: https://www.dsprelated.com/showarticle/1052.php
+		 * This approximate solution reduces FPGA LUT utilization by roughly 13k.
+		 * Call hls::atan2() otherwise.
+		 */
+		myType Atan2(myType y, myType x);
+
+		/*
+		 * Restrict val within [min, max] range
+		 */
+		myType Clamp(myType val, myType min = myType(0.0), myType max = myType(1.0));
+
+		/*
+		 * Divide N by D
+		 * if FAST_DIVISION_ENABLE is specified and floating point numbers (float, half) are used
+		 * get approximate value of division using Newton-Raphson method.
+		 * Start values are sourced from: https://en.wikipedia.org/wiki/Division_algorithm#Newton%E2%80%93Raphson_division
+		 * Number of Newton-Raphson iterations can be controlled by: FAST_DIVISION_ORDER
+		 * Most useful in C++ simulation since it reduces time but does not affect area positively.
+		 * Perform N/D directly otherwise.
+		 */
+		myType Divide(myType N, myType D);
+
+		/*
+		 * Get distance from the transformedRay.origin along transformedRay.direction to the unit (local y: |y| < 1) quadric described by the abc values
+		 * abc are the coefficients of the quadratic equation: ax^2 + bx + c = 0
+		 * a = abc[0], b = abc[1], c = abc[2]
+		 * To save resources it returns aInv = 1.0 / a by reference which is used for ray-plane hit detection
+		 * If the object is not hit return MAX_DISTANCE
+		 */
+		myType GeomObjectSolve(const vec3& abc, const Ray& transformedRay, myType& aInv);
+
+		/*
+		 * Get inverse square root of val
+		 * If FAST_INV_SQRT_ENABLE is specified and floating point numbers (float) are used
+		 * get approximate value using Quake-Newton-Raphson method: https://en.wikipedia.org/wiki/Fast_inverse_square_root#Overview_of_the_code
+		 * Number of Newton-Raphson iterations can be controlled by: FAST_INV_SQRT_ORDER
+		 * Most useful in C++ simulation since it reduces time but does not affect area positively.
+		 * Perform hls::sqrt(myType(1.0) / val) otherwise.
+		 */
+		myType InvSqrt(myType val);
+
+		/*
+		 * Get val to the power of n using powering by squaring algorithm
+		 * Number of iteration (thus maximum n) is controlled by: MAX_POWER_LOOP_ITER
+		 */
+		myType NaturalPow(myType val, unsigned char n);
+
+		/*
+		 * If it is possible to use fast implementation of ViRayUtils::InvSqrt() call val * ViRayUtils::InvSqrt(val)
+		 * otherwise hls::sqrt(val);
+		 */
+		myType Sqrt(myType val);
+
+		/*
+		 * Custom swap function solution
+		 */
 		void Swap(myType& val1, myType& val2);
 	}
 
+	/*
+	 * Structure that holds all necessary information about the hit
+	 * that is used then at the shading stage
+	 */
 	struct ShadeRec{
 		vec3 localNormal;
 		vec3 normal;
@@ -62,239 +131,19 @@ namespace ViRay
 		}
 	};
 
+	/*
+	 * Internal light data structure
+	 */
 	struct Light{
 		vec3 position;
 		vec3 dir;
 		vec3 color;
 		vec3 coeff;					// 0 - cos(outer angle), 1 - inv cone cos(angle) difference, 2 - ?
-
-//		myType innerMinusOuterInv; 	// inv cone cos(angle) difference
 	};
 
-	struct Material{
-		vec3 k;						// 0 - diffuse, 1 - specular, 2 - specular exp
-		vec3 fresnelData;			// 0 - use Fresnel, 1 - eta, 2 - invEtaSqr
-
-		vec3 ambientColor;
-		vec3 primaryColor, secondaryColor;
-		vec3 specularColor;
-		//////////////////////////////////
-		/*
-		 * TEXTURE HANDLING -> MOVE TO THE OTHER STRUCTURE
-		 */
-		vec3 texturePos, textureScale;
-
-		unsigned char textureIdx;
-		unsigned char textureType;
-		unsigned char textureMapping;
-		unsigned short textureWidth, textureHeight;
-
-		enum TextureType{
-			CONSTANT = 0,
-			BITMAP_MASK,
-			PIXEL_MAP,
-		};
-
-		enum TextureMapping{
-			PLANAR = 0,
-			CYLINDRICAL,
-			SPHERICAL,
-		};
-
-		vec3 GetDiffuseColor(const vec3& localHitPoint,
-#ifdef SIMPLE_OBJECT_TRANSFORM_ENABLE
-							 const vec3& orientation,
-#endif
-							 const float_union bitmap[MAX_TEXTURE_NUM][TEXT_WIDTH * TEXT_HEIGHT]) const
-		{
-			//CRITICAL INLINE
-#pragma HLS INLINE
-			InterpolationData interpolationData;
-			myType mix;
-
-			GetTexelCoord(localHitPoint,
-#ifdef SIMPLE_OBJECT_TRANSFORM_ENABLE
-							orientation,
-#endif
-							interpolationData);
-
-			switch(textureType)
-			{
-			case CONSTANT:
-				return primaryColor;
-
-			case BITMAP_MASK:
-#ifdef BILINEAR_TEXTURE_FILTERING_ENABLE
-				mix = 	bitmap[textureIdx][interpolationData.c1 * textureHeight + interpolationData.r1].fp_num * interpolationData.wc1 * interpolationData.wr1 +
-						bitmap[textureIdx][interpolationData.c1 * textureHeight + interpolationData.r2].fp_num * interpolationData.wc1 * interpolationData.wr2 +
-						bitmap[textureIdx][interpolationData.c2 * textureHeight + interpolationData.r2].fp_num * interpolationData.wc2 * interpolationData.wr2 +
-						bitmap[textureIdx][interpolationData.c2 * textureHeight + interpolationData.r1].fp_num * interpolationData.wc2 * interpolationData.wr1;
-#else
-				mix =	bitmap[textureIdx][interpolationData.c1 * textureHeight + interpolationData.r1].fp_num;
-#endif
-				return primaryColor * mix + secondaryColor * (myType(1.0) - mix);
-			case PIXEL_MAP:
-#ifdef BILINEAR_TEXTURE_FILTERING_ENABLE
-				return 	ConvertFloatBufferToRGB(bitmap[textureIdx][interpolationData.c1 * textureHeight + interpolationData.r1]) * interpolationData.wc1 * interpolationData.wr1 +
-						ConvertFloatBufferToRGB(bitmap[textureIdx][interpolationData.c1 * textureHeight + interpolationData.r2]) * interpolationData.wc1 * interpolationData.wr2 +
-						ConvertFloatBufferToRGB(bitmap[textureIdx][interpolationData.c2 * textureHeight + interpolationData.r2]) * interpolationData.wc2 * interpolationData.wr2 +
-						ConvertFloatBufferToRGB(bitmap[textureIdx][interpolationData.c2 * textureHeight + interpolationData.r1]) * interpolationData.wc2 * interpolationData.wr1;
-#else
-				return 	ConvertFloatBufferToRGB(bitmap[textureIdx][interpolationData.c1 * textureHeight + interpolationData.r1]);
-#endif
-			}
-
-			return vec3(0.0);
-		}
-	private:
-		struct InterpolationData
-		{
-			unsigned short c1, c2, r1, r2;		// row & column inside bitmap
-			myType wc1, wc2, wr1, wr2;			// weight of column and row
-		};
-		void GetTexelCoord(const vec3& localHitPoint,
-#ifdef SIMPLE_OBJECT_TRANSFORM_ENABLE
-							 const vec3& orientation,
-#endif
-							 InterpolationData& interpolationData) const
-		{
-#pragma HLS INLINE
-
-#ifdef SIMPLE_OBJECT_TRANSFORM_ENABLE
-			myType vx, vy, vz;
-			if (orientation[0] != myType(0.0))
-			{
-				vx = localHitPoint[2];
-				vy = localHitPoint[0];
-				vz = -localHitPoint[1];
-			}
-			else if (orientation[1] != myType(0.0))
-			{
-				vx = localHitPoint[0];
-				vy = localHitPoint[1];
-				vz = localHitPoint[2];
-			}
-			else
-			{
-				vx = localHitPoint[0];
-				vy = localHitPoint[2];
-				vz = localHitPoint[1];
-			}
-#else
-			vx = localHitPoint[0];
-			vy = localHitPoint[1];
-			vz = localHitPoint[2];
-#endif
-
-			myType dummy;
-			vx = hls::modf(vx, &dummy);
-			vy = hls::modf(vy, &dummy);
-			vz = hls::modf(vz, &dummy);
-
-#ifdef ADVANCED_TEXTURE_MAPPING_ENABLE
-			myType phi 		= ViRayUtils::Atan2(vx, vz) + PI;  //hls::atan2(vx, vz) + PI;
-			myType theta 	= ViRayUtils::Acos(vy);
-#endif
-
-			myType u, v;
-
-			switch(textureMapping)
-			{
-#ifdef ADVANCED_TEXTURE_MAPPING_ENABLE
-			case SPHERICAL:
-				u = phi * INV_TWOPI;
-				v = myType(1.0) - theta  * INV_PI;
-				break;
-			case CYLINDRICAL:
-				u = phi * INV_TWOPI;
-				v = (vy + myType(1.0)) * myType(0.5);
-				break;
-#endif
-			default: // RECTANGULAR
-				u = (vx + myType(1.0)) * myType(0.5);
-				v = (vz + myType(1.0)) * myType(0.5);
-				break;
-			}
-
-			myType realColumn = (textureWidth  - 1) * (u + texturePos[0]) * textureScale[0];
-			myType realRow    = (textureHeight - 1) * (v + texturePos[1]) * textureScale[1];
-
-			myType dc, dr;
-			myType fc = hls::modf(realColumn, &dc);
-			myType fr = hls::modf(realRow,    &dr);
-
-			unsigned short uc = (unsigned short)(dc) % textureWidth;
-			unsigned short ur = (unsigned short)(dr) % textureHeight;
-
-#ifdef BILINEAR_TEXTURE_FILTERING_ENABLE
-/*			interpolationData.c1 = uc;
-			interpolationData.c2 = uc + 1;
-			if (interpolationData.c2 == textureWidth) interpolationData.c2 = interpolationData.c1;
-			interpolationData.wc1 = myType(1.0) - fc;
-			interpolationData.wc2 = fc;
-
-			interpolationData.r1 = ur;
-			interpolationData.r2 = ur + 1;
-			if (interpolationData.r2 == textureHeight) interpolationData.r2 = interpolationData.r1;
-			interpolationData.wr1 = myType(1.0) - fr;
-			interpolationData.wr2 = fr;*/
-
-			/*
-			 * 2nd version: pixel hit center is in [0.5, 0.5]
-			 */
-			// HORIZONTAL FILTER
-			interpolationData.c1 = uc;
-			if (fc < myType(0.5))
-			{
-				interpolationData.c2 = uc - 1;
-				if (interpolationData.c1 == 0) interpolationData.c2 = textureWidth - 1;
-				interpolationData.wc1 = myType(0.5) + fc;
-				interpolationData.wc2 = myType(0.5) - fc;
-			}
-			else
-			{
-				interpolationData.c2 = uc + 1;
-				if (interpolationData.c2 == textureWidth) interpolationData.c2 = 0;
-				interpolationData.wc1 = myType(1.5) - fc;
-				interpolationData.wc2 = myType(-0.5) + fc;
-			}
-
-			// VERTICAL FILTER
-			interpolationData.r1 = ur;
-			if (fr < myType(0.5))
-			{
-				interpolationData.r2 = ur - 1;
-				if (interpolationData.r1 == 0) interpolationData.r2 = textureHeight - 1;
-				interpolationData.wr1 = myType(0.5) + fr;
-				interpolationData.wr2 = myType(0.5) - fr;
-			}
-			else
-			{
-				interpolationData.r2 = ur + 1;
-				if (interpolationData.r2 == textureHeight) interpolationData.r2 = 0;
-				interpolationData.wr1 = myType(1.5) - fr;
-				interpolationData.wr2 = myType(-0.5) + fr;
-			}
-
-#else
-			interpolationData.c1 = uc;
-			interpolationData.r1 = ur;
-#endif
-		}
-		vec3 ConvertFloatBufferToRGB(float_union buffVal) const
-		{
-#pragma HLS INLINE
-			const myType conversionFactor = myType(0.003921568627451); // = 1.0 / 255.0
-
-			unsigned rawBits = buffVal.raw_bits;
-			myType R = ((rawBits & 0xFF000000) >> 24);
-			myType G = ((rawBits & 0xFF0000)   >> 16);
-			myType B = ((rawBits & 0xFF00)	   >> 8);
-
-			return vec3(R, G, B) * conversionFactor;
-		}
-	};
-
+	/*
+	 * Structure to handle simplified object transformation: translation + scale + axis align only
+	 */
 	struct SimpleTransform{
 		vec3 orientation;
 
@@ -302,10 +151,17 @@ namespace ViRay
 		vec3 invScale;
 		vec3 translation;
 
+		/*
+		 * Transform vec by direct transformation
+		 */
 		vec3 Transform(const vec3& vec) const
 		{
 			return vec.CompWiseMul(scale) + translation;
 		}
+
+		/*
+		 * Transform vec by inverse transformation
+		 */
 		vec3 TransformInv(const vec3& vec) const
 		{
 			return (vec - translation).CompWiseMul(invScale);
@@ -314,67 +170,173 @@ namespace ViRay
 		/*
 		 * TODO: THESE ARE THE SAME FUNCTIONS
 		 */
-		vec3 TransformDir(const vec3& vec) const
-		{
-			return vec.CompWiseMul(invScale);
-		}
+
+		/*
+		 * Transform vec (direction) by inverse transformation
+		 */
 		vec3 TransformDirInv(const vec3& vec) const
 		{
 			return vec.CompWiseMul(invScale);
 		}
+
+		/*
+		 * Transform vec (direction) by inverse transpose transformation
+		 */
 		vec3 TransposeTransformDir(const vec3& vec) const
 		{
 			return vec.CompWiseMul(invScale);
 		}
 	};
 
-	void RenderScene(const CCamera& camera,
-			const myType* posShift,
-#ifndef SIMPLE_OBJECT_TRANSFORM_ENABLE
-			const mat4* objTransform,
-			const mat4* objTransformInv,
-#else
-			const SimpleTransform* objTransform, const SimpleTransform* objTransformCopy,
+	/*
+	 * ***************************************  VIRAY CORE FUNCTIONS ***************************************
+	 */
+
+	/*
+	 * Knowing the camera viewing system (camera & posShift)
+	 * create an initial ray for the pixel coordinate (c, r)
+	 */
+	void CreatePrimaryRay(const CCamera& camera, const myType* posShift, unsigned short r, unsigned short c, Ray& ray);
+	
+	/*
+	 * Ray-unit cube object hit test.
+	 * If cube object is hit return distance along transformedRay.direction and the face index.
+	 * Otherwise return MAX_DISTANCE.
+	 * NOTE: it is not adviced to use cube objects (CUBE_OBJECT_ENABLE) in real FPGA design unless there are spare resources, since
+	 * this objects need additional 3 divisions
+	 */
+	myType CubeTest(const Ray& transformedRay, unsigned char& face);
+
+	/*
+	 * Knowing the cube face (obtained from CubeTest())
+	 * get the corresponding normal
+	 */
+	vec3 GetCubeNormal(const unsigned char& faceIdx);
+
+	/*
+	 * Knowing angle between ray.direction and object normal (cosRefl)
+	 * compute Fresnel reflection coefficient for the unpolarized beam of light
+	 */
+	myType GetFresnelReflectionCoeff(const myType& cosRefl, const myType& relativeEta, const myType& invRelativeEtaSqr);
+
+	/*
+	 * Determine whether and where exactly (in local coordinates) the hit occurred
+	 * The user can change the complexity of this function by enabling/disabling object flags (ie. SPHERE_OBJECT_ENABLE)
+	 * If the objType is not recognizable the result hit is at MAX_DISTANCE along transformedRay.
+	 */
+	void PerformHits(const Ray& transformedRay,
+#ifdef SIMPLE_OBJECT_TRANSFORM_ENABLE
+						const vec3& objOrientation,
 #endif
-			const unsigned* objType,
+						unsigned objType, ShadeRec& sr);
 
-			const Light* lights,
-			const Material* materials,
-
-			const float_union textureData[MAX_TEXTURE_NUM][TEXT_WIDTH * TEXT_HEIGHT],
-
-			pixelColorType* frameBuffer,
-			pixelColorType* outColor);
-
-	void InnerLoop(const CCamera& camera,
-			const myType* posShift,
+	/*
+	 * Per pixel image processing - this function triggers:
+	 * - primary ray creation
+	 * - hit object detection
+	 * - direct shading
+	 * - 1 bounce of ray
+	 * - secondary object detection
+	 * - shading of reflections and reflection coefficient determination
+	 * - saving resulting pixel to the frame buffer
+	 * The degree of speedup using HLS PIPELINE relies critically on the: DESIRED_INNER_LOOP_II
+	 * In theory the code might process 1 pixel per 1 clock cycle however the resource usage becomes enormous.
+	 * Thus, the user has to find the golden mean between the area and performance
+	 *
+	 * The user can enable/disable reflection pass using: REFLECTION_ENABLE
+	 *
+	 * To make all surfaces mirror-like comment: FRESNEL_REFLECTION_ENABLE then the reflection coefficient will be
+	 * constant on the entire surface and equal to the specular highlight coefficient
+	 *
+	 * If DEEP_RAYTRACING_ENABLE is specified (only for C++ simulation) it can reach up to:
+	 * RAYTRACING_DEPTH raytracing depth (1 - direct, 2 - single reflection, 3 - double reflection, ..., n - 1 reflection)
+	 */
+	void RenderSceneInnerLoop(const CCamera& camera,
+								const myType* posShift,
 #ifndef SIMPLE_OBJECT_TRANSFORM_ENABLE
-			const mat4* objTransform,
-			const mat4* objTransformInv,
+								const mat4* objTransform,
+								const mat4* objTransformInv,
 #else
-			const SimpleTransform* objTransform, const SimpleTransform* objTransformCopy,
+								const SimpleTransform* objTransform, const SimpleTransform* objTransformCopy,
 #endif
-			const unsigned* objType,
-			unsigned short h,
+								const unsigned* objType,
+								unsigned short h,
 
-			const Light* lights,
-			const Material* materials,
+								const Light* lights,
+								const CMaterial* materials,
 
-			const float_union textureData[MAX_TEXTURE_NUM][TEXT_WIDTH * TEXT_HEIGHT],
+								const float_union textureData[MAX_TEXTURE_NUM][TEXT_WIDTH * TEXT_HEIGHT],
 
-			pixelColorType* frameBuffer);
+								pixelColorType* frameBuffer);
 
-	void VisibilityTest(const CRay& ray,
+	/*
+	 * Outer per row rendering loop.
+	 * Triggers RenderSceneInnerLoop() for each vertical line of the image
+	 * and then bursts it into the memory.
+	 * Uses HLS DATAFLOW optimization so the copy cycles are not degrading the performance
+	 */
+	void RenderSceneOuterLoop(const CCamera& camera,
+								const myType* posShift,
 #ifndef SIMPLE_OBJECT_TRANSFORM_ENABLE
-						const mat4* objTransform,
-						const mat4* objTransformInv,
+								const mat4* objTransform,
+								const mat4* objTransformInv,
 #else
-						const SimpleTransform* objTransform,
+								const SimpleTransform* objTransform, const SimpleTransform* objTransformCopy,
 #endif
-						const unsigned* objType,
-						ShadeRec& closestSr);
+								const unsigned* objType,
 
-	void ShadowVisibilityTest(	const CRay& shadowRay,
+								const Light* lights,
+								const CMaterial* materials,
+
+								const float_union textureData[MAX_TEXTURE_NUM][TEXT_WIDTH * TEXT_HEIGHT],
+
+								pixelColorType* frameBuffer,
+								pixelColorType* outColor);
+
+	/*
+	 * Having internal color values transform them to the 0...255 range using unsigned char (x * 255) transformation
+	 * If the initial intensity is higher than 1.0 the value will be clamped to 255.
+	 * The output color is saved in the color buffer as follows:
+	 * MSB
+	 * |
+	 * 8b : < not used >
+	 * 8b : R = (unsigned char)clamp(color[0] * 255, 0, 255)
+	 * 8b : G = (unsigned char)clamp(color[1] * 255, 0, 255)
+	 * 8b : B = (unsigned char)clamp(color[2] * 255, 0, 255)
+	 * |
+	 * LSB
+	 */
+	void SaveColorToBuffer(vec3 color, pixelColorType& colorOut);
+
+	/*
+	 * Determine object illumination (including shadows):
+	 * - ambient light (with texture correction)
+	 * - diffuse light (with texture application)
+	 * - specular highlights
+	 */
+	vec3 Shade(const ShadeRec& closestSr,
+				const Ray& ray,
+
+#ifndef SIMPLE_OBJECT_TRANSFORM_ENABLE
+				const mat4* objTransform,
+				const mat4* objTransformInv,
+#else
+				const SimpleTransform* objTransform,
+#endif
+				const unsigned* objType,
+
+				const Light* lights,
+				const CMaterial* materials,
+
+				const float_union textureData[MAX_TEXTURE_NUM][TEXT_WIDTH * TEXT_HEIGHT],
+
+				const myType ndir2min);
+
+	/*
+	 * Very similar to the VisibilityTest() but uses shadow-specific functionality.
+	 * It just has to determine whether there is shadow or not.
+	 */
+	void ShadowVisibilityTest(const Ray& shadowRay,
 #ifndef SIMPLE_OBJECT_TRANSFORM_ENABLE
 								const mat4* objTransform,
 								const mat4* objTransformInv,
@@ -386,62 +348,56 @@ namespace ViRay
 								myType d2,
 								ShadeRec& shadowSr);
 
-	vec3 Shade(	const ShadeRec& closestSr,
-				const CRay& ray,
-
+	/*
+	 * Having the ray in world space transform it to the object space (inverse transformation)
+	 * This operation simplifies objects description and allows to deform objects.
+	 * However, this requires several inverse & direct vector transformations to obtain right results.
+	 */
 #ifndef SIMPLE_OBJECT_TRANSFORM_ENABLE
-				const mat4* objTransform,
-				const mat4* objTransformInv,
+	void TransformRay(const mat4& mat, const Ray& ray, Ray& transformedRay);
 #else
-				const SimpleTransform* objTransform,
+	void TransformRay(const SimpleTransform& transform, const Ray& ray, Ray& transformedRay);
 #endif
-				const unsigned* objType,
 
-				const Light* lights,
-				const Material* materials,
-
-				const float_union textureData[MAX_TEXTURE_NUM][TEXT_WIDTH * TEXT_HEIGHT],
-
-				const myType ndir2min);
-
-	myType GetFresnelReflectionCoeff(/*const vec3& rayDirection, const vec3 surfaceNormal,*/ const myType& cosRefl, const myType& relativeEta, const myType& invRelativeEtaSqr);
-
-	void CreatePrimaryRay(const CCamera& camera, const myType* posShift, unsigned short r, unsigned short c, CRay& ray);
-
-#ifndef SIMPLE_OBJECT_TRANSFORM_ENABLE
-	void TransformRay(const mat4& mat, const CRay& ray, CRay& transformedRay);
-#else
-	void TransformRay(const SimpleTransform& transform, const CRay& ray, CRay& transformedRay);
-#endif
-	myType CubeTest(const CRay& transformedRay, unsigned char& face);
-	vec3 GetCubeNormal(const unsigned char& faceIdx);
-
-	void PerformHits(const CRay& transformedRay,
-#ifdef SIMPLE_OBJECT_TRANSFORM_ENABLE
-						const vec3& objOrientation,
-#endif
-						unsigned objType, ShadeRec& sr);
-
+	/*
+	 * If the next object is nearer the observer update closest object reference
+	 */
 	void UpdateClosestObject(ShadeRec& current,
 #ifndef SIMPLE_OBJECT_TRANSFORM_ENABLE
-			const mat4& transform,
+								const mat4& transform,
 #else
-			const SimpleTransform& transform,
+								const SimpleTransform& transform,
 #endif
-			const unsigned char& n,
-			const CRay& ray,
-			ShadeRec& best);
+								const unsigned char& n,
+								const Ray& ray,
+								ShadeRec& best);
+
+	/*
+	 * If there is anything on the way towards the light make the system know about that fact
+	 */
 	void UpdateClosestObjectShadow(const ShadeRec& current,
 #ifndef SIMPLE_OBJECT_TRANSFORM_ENABLE
 									const mat4& transform,
 #else
 									const SimpleTransform& transform,
 #endif
-									const CRay& shadowRay,
+									const Ray& shadowRay,
 									myType distanceToLightSqr,
 									ShadeRec& best);
 
-	void SaveColorToBuffer(vec3 color, pixelColorType& colorOut);
+	/*
+	 * Loop over all objects in the scene for a given ray
+	 * to check whether it hits something or not
+	 */
+	void VisibilityTest(const Ray& ray,
+#ifndef SIMPLE_OBJECT_TRANSFORM_ENABLE
+						const mat4* objTransform,
+						const mat4* objTransformInv,
+#else
+						const SimpleTransform* objTransform,
+#endif
+						const unsigned* objType,
+						ShadeRec& closestSr);
 }
 
 #endif

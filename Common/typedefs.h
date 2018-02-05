@@ -124,7 +124,7 @@ enum ObjectType{
 #define TEXT_WIDTH					((unsigned short)(128))
 #define TEXT_HEIGHT					((unsigned short)(128))
 
-#define FRAME_BUFFER_SIZE 			(WIDTH)
+#define FRAME_ROW_BUFFER_SIZE 		(WIDTH)
 #define LIGHTS_NUM 					((unsigned char)(2))
 #define OBJ_NUM 					((unsigned char)(8))
 
