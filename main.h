@@ -15,6 +15,7 @@ int ViRayMain(	const myType* objTransformationArrayIn,
 
 				const myType* textureDataIn,
 				const unsigned* textureDescriptionIn,
+				const unsigned* textureBaseAddressIn,
 
 				pixelColorType* outColor);
 

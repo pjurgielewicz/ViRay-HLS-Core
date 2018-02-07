@@ -31,6 +31,7 @@ int ViRayMain(	const myType* objTransformationArrayIn,
 
 				const myType* textureDataIn,
 				const unsigned* textureDescriptionIn,
+				const unsigned* textureBaseAddressIn,
 
 				pixelColorType* outColor)
 {
@@ -80,6 +81,9 @@ int ViRayMain(	const myType* objTransformationArrayIn,
 
 #pragma HLS INTERFACE s_axilite port=textureDescriptionIn bundle=AXI_LITE_1
 #pragma HLS INTERFACE m_axi port=textureDescriptionIn offset=slave bundle=MAXI_DATA_2
+
+#pragma HLS INTERFACE s_axilite port=textureBaseAddressIn bundle=AXI_LITE_1
+#pragma HLS INTERFACE m_axi port=textureBaseAddressIn offset=slave bundle=MAXI_DATA_2
 
 	/*
 	 * FRAMEBUFFER
@@ -147,13 +151,15 @@ int ViRayMain(	const myType* objTransformationArrayIn,
 	/*
 	 * TEXTURES
 	 */
-	float_union textureData[MAX_TEXTURE_NUM][TEXT_WIDTH * TEXT_HEIGHT];
+	float_union textureData[TEXT_PAGE_SIZE];
 #ifdef TEXTURE_URAM_STORAGE
 #pragma HLS RESOURCE variable=textureData core=XPM_MEMORY uram
 #endif
-	memcpy(textureData, textureDataIn, sizeof(float_union) * TEXT_WIDTH * TEXT_HEIGHT * MAX_TEXTURE_NUM);
+	memcpy(textureData, textureDataIn, sizeof(float_union) * TEXT_PAGE_SIZE);
 	unsigned textureDescription[OBJ_NUM];
 	memcpy(textureDescription, textureDescriptionIn, sizeof(unsigned) * OBJ_NUM);
+	unsigned textureBaseAddress[OBJ_NUM];
+	memcpy(textureBaseAddress, textureBaseAddressIn, sizeof(unsigned) * OBJ_NUM);
 
 	AssignmentLoops:{
 #pragma HLS LOOP_MERGE
@@ -214,6 +220,7 @@ int ViRayMain(	const myType* objTransformationArrayIn,
 											GetVectorFromStream(materialArray, materialBufferPos + 12),
 											GetVectorFromStream(materialArray, materialBufferPos + 15),
 											textureDescription[i],
+											textureBaseAddress[i],
 											GetVectorFromStream(materialArray, materialBufferPos + 18),
 											GetVectorFromStream(materialArray, materialBufferPos + 21));
 

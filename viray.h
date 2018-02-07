@@ -265,7 +265,7 @@ namespace ViRay
 								const Light* lights,
 								const CMaterial* materials,
 
-								const float_union textureData[MAX_TEXTURE_NUM][TEXT_WIDTH * TEXT_HEIGHT],
+								const float_union* textureData,
 
 								pixelColorType* frameBuffer);
 
@@ -288,7 +288,7 @@ namespace ViRay
 								const Light* lights,
 								const CMaterial* materials,
 
-								const float_union textureData[MAX_TEXTURE_NUM][TEXT_WIDTH * TEXT_HEIGHT],
+								const float_union* textureData,
 
 								pixelColorType* frameBuffer,
 								pixelColorType* outColor);
@@ -328,7 +328,7 @@ namespace ViRay
 				const Light* lights,
 				const CMaterial* materials,
 
-				const float_union textureData[MAX_TEXTURE_NUM][TEXT_WIDTH * TEXT_HEIGHT],
+				const float_union* textureData,
 
 				const myType ndir2min);
 

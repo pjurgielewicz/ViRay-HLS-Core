@@ -49,7 +49,8 @@ private:
 
 		vec3 texturePos, textureScale;
 
-		unsigned char textureIdx;
+		unsigned      baseAddr;
+//		unsigned char textureIdx;
 		unsigned char textureType;
 		unsigned char textureMapping;
 		unsigned short textureWidth, textureHeight;
@@ -60,7 +61,7 @@ private:
 		 *
 		 * MSB
 		 * |
-		 * 6b  : textureIdx
+		 * 6b  : < none >
 		 * 3b  : textureType
 		 * 3b  : textureMapping
 		 * 10b : textureWidth
@@ -69,9 +70,12 @@ private:
 		 * LSB
 		 */
 		TextureDescription() {}	// dummy because of HLS requirements
-		TextureDescription(unsigned textureDescriptionCode, const vec3& pos, const vec3& scale)
+		TextureDescription( unsigned textureDescriptionCode,
+							unsigned baseAddr,
+							const vec3& pos, const vec3& scale)
 		{
-			textureIdx  	= (textureDescriptionCode >> 26) & 0x3F;
+			this->baseAddr	= baseAddr;
+//			textureIdx  	= (textureDescriptionCode >> 26) & 0x3F;
 #ifdef TEXTURE_ENABLE
 			textureType		= (textureDescriptionCode >> 23) & 0x7;
 #else
@@ -263,8 +267,8 @@ public:
 	// TODO: fill descriptions...
 	CMaterial() {} // dummy because of HLS requirements
 	CMaterial(	const vec3& k, const vec3& fresnelData, const vec3& ambientColor, const vec3& primaryColor, const vec3& secondaryColor, const vec3& specularColor,
-				unsigned textureDescriptionCode, const vec3& texturePos, const vec3& textureScale) :
-				textureDesc(textureDescriptionCode, texturePos, textureScale)
+				unsigned textureDescriptionCode, unsigned textureBaseAddr, const vec3& texturePos, const vec3& textureScale) :
+				textureDesc(textureDescriptionCode, textureBaseAddr, texturePos, textureScale)
 	{
 		materialDesc.k 				= k;
 		materialDesc.fresnelData 	= fresnelData;
@@ -289,7 +293,7 @@ public:
 #ifdef SIMPLE_OBJECT_TRANSFORM_ENABLE
 							const vec3& orientation,
 #endif
-							const float_union bitmap[MAX_TEXTURE_NUM][TEXT_WIDTH * TEXT_HEIGHT]) const
+							const float_union* bitmap) const
 	{
 		//CRITICAL INLINE
 #pragma HLS INLINE
@@ -309,22 +313,22 @@ public:
 
 		case BITMAP_MASK:
 #ifdef BILINEAR_TEXTURE_FILTERING_ENABLE
-			mix = 	bitmap[textureDesc.textureIdx][interpolationData.c1 * textureDesc.textureHeight + interpolationData.r1].fp_num * interpolationData.wc1 * interpolationData.wr1 +
-					bitmap[textureDesc.textureIdx][interpolationData.c1 * textureDesc.textureHeight + interpolationData.r2].fp_num * interpolationData.wc1 * interpolationData.wr2 +
-					bitmap[textureDesc.textureIdx][interpolationData.c2 * textureDesc.textureHeight + interpolationData.r2].fp_num * interpolationData.wc2 * interpolationData.wr2 +
-					bitmap[textureDesc.textureIdx][interpolationData.c2 * textureDesc.textureHeight + interpolationData.r1].fp_num * interpolationData.wc2 * interpolationData.wr1;
+			mix = 	bitmap[textureDesc.baseAddr + interpolationData.c1 * textureDesc.textureHeight + interpolationData.r1].fp_num * interpolationData.wc1 * interpolationData.wr1 +
+					bitmap[textureDesc.baseAddr + interpolationData.c1 * textureDesc.textureHeight + interpolationData.r2].fp_num * interpolationData.wc1 * interpolationData.wr2 +
+					bitmap[textureDesc.baseAddr + interpolationData.c2 * textureDesc.textureHeight + interpolationData.r2].fp_num * interpolationData.wc2 * interpolationData.wr2 +
+					bitmap[textureDesc.baseAddr + interpolationData.c2 * textureDesc.textureHeight + interpolationData.r1].fp_num * interpolationData.wc2 * interpolationData.wr1;
 #else
-			mix = 	bitmap[textureDesc.textureIdx][interpolationData.c1 * textureDesc.textureHeight + interpolationData.r1].fp_num;
+			mix = 	bitmap[textureDesc.baseAddr + interpolationData.c1 * textureDesc.textureHeight + interpolationData.r1].fp_num;
 #endif
 			return materialDesc.primaryColor * mix + materialDesc.secondaryColor * (myType(1.0) - mix);
 		case PIXEL_MAP:
 #ifdef BILINEAR_TEXTURE_FILTERING_ENABLE
-			return 	textureDesc.ConvertFloatBufferToRGB(bitmap[textureDesc.textureIdx][interpolationData.c1 * textureDesc.textureHeight + interpolationData.r1]) * interpolationData.wc1 * interpolationData.wr1 +
-					textureDesc.ConvertFloatBufferToRGB(bitmap[textureDesc.textureIdx][interpolationData.c1 * textureDesc.textureHeight + interpolationData.r2]) * interpolationData.wc1 * interpolationData.wr2 +
-					textureDesc.ConvertFloatBufferToRGB(bitmap[textureDesc.textureIdx][interpolationData.c2 * textureDesc.textureHeight + interpolationData.r2]) * interpolationData.wc2 * interpolationData.wr2 +
-					textureDesc.ConvertFloatBufferToRGB(bitmap[textureDesc.textureIdx][interpolationData.c2 * textureDesc.textureHeight + interpolationData.r1]) * interpolationData.wc2 * interpolationData.wr1;
+			return 	textureDesc.ConvertFloatBufferToRGB(bitmap[textureDesc.baseAddr + interpolationData.c1 * textureDesc.textureHeight + interpolationData.r1]) * interpolationData.wc1 * interpolationData.wr1 +
+					textureDesc.ConvertFloatBufferToRGB(bitmap[textureDesc.baseAddr + interpolationData.c1 * textureDesc.textureHeight + interpolationData.r2]) * interpolationData.wc1 * interpolationData.wr2 +
+					textureDesc.ConvertFloatBufferToRGB(bitmap[textureDesc.baseAddr + interpolationData.c2 * textureDesc.textureHeight + interpolationData.r2]) * interpolationData.wc2 * interpolationData.wr2 +
+					textureDesc.ConvertFloatBufferToRGB(bitmap[textureDesc.baseAddr + interpolationData.c2 * textureDesc.textureHeight + interpolationData.r1]) * interpolationData.wc2 * interpolationData.wr1;
 #else
-			return 	TextureDescription::ConvertFloatBufferToRGB(bitmap[textureDesc.textureIdx][interpolationData.c1 * textureDesc.textureHeight + interpolationData.r1]);
+			return 	TextureDescription::ConvertFloatBufferToRGB(bitmap[textureDesc.baseAddr + interpolationData.c1 * textureDesc.textureHeight + interpolationData.r1]);
 #endif
 		}
 
@@ -352,7 +356,7 @@ public:
 
 						m.textureDesc.texturePos << "\n" <<
 						m.textureDesc.textureScale << "\n" <<
-						(unsigned)m.textureDesc.textureIdx << " " << (unsigned)m.textureDesc.textureType << " " << (unsigned)m.textureDesc.textureMapping << " " << m.textureDesc.textureWidth << " " << m.textureDesc.textureHeight << "\n";
+						(unsigned)m.textureDesc.baseAddr << " " << (unsigned)m.textureDesc.textureType << " " << (unsigned)m.textureDesc.textureMapping << " " << m.textureDesc.textureWidth << " " << m.textureDesc.textureHeight << "\n";
 	}
 #endif
 

@@ -121,8 +121,9 @@ enum ObjectType{
 #define WIDTH 						((unsigned short)(1920))
 #define HEIGHT 						((unsigned short)(1080))
 
-#define TEXT_WIDTH					((unsigned short)(128))
-#define TEXT_HEIGHT					((unsigned short)(128))
+//#define TEXT_WIDTH					((unsigned short)(128))
+//#define TEXT_HEIGHT					((unsigned short)(128))
+#define TEXT_PAGE_SIZE				((unsigned)(256 * 256))
 
 #define FRAME_ROW_BUFFER_SIZE 		(WIDTH)
 #define LIGHTS_NUM 					((unsigned char)(2))
@@ -139,7 +140,7 @@ enum ObjectType{
 
 #endif
 
-#define	MAX_TEXTURE_NUM				((unsigned char)(4))
+//#define	MAX_TEXTURE_NUM				((unsigned char)(4))
 
 #define MAX_POWER_LOOP_ITER			((unsigned char)(7))
 

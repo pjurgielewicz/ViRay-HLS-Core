@@ -13,13 +13,13 @@ vec3& loadVectorFromStream(ifstream& file, vec3& vec)
 	return vec;
 }
 
-unsigned getTextureDescriptionCode(unsigned char textureIdx = 0,
+unsigned getTextureDescriptionCode(//unsigned char textureIdx = 0,
 									unsigned char textureType = ViRay::CMaterial::CONSTANT,
 									unsigned char textureMapping = ViRay::CMaterial::PLANAR,
-									unsigned short textureWidth = TEXT_WIDTH,
-									unsigned short textureHeight = TEXT_HEIGHT)
+									unsigned short textureWidth = 128,
+									unsigned short textureHeight = 128)
 {
-	return 	((textureIdx & 0x3F) << 26) +
+	return 	//((textureIdx & 0x3F) << 26) +
 			((textureType & 0x7) << 23) +
 			((textureMapping & 0x7) << 20) +
 			((textureWidth & 0x3FF) << 10) +
@@ -318,30 +318,34 @@ int main()
 
 /////////////////////////////////////////////////////////
 
-	float_union* textureData = new float_union[MAX_TEXTURE_NUM * TEXT_WIDTH * TEXT_HEIGHT];
+	float_union* textureData = new float_union[TEXT_PAGE_SIZE];
 	unsigned* textureDescriptionData = new unsigned[OBJ_NUM];
+	unsigned* textureBaseAddr = new unsigned[OBJ_NUM];
 
 	for (unsigned i = 0; i < OBJ_NUM; ++i)
 	{
-		textureDescriptionData[i] = getTextureDescriptionCode();
+		textureDescriptionData[i] 	= getTextureDescriptionCode();
+		textureBaseAddr[i]			= 0;
 	}
 
 	// RGB DOTS PIXEL TYPE TEXTURE
 	unsigned shift = 0;
-	for (unsigned w = 0; w < TEXT_WIDTH; ++w)
+	textureBaseAddr[0] = 0;
+	unsigned rgbW(16), rgbH(16);
+	for (unsigned w = 0; w < rgbW; ++w)
 	{
-		for (unsigned h = 0; h < TEXT_HEIGHT; ++h)
+		for (unsigned h = 0; h < rgbH; ++h)
 		{
-			textureData[w * TEXT_HEIGHT + h].raw_bits = (230 << (shift * 8));
+			textureData[textureBaseAddr[0] + w * rgbH + h].raw_bits = (230 << (shift * 8));
 			shift = (shift == 2) ? 0 : shift + 1;
 		}
 	}
 	// CHECKERBOX
-	unsigned basePos = TEXT_WIDTH * TEXT_HEIGHT;
-	for (unsigned w = 0; w < TEXT_WIDTH; ++w)
+	unsigned basePos = rgbW * rgbH;
+	for (unsigned w = 0; w < 128; ++w)
 	{
 		unsigned xc = w >> 4;
-		for (unsigned h = 0; h < TEXT_HEIGHT; ++h)
+		for (unsigned h = 0; h < 128; ++h)
 		{
 			unsigned yc = h >> 4;
 
@@ -349,22 +353,26 @@ int main()
 			if (s & 0x1)
 			{
 //				textureData[basePos + w * TEXT_HEIGHT + h].raw_bits = 0xFFFFFF;
-				textureData[basePos + w * TEXT_HEIGHT + h].fp_num = myType(1.0);
+				textureData[basePos + w * 128 + h].fp_num = myType(1.0);
 //				cout << 1;
 			}
 			else
 			{
 //				textureData[basePos + w * TEXT_HEIGHT + h].raw_bits = 0;
-				textureData[basePos + w * TEXT_HEIGHT + h].fp_num = myType(0.0);
+				textureData[basePos + w * 128 + h].fp_num = myType(0.0);
 //				cout << 0;
 			}
 		}
 //		cout << endl;
 	}
 
-	textureDescriptionData[0] = getTextureDescriptionCode(1, ViRay::CMaterial::BITMAP_MASK, ViRay::CMaterial::SPHERICAL);
-	textureDescriptionData[4] = getTextureDescriptionCode(0, ViRay::CMaterial::PIXEL_MAP);
-	textureDescriptionData[5] = getTextureDescriptionCode(1, ViRay::CMaterial::BITMAP_MASK);
+	textureDescriptionData[0] = getTextureDescriptionCode(/*1, */ViRay::CMaterial::BITMAP_MASK, ViRay::CMaterial::SPHERICAL, 128, 128);
+	textureDescriptionData[4] = getTextureDescriptionCode(/*0, */ViRay::CMaterial::PIXEL_MAP, ViRay::CMaterial::PLANAR, rgbW, rgbH);
+	textureDescriptionData[5] = getTextureDescriptionCode(/*1,*/ ViRay::CMaterial::BITMAP_MASK, ViRay::CMaterial::PLANAR, 128, 128);
+
+	textureBaseAddr[0] = basePos;
+	textureBaseAddr[4] = 0;
+	textureBaseAddr[5] = basePos;
 
 /////////////////////////////////////////////////////////
 
@@ -388,6 +396,7 @@ int main()
 
 			(myType*)textureData,
 			textureDescriptionData,
+			textureBaseAddr,
 
 			frame);
 
@@ -417,6 +426,7 @@ int main()
 
 	delete[] frame;
 
+	delete[] textureBaseAddr;
 	delete[] textureDescriptionData;
 	delete[] textureData;
 

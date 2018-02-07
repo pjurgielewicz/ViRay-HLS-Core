@@ -338,7 +338,7 @@ void RenderSceneInnerLoop(const CCamera& camera,
 							const Light* lights,
 							const CMaterial* materials,
 
-							const float_union textureData[MAX_TEXTURE_NUM][TEXT_WIDTH * TEXT_HEIGHT],
+							const float_union* textureData,
 
 							pixelColorType* frameBuffer)
 {
@@ -492,7 +492,7 @@ void RenderSceneOuterLoop(const CCamera& camera,
 							const Light* lights,
 							const CMaterial* materials,
 
-							const float_union textureData[MAX_TEXTURE_NUM][TEXT_WIDTH * TEXT_HEIGHT],
+							const float_union* textureData,
 
 							pixelColorType* frameBuffer,
 							pixelColorType* outColor)
@@ -550,7 +550,7 @@ vec3 Shade(	const ShadeRec& closestSr,
 			const Light* lights,
 			const CMaterial* materials,
 
-			const float_union textureData[MAX_TEXTURE_NUM][TEXT_WIDTH * TEXT_HEIGHT],
+			const float_union* textureData,
 
 			const myType ndir2min)
 {
