@@ -1,5 +1,6 @@
 #include "main.h"
 #include "Utils/bitmap_image.hpp"
+#include "Utils/TextureGenerator.h"
 
 #include "iostream"
 #include "fstream"
@@ -328,51 +329,29 @@ int main()
 		textureBaseAddr[i]			= 0;
 	}
 
-	// RGB DOTS PIXEL TYPE TEXTURE
-	unsigned shift = 0;
-	textureBaseAddr[0] = 0;
-	unsigned rgbW(16), rgbH(16);
-	for (unsigned w = 0; w < rgbW; ++w)
-	{
-		for (unsigned h = 0; h < rgbH; ++h)
-		{
-			textureData[textureBaseAddr[0] + w * rgbH + h].raw_bits = (230 << (shift * 8));
-			shift = (shift == 2) ? 0 : shift + 1;
-		}
-	}
-	// CHECKERBOX
-	unsigned basePos = rgbW * rgbH;
-	for (unsigned w = 0; w < 128; ++w)
-	{
-		unsigned xc = w >> 4;
-		for (unsigned h = 0; h < 128; ++h)
-		{
-			unsigned yc = h >> 4;
+	/*
+	 * TODO: Create Texture Helper to easily manage texture binding
+	 */
 
-			unsigned s = xc + yc;
-			if (s & 0x1)
-			{
-//				textureData[basePos + w * TEXT_HEIGHT + h].raw_bits = 0xFFFFFF;
-				textureData[basePos + w * 128 + h].fp_num = myType(1.0);
-//				cout << 1;
-			}
-			else
-			{
-//				textureData[basePos + w * TEXT_HEIGHT + h].raw_bits = 0;
-				textureData[basePos + w * 128 + h].fp_num = myType(0.0);
-//				cout << 0;
-			}
-		}
-//		cout << endl;
-	}
+	CTextureGenerator rgbDots(16, 16, CTextureGenerator::RGB_DOTS);
+	CTextureGenerator checkerbox(128, 128, CTextureGenerator::CHECKERBOARD, 1784301, 5, 0.57, 6, 6);
+	CTextureGenerator marble(128, 128, CTextureGenerator::MARBLE, 1784301, 5, 0.57, 6, 4);
 
-	textureDescriptionData[0] = getTextureDescriptionCode(/*1, */ViRay::CMaterial::BITMAP_MASK, ViRay::CMaterial::SPHERICAL, 128, 128);
-	textureDescriptionData[4] = getTextureDescriptionCode(/*0, */ViRay::CMaterial::PIXEL_MAP, ViRay::CMaterial::PLANAR, rgbW, rgbH);
-	textureDescriptionData[5] = getTextureDescriptionCode(/*1,*/ ViRay::CMaterial::BITMAP_MASK, ViRay::CMaterial::PLANAR, 128, 128);
+	unsigned baseAddress = 0;
+	unsigned rgbAddress = baseAddress;
+	baseAddress += rgbDots.CopyBitmapInto(textureData + baseAddress);
+	unsigned checkerboxAddress = baseAddress;
+	baseAddress += checkerbox.CopyBitmapInto(textureData + baseAddress);
+	unsigned marbleAddress = baseAddress;
+	baseAddress += marble.CopyBitmapInto(textureData + baseAddress);
 
-	textureBaseAddr[0] = basePos;
-	textureBaseAddr[4] = 0;
-	textureBaseAddr[5] = basePos;
+	textureDescriptionData[0] = getTextureDescriptionCode(/*1, */ marble.GetTextureType(), ViRay::CMaterial::SPHERICAL, marble.GetTextureWidth(), marble.GetTextureHeight());
+	textureDescriptionData[4] = getTextureDescriptionCode(/*0, */ rgbDots.GetTextureType(), ViRay::CMaterial::PLANAR, rgbDots.GetTextureWidth(), rgbDots.GetTextureHeight());
+	textureDescriptionData[5] = getTextureDescriptionCode(/*1,*/ checkerbox.GetTextureType(), ViRay::CMaterial::PLANAR, checkerbox.GetTextureWidth(), checkerbox.GetTextureHeight());
+
+	textureBaseAddr[0] = marbleAddress;
+	textureBaseAddr[4] = rgbAddress;
+	textureBaseAddr[5] = checkerboxAddress;
 
 /////////////////////////////////////////////////////////
 

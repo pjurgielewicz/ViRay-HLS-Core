@@ -149,6 +149,7 @@ enum ObjectType{
 
 #define PI 							(myType(3.141592))
 #define HALF_PI						(myType(1.570796))
+#define TWOPI						(myType(6.283184))
 #define INV_TWOPI					(myType(0.159155))
 #define INV_PI						(myType(0.31831))
 
