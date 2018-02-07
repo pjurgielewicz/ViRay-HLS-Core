@@ -52,6 +52,7 @@ class CTextureGenerator{
 private:
 	/*
 	 * 2D noise class
+	 * Based on tutorial: http://lodev.org/cgtutor/randomnoise.html
 	 */
 
 	class C2DNoiseGenerator{
@@ -146,8 +147,8 @@ public:
 
 public:
 	
-	CTextureGenerator(unsigned short textureWidth, unsigned short textureHeight, TextureGeneratorType type,
-						unsigned seed = 1784301, unsigned char octaves = 1, myType turbPower = 1.0, myType param1 = 1.0, myType param2 = 1.0) :
+	CTextureGenerator(	unsigned short textureWidth, unsigned short textureHeight, TextureGeneratorType type,
+						myType param1 = 1.0, myType param2 = 1.0, unsigned seed = 1784301, unsigned char octaves = 1, myType turbPower = 1.0) :
 		width(textureWidth), height(textureHeight), type(type),
 		seed(seed), octaves(octaves), turbPower(turbPower), param1(param1), param2(param2)
 	{
@@ -238,15 +239,15 @@ private:
 		C2DNoiseGenerator noiseTexture(bitmap, width, height, octaves, seed);
 
 		float xVal, yVal, xyDist;
-		for (unsigned short x = 0; x < width; ++x)
+		for (unsigned short w = 0; w < width; ++w)
 		{
-			for (unsigned short y = 0; y < height; ++y)
+			for (unsigned short h = 0; h < height; ++h)
 			{
-				xVal = (float)( x - width  * 0.5 ) / (float)width;
-				yVal = (float)( y - height * 0.5 ) / (float)height;
+				xVal = (float)( w - width  * 0.5 ) / (float)width;
+				yVal = (float)( h - height * 0.5 ) / (float)height;
 
-				xyDist = std::sqrt(xVal * xVal + yVal * yVal) + turbPower * bitmap[x * height + y].fp_num;
-				bitmap[x * height + y].fp_num = std::fabs(std::sin(xyDist * param1 * TWOPI));
+				xyDist = std::sqrt(xVal * xVal + yVal * yVal) + turbPower * bitmap[w * height + h].fp_num;
+				bitmap[w * height + h].fp_num = std::fabs(std::sin(xyDist * param1 * TWOPI));
 			}
 		}
 	}
@@ -262,12 +263,12 @@ private:
 
 		C2DNoiseGenerator noiseTexture(bitmap, width, height, octaves, seed);
 
-		for (unsigned short x = 0; x < width; ++x)
+		for (unsigned short w = 0; w < width; ++w)
 		{
-			for (unsigned short y = 0; y < height; ++y)
+			for (unsigned short h = 0; h < height; ++h)
 			{
-				xyRes = x * param1 / width + y * param2 / height + turbPower * bitmap[x * height + y].fp_num;
-				bitmap[x * height + y].fp_num = std::fabs(std::sin(xyRes * PI));
+				xyRes = w * param1 / width + h * param2 / height + turbPower * bitmap[w * height + h].fp_num;
+				bitmap[w * height + h].fp_num = std::fabs(std::sin(xyRes * PI));
 			}
 		}
 	}

@@ -85,7 +85,7 @@ enum ObjectType{
 
 #define SIMPLE_OBJECT_TRANSFORM_ENABLE
 
-//#define DEEP_RAYTRACING_ENABLE
+#define DEEP_RAYTRACING_ENABLE
 
 #define SPHERE_OBJECT_ENABLE
 #define PLANE_OBJECT_ENABLE
@@ -104,7 +104,7 @@ enum ObjectType{
 #define FRESNEL_REFLECTION_ENABLE
 
 #define TEXTURE_ENABLE
-#define TEXTURE_URAM_STORAGE
+//#define TEXTURE_URAM_STORAGE
 #define BILINEAR_TEXTURE_FILTERING_ENABLE
 #define ADVANCED_TEXTURE_MAPPING_ENABLE
 //#ifndef __SYNTHESIS__
@@ -121,8 +121,6 @@ enum ObjectType{
 #define WIDTH 						((unsigned short)(1920))
 #define HEIGHT 						((unsigned short)(1080))
 
-//#define TEXT_WIDTH					((unsigned short)(128))
-//#define TEXT_HEIGHT					((unsigned short)(128))
 #define TEXT_PAGE_SIZE				((unsigned)(256 * 256))
 
 #define FRAME_ROW_BUFFER_SIZE 		(WIDTH)
@@ -131,7 +129,7 @@ enum ObjectType{
 
 #ifdef DEEP_RAYTRACING_ENABLE
 
-#define RAYTRACING_DEPTH			((unsigned char)(2))
+#define RAYTRACING_DEPTH			((unsigned char)(4))
 
 #else
 
@@ -139,8 +137,6 @@ enum ObjectType{
 #define REFLECTION_ENABLE
 
 #endif
-
-//#define	MAX_TEXTURE_NUM				((unsigned char)(4))
 
 #define MAX_POWER_LOOP_ITER			((unsigned char)(7))
 

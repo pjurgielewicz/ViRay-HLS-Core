@@ -136,10 +136,11 @@ private:
 			vz = localHitPoint[2];
 #endif
 
-			myType dummy;
-			vx = hls::modf(vx, &dummy);
-			vy = hls::modf(vy, &dummy);
-			vz = hls::modf(vz, &dummy);
+//			myType dummy;
+//			vx = hls::modf(vx, &dummy);
+//			vx -= (dummy > 0) ? 0.01 : -0.01;
+//			vy = hls::modf(vy, &dummy);
+//			vz = hls::modf(vz, &dummy);
 
 #ifdef ADVANCED_TEXTURE_MAPPING_ENABLE
 			myType phi 		= ViRayUtils::Atan2(vx, vz) + PI;
@@ -161,18 +162,24 @@ private:
 				break;
 #endif
 			default: // RECTANGULAR
-				u = (vx + myType(1.0)) * myType(0.5);
-				v = (vz + myType(1.0)) * myType(0.5);
+				u = /*hls::fabs(vx);*/(vx + myType(1.0)) * myType(0.5);
+				v = /*hls::fabs(vz);*/(vz + myType(1.0)) * myType(0.5);
 				break;
 			}
 
 			// TRANSFORM TEXTURE & FIND MAJOR PIXEL
-			myType realColumn 	= (textureWidth  - 1) * (u + texturePos[0]) * textureScale[0];
-			myType realRow 		= (textureHeight - 1) * (v + texturePos[1]) * textureScale[1];
+			myType realColumn 	= (textureWidth  ) * (u + texturePos[0]) * textureScale[0]; // hls::fabs ??
+			myType realRow 		= (textureHeight ) * (v + texturePos[1]) * textureScale[1]; // hls::fabs ??
+
+//			realColumn = hls::fabs(realColumn);
+//			realRow    = hls::fabs(realRow);
 
 			myType dc, dr;
 			myType fc = hls::modf(realColumn, &dc);
 			myType fr = hls::modf(realRow, 	  &dr);
+
+			if (fc <= myType(0.0)) fc += 1.0;
+			if (fr <= myType(0.0)) fr += 1.0;
 
 			unsigned short uc = (unsigned short)(dc) % textureWidth;
 			unsigned short ur = (unsigned short)(dr) % textureHeight;
@@ -328,7 +335,7 @@ public:
 					textureDesc.ConvertFloatBufferToRGB(bitmap[textureDesc.baseAddr + interpolationData.c2 * textureDesc.textureHeight + interpolationData.r2]) * interpolationData.wc2 * interpolationData.wr2 +
 					textureDesc.ConvertFloatBufferToRGB(bitmap[textureDesc.baseAddr + interpolationData.c2 * textureDesc.textureHeight + interpolationData.r1]) * interpolationData.wc2 * interpolationData.wr1;
 #else
-			return 	TextureDescription::ConvertFloatBufferToRGB(bitmap[textureDesc.baseAddr + interpolationData.c1 * textureDesc.textureHeight + interpolationData.r1]);
+			return 	textureDesc.ConvertFloatBufferToRGB(bitmap[textureDesc.baseAddr + interpolationData.c1 * textureDesc.textureHeight + interpolationData.r1]);
 #endif
 		}
 

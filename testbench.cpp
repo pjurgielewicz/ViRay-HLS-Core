@@ -29,8 +29,8 @@ unsigned getTextureDescriptionCode(//unsigned char textureIdx = 0,
 
 int main()
 {
-	string dataPath("C:\\Users\\pjurgiel\\Source\\FFCore\\src\\SimData\\");
-//	string dataPath("D:\\Dokumenty\\WorkspaceXilinx\\FFCore\\src\\SimData\\");
+//	string dataPath("C:\\Users\\pjurgiel\\Source\\FFCore\\src\\SimData\\");
+	string dataPath("D:\\Dokumenty\\WorkspaceXilinx\\FFCore\\src\\SimData\\");
 
 	ifstream dataFile((dataPath + "data.dat").c_str());
 	ifstream lightFile((dataPath + "light.dat").c_str());
@@ -136,6 +136,7 @@ int main()
 	// SPHERE
 	translation[0] = loadVectorFromStream(dataFile, tmp);
 	scale[0][0] = myType(1.0);	invScale[0][0] = myType(1.0) / scale[0][0];
+	orientation[0] = vec3(myType(0.0), myType(0.0), myType(1.0));
 	// CYLINDER
 	translation[1] = loadVectorFromStream(dataFile, tmp);
 	scale[1][0] = myType(2.0);	invScale[1][0] = myType(1.0) / scale[1][0];
@@ -333,9 +334,10 @@ int main()
 	 * TODO: Create Texture Helper to easily manage texture binding
 	 */
 
-	CTextureGenerator rgbDots(16, 16, CTextureGenerator::RGB_DOTS);
-	CTextureGenerator checkerbox(128, 128, CTextureGenerator::CHECKERBOARD, 1784301, 5, 0.57, 6, 6);
-	CTextureGenerator marble(128, 128, CTextureGenerator::MARBLE, 1784301, 5, 0.57, 6, 4);
+	CTextureGenerator rgbDots(17, 17, CTextureGenerator::RGB_DOTS);
+	CTextureGenerator checkerbox(128, 128, CTextureGenerator::CHECKERBOARD, 6, 6);
+	CTextureGenerator wood(128, 128, CTextureGenerator::WOOD, 6, 6, 1784301, 5, 0.2);
+	CTextureGenerator marble(128, 128, CTextureGenerator::MARBLE, 6, 4, 1784301, 3, 0.57);
 
 	unsigned baseAddress = 0;
 	unsigned rgbAddress = baseAddress;
@@ -344,14 +346,18 @@ int main()
 	baseAddress += checkerbox.CopyBitmapInto(textureData + baseAddress);
 	unsigned marbleAddress = baseAddress;
 	baseAddress += marble.CopyBitmapInto(textureData + baseAddress);
+	unsigned woodAddress = baseAddress;
+	baseAddress += wood.CopyBitmapInto(textureData + baseAddress);
 
-	textureDescriptionData[0] = getTextureDescriptionCode(/*1, */ marble.GetTextureType(), ViRay::CMaterial::SPHERICAL, marble.GetTextureWidth(), marble.GetTextureHeight());
-	textureDescriptionData[4] = getTextureDescriptionCode(/*0, */ rgbDots.GetTextureType(), ViRay::CMaterial::PLANAR, rgbDots.GetTextureWidth(), rgbDots.GetTextureHeight());
-	textureDescriptionData[5] = getTextureDescriptionCode(/*1,*/ checkerbox.GetTextureType(), ViRay::CMaterial::PLANAR, checkerbox.GetTextureWidth(), checkerbox.GetTextureHeight());
+	textureDescriptionData[0] = getTextureDescriptionCode(marble.GetTextureType(), ViRay::CMaterial::SPHERICAL, marble.GetTextureWidth(), marble.GetTextureHeight());
+	textureDescriptionData[2] = getTextureDescriptionCode(checkerbox.GetTextureType(), ViRay::CMaterial::PLANAR, checkerbox.GetTextureWidth(), checkerbox.GetTextureHeight());
+	textureDescriptionData[4] = getTextureDescriptionCode(rgbDots.GetTextureType(), ViRay::CMaterial::PLANAR, rgbDots.GetTextureWidth(), rgbDots.GetTextureHeight());
+	textureDescriptionData[5] = getTextureDescriptionCode(wood.GetTextureType(), ViRay::CMaterial::PLANAR, wood.GetTextureWidth(), wood.GetTextureHeight());
 
 	textureBaseAddr[0] = marbleAddress;
+	textureBaseAddr[2] = checkerboxAddress;
 	textureBaseAddr[4] = rgbAddress;
-	textureBaseAddr[5] = checkerboxAddress;
+	textureBaseAddr[5] = woodAddress;
 
 /////////////////////////////////////////////////////////
 

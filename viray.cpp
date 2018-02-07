@@ -384,7 +384,7 @@ DO_PRAGMA(HLS UNROLL factor=INNER_LOOP_UNROLL_FACTOR)
 #else
 									objTransform,
 #endif
-									objType, lights, materials, ndir2min);
+									objType, lights, materials, textureData, ndir2min);
 
 			colorAccum += depthColor * currentReflectivity;
 
