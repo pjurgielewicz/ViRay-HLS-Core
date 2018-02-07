@@ -12,13 +12,9 @@ namespace ViRay {
 
 namespace ViRay {
 
-/*
- * TODO: Convert it the right way...
- */
 class CMaterial {
 
 public:
-
 	enum TextureType {
 		CONSTANT = 0,
 		BITMAP_MASK,
@@ -75,17 +71,17 @@ private:
 		TextureDescription() {}	// dummy because of HLS requirements
 		TextureDescription(unsigned textureDescriptionCode, const vec3& pos, const vec3& scale)
 		{
-			textureIdx  = (textureDescriptionCode >> 26) & 0x3F;
+			textureIdx  	= (textureDescriptionCode >> 26) & 0x3F;
 #ifdef TEXTURE_ENABLE
-			textureType	= (textureDescriptionCode >> 23) & 0x7;
+			textureType		= (textureDescriptionCode >> 23) & 0x7;
 #else
-			textureType	= ViRay::CMaterial::CONSTANT;
+			textureType		= ViRay::CMaterial::CONSTANT;
 #endif
 
 #ifdef ADVANCED_TEXTURE_MAPPING_ENABLE
-			textureMapping = (textureDescriptionCode >> 20) & 0x7;
+			textureMapping 	= (textureDescriptionCode >> 20) & 0x7;
 #else
-			textureMapping = ViRay::CMaterial::PLANAR;
+			textureMapping 	= ViRay::CMaterial::PLANAR;
 #endif
 
 			textureWidth	= (textureDescriptionCode >> 10) & 0x3FF;
@@ -96,6 +92,12 @@ private:
 			textureScale	= scale;
 		}
 
+		/*
+		 * Calculate right position to source pixel data from
+		 * including pixel interpolation data
+		 *
+		 * If ADVANCED_TEXTURE_MAPPING_ENABLE is specified allow to use SPHERICAL and CYLINDRICAL mapping to [u, v] coordinates
+		 */
 		void GetTexelCoord(const vec3& localHitPoint,
 #ifdef SIMPLE_OBJECT_TRANSFORM_ENABLE
 									const vec3& orientation,
@@ -166,7 +168,7 @@ private:
 
 			myType dc, dr;
 			myType fc = hls::modf(realColumn, &dc);
-			myType fr = hls::modf(realRow, &dr);
+			myType fr = hls::modf(realRow, 	  &dr);
 
 			unsigned short uc = (unsigned short)(dc) % textureWidth;
 			unsigned short ur = (unsigned short)(dr) % textureHeight;
@@ -261,7 +263,8 @@ public:
 	// TODO: fill descriptions...
 	CMaterial() {} // dummy because of HLS requirements
 	CMaterial(	const vec3& k, const vec3& fresnelData, const vec3& ambientColor, const vec3& primaryColor, const vec3& secondaryColor, const vec3& specularColor,
-				unsigned textureDescriptionCode, const vec3& texturePos, const vec3& textureScale) : textureDesc(textureDescriptionCode, texturePos, textureScale)
+				unsigned textureDescriptionCode, const vec3& texturePos, const vec3& textureScale) :
+				textureDesc(textureDescriptionCode, texturePos, textureScale)
 	{
 		materialDesc.k 				= k;
 		materialDesc.fresnelData 	= fresnelData;
@@ -271,6 +274,17 @@ public:
 		materialDesc.specularColor 	= specularColor;
 	}
 
+	/*
+	 * Depending on the material's diffuse texture and hit position in local coordinates
+	 * choose color to paint on the surface.
+	 *
+	 * CONSTANT: fill object with a single color (primary color),
+	 * BITMAP_MASK: use floating point texture as a mask to mix between primary and secondary color,
+	 * PIXEL_MAP: map texture RGB pixels onto the object.
+	 *
+	 * If BILINEAR_TEXTURE_FILTERING_ENABLE is specified use texture cross-point filtering (bilinear)
+	 * to reduce texture sharpness while introducing blur (which amount depends on the texture size)
+	 */
 	vec3 GetDiffuseColor(const vec3& localHitPoint,
 #ifdef SIMPLE_OBJECT_TRANSFORM_ENABLE
 							const vec3& orientation,
@@ -314,9 +328,12 @@ public:
 #endif
 		}
 
-		return vec3(0.0);
+		return vec3(1.0, 1.0, 0.0);
 	}
 
+	/*
+	 * Simple getters
+	 */
 	const MaterialDescription& GetMaterialDescription() const { return materialDesc; }
 	const TextureDescription& GetTextureDescription() const { return textureDesc; }
 
@@ -335,7 +352,7 @@ public:
 
 						m.textureDesc.texturePos << "\n" <<
 						m.textureDesc.textureScale << "\n" <<
-						m.textureDesc.textureIdx << " " << m.textureDesc.textureType << " " << m.textureDesc.textureMapping << " " << m.textureDesc.textureWidth << " " << m.textureDesc.textureHeight << "\n";
+						(unsigned)m.textureDesc.textureIdx << " " << (unsigned)m.textureDesc.textureType << " " << (unsigned)m.textureDesc.textureMapping << " " << m.textureDesc.textureWidth << " " << m.textureDesc.textureHeight << "\n";
 	}
 #endif
 

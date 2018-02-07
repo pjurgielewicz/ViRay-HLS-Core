@@ -103,7 +103,7 @@ enum ObjectType{
 #define SELF_SHADOW_ENABLE
 #define FRESNEL_REFLECTION_ENABLE
 
-//#define TEXTURE_ENABLE
+#define TEXTURE_ENABLE
 #define TEXTURE_URAM_STORAGE
 #define BILINEAR_TEXTURE_FILTERING_ENABLE
 #define ADVANCED_TEXTURE_MAPPING_ENABLE
@@ -139,7 +139,7 @@ enum ObjectType{
 
 #endif
 
-#define	MAX_TEXTURE_NUM				((unsigned char)(5))
+#define	MAX_TEXTURE_NUM				((unsigned char)(4))
 
 #define MAX_POWER_LOOP_ITER			((unsigned char)(7))
 
