@@ -337,7 +337,7 @@ public:
 
 		baseAddr += texture.CopyBitmapInto(textureData + baseAddr);
 
-		descriptionCode = GetTextureDescriptionCode(texture.GetTextureType(), textureMapping, texture.GetTextureWidth(), texture.GetTextureHeight());
+		descriptionCode = CTextureHelper::GetTextureDescriptionCode(texture.GetTextureType(), textureMapping, texture.GetTextureWidth(), texture.GetTextureHeight());
 
 		if (bindImmediately)
 		{
@@ -356,13 +356,10 @@ public:
 		textureBaseAddress[objIdx] 		= textureAddr;
 		textureDescriptionData[objIdx]  = textureDescriptionCode;
 	}
-
-
-private:
-	unsigned GetTextureDescriptionCode(	unsigned char textureType = ViRay::CMaterial::CONSTANT,
-										unsigned char textureMapping = ViRay::CMaterial::PLANAR,
-										unsigned short textureWidth = 128,
-										unsigned short textureHeight = 128) const
+	static unsigned GetTextureDescriptionCode(	unsigned char textureType = ViRay::CMaterial::CONSTANT,
+											unsigned char textureMapping = ViRay::CMaterial::PLANAR,
+											unsigned short textureWidth = 128,
+											unsigned short textureHeight = 128)
 	{
 		// 6 MSBs are unused
 		return 	((textureType & 0x7) << 23) +
@@ -370,6 +367,9 @@ private:
 				((textureWidth & 0x3FF) << 10) +
 				((textureHeight) & 0x3FF);
 	}
+
+private:
+
 
 	unsigned* textureBaseAddress;
 	unsigned* textureDescriptionData;

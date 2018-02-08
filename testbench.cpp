@@ -30,8 +30,8 @@ void copyVector(myType* dst, const vec3& vec, unsigned& pos)
 
 int main()
 {
-	string dataPath("C:\\Users\\pjurgiel\\Source\\FFCore\\src\\SimData\\");
-//	string dataPath("D:\\Dokumenty\\WorkspaceXilinx\\FFCore\\src\\SimData\\");
+//	string dataPath("C:\\Users\\pjurgiel\\Source\\FFCore\\src\\SimData\\");
+	string dataPath("D:\\Dokumenty\\WorkspaceXilinx\\FFCore\\src\\SimData\\");
 
 	ifstream dataFile((dataPath + "data.dat").c_str());
 	ifstream lightFile((dataPath + "light.dat").c_str());
@@ -223,7 +223,7 @@ int main()
 	CTextureHelper textureHelper(textureData, textureDescriptionData, textureBaseAddr);
 	unsigned addr, code;
 	textureHelper.SaveTexture(CTextureGenerator(128, 128, CTextureGenerator::CHECKERBOARD, 6, 6), ViRay::CMaterial::PLANE_PLANAR, code, true, 2);
-	textureHelper.SaveTexture(CTextureGenerator(128, 128, CTextureGenerator::MARBLE, 6, 4, 1784301, 3, 0.57), ViRay::CMaterial::SPHERICAL, code, true, 0);
+	textureHelper.SaveTexture(CTextureGenerator(128, 128, CTextureGenerator::MARBLE, 6, 4, 1784301, 5, 1.87), ViRay::CMaterial::SPHERICAL, code, true, 0);
 
 /////////////////////////////////////////////////////////
 
