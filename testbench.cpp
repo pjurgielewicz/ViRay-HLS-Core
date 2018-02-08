@@ -14,23 +14,24 @@ vec3& loadVectorFromStream(ifstream& file, vec3& vec)
 	return vec;
 }
 
-unsigned getTextureDescriptionCode(//unsigned char textureIdx = 0,
-									unsigned char textureType = ViRay::CMaterial::CONSTANT,
-									unsigned char textureMapping = ViRay::CMaterial::PLANAR,
-									unsigned short textureWidth = 128,
-									unsigned short textureHeight = 128)
+vec3 getInverseScale(const vec3& vec)
 {
-	return 	//((textureIdx & 0x3F) << 26) +
-			((textureType & 0x7) << 23) +
-			((textureMapping & 0x7) << 20) +
-			((textureWidth & 0x3FF) << 10) +
-			((textureHeight) & 0x3FF);
+	return vec3(1.0 / vec[0], 1.0 / vec[1], 1.0 / vec[2]);
+}
+
+void copyVector(myType* dst, const vec3& vec, unsigned& pos)
+{
+	for (unsigned i = 0; i < 3; ++i)
+	{
+		dst[pos + i] = vec[i];
+	}
+	pos += 3;
 }
 
 int main()
 {
-//	string dataPath("C:\\Users\\pjurgiel\\Source\\FFCore\\src\\SimData\\");
-	string dataPath("D:\\Dokumenty\\WorkspaceXilinx\\FFCore\\src\\SimData\\");
+	string dataPath("C:\\Users\\pjurgiel\\Source\\FFCore\\src\\SimData\\");
+//	string dataPath("D:\\Dokumenty\\WorkspaceXilinx\\FFCore\\src\\SimData\\");
 
 	ifstream dataFile((dataPath + "data.dat").c_str());
 	ifstream lightFile((dataPath + "light.dat").c_str());
@@ -39,81 +40,38 @@ int main()
 
 	vec3 tmp;
 
+	int* objTypeIn = new int[OBJ_NUM];
+
 	/////////////////////////////////////////////////////////
 
 #ifndef SIMPLE_OBJECT_TRANSFORM_ENABLE
-	mat4* objTransform = new mat4[OBJ_NUM];
-	mat4* objInvTransform = new mat4[OBJ_NUM];
-	mat4 S, R, T;
+	mat4 T, R, S;
 
 	myType* transformationArray = new myType[OBJ_NUM * 2 * sizeof(mat4)];
 
-	// CUBE I
-	T.TranslationMatrix(loadVectorFromStream(dataFile, tmp));
-	R.RotationMatrix(PI * 0.3, vec3(myType(1.0), myType(1.0), myType(1.0)));
-	S.ScaleMatrix(vec3(1.0));
-	objTransform[0] = T * R * S;
-	objInvTransform[0] = objTransform[0].Inverse();
-
-	// SPHERE II
-	T.TranslationMatrix(loadVectorFromStream(dataFile, tmp));
-	R.RotationMatrix(PI * 0.5, vec3(myType(1.0), myType(0.0), myType(0.0)));
-	S.ScaleMatrix(vec3(myType(2.0), myType(1.0), myType(1.0)));
-	objTransform[1] = T * R * S;
-	objInvTransform[1] = objTransform[1].Inverse();
-
-	// PLANE I
-	T.TranslationMatrix(loadVectorFromStream(dataFile, tmp));
-	R.RotationMatrix(0, vec3(1.0, 0.0, 0.0));
-	objTransform[2] = T * R;
-	objInvTransform[2] = objTransform[2].Inverse();
-
-	// PLANE II
-	T.TranslationMatrix(loadVectorFromStream(dataFile, tmp));
-	R.RotationMatrix(myType(PI * 0.5), vec3(1.0, 0.0, 0.0));
-	S.ScaleMatrix(vec3(5.0, 1.0, 5.0));
-	objTransform[3] = T * R * S;
-	objInvTransform[3] = objTransform[3].Inverse();
-
-	// PLANE III
-	T.TranslationMatrix(loadVectorFromStream(dataFile, tmp));
-	R.RotationMatrix(myType(PI * 0.5), vec3(0.0, 0.0, 1.0));
-	S.ScaleMatrix(vec3(4.0));
-	objTransform[4] = T * R * S;
-	objInvTransform[4] = objTransform[4].Inverse();
-
-	// PLANE IV
-	T.TranslationMatrix(loadVectorFromStream(dataFile, tmp));
-	R.RotationMatrix(myType(-PI * 0.5), vec3(0.0, 0.0, 1.0));
-	S.ScaleMatrix(vec3(4.0));
-	objTransform[5] = T * R * S;
-	objInvTransform[5] = objTransform[5].Inverse();
-
-	// SPHERE I
-	T.TranslationMatrix(loadVectorFromStream(dataFile, tmp));
-	R.RotationMatrix(PI * 0.0, vec3(myType(1.0), myType(0.0), myType(0.0)));
-	S.ScaleMatrix(vec3(1.0, 1.0, 1.0));
-	objTransform[6] = T * R * S;
-	objInvTransform[6] = objTransform[6].Inverse();
-
-
-	// EMPTY
-	for (unsigned i = 7; i < OBJ_NUM; ++i)
-	{
-		objTransform[i].IdentityMatrix();
-		objInvTransform[i].IdentityMatrix();
-	}
-
 	unsigned objTransformBufferPos = 0;
+	mat4 objTransform, objInvTransform;
+
 	for (unsigned i = 0; i < OBJ_NUM; ++i)
 	{
+		loadVectorFromStream(dataFile, tmp);
+		objTypeIn[i] = int(tmp[0]);
+		myType rotation = PI * tmp[1];
+
+		T.TranslationMatrix(loadVectorFromStream(dataFile, tmp));
+		R.RotationMatrix(rotation, loadVectorFromStream(dataFile, tmp));
+		S.ScaleMatrix(loadVectorFromStream(dataFile, tmp));
+
+		objTransform = T * R * S;
+		objInvTransform = objTransform.Inverse();
+
 		for (unsigned j = 0; j < 12; ++j)
 		{
-			transformationArray[objTransformBufferPos++] = objTransform[i].data[j];
+			transformationArray[objTransformBufferPos++] = objTransform.data[j];
 		}
 		for (unsigned j = 0; j < 12; ++j)
 		{
-			transformationArray[objTransformBufferPos++] = objInvTransform[i].data[j];
+			transformationArray[objTransformBufferPos++] = objInvTransform.data[j];
 		}
 	}
 
@@ -127,94 +85,42 @@ int main()
 
 	for (unsigned i = 0; i < OBJ_NUM; ++i)
 	{
-		translation[i] 	= vec3(myType(0.0));
-		scale[i] 		= vec3(myType(1.0));
-		invScale[i] 	= vec3(myType(1.0));
-		orientation[i] 	= vec3(myType(0.0), myType(1.0), myType(0.0));
+		objTypeIn[i]	= int(loadVectorFromStream(dataFile, tmp)[0]);
+//		cout << objTypeIn[i] << "\n" << endl;
+		translation[i] 	= loadVectorFromStream(dataFile, tmp);
+		orientation[i] 	= loadVectorFromStream(dataFile, tmp);
+		scale[i]		= loadVectorFromStream(dataFile, tmp);
+		invScale[i]		= getInverseScale(scale[i]);
 	}
 
-	// SPHERE
-	translation[0] = loadVectorFromStream(dataFile, tmp);
-	scale[0][0] = myType(1.0);	invScale[0][0] = myType(1.0) / scale[0][0];
-	orientation[0] = vec3(myType(0.0), myType(0.0), myType(1.0));
-	// CYLINDER
-	translation[1] = loadVectorFromStream(dataFile, tmp);
-	scale[1][0] = myType(2.0);	invScale[1][0] = myType(1.0) / scale[1][0];
-	orientation[1] = vec3(myType(0.0), myType(.0), myType(1.0));
-	// PLANE
-	translation[2] = loadVectorFromStream(dataFile, tmp);
-	orientation[2] = vec3(myType(0.0), myType(1.0), myType(0.0));
-
-	// DISK
-	translation[3] = loadVectorFromStream(dataFile, tmp);
-	orientation[3] = vec3(myType(0.0), myType(0.0), myType(1.0));
-	scale[3][0] = myType(5.0); invScale[3][0] = myType(1.0) / scale[3][0];
-	scale[3][1] = myType(5.0); invScale[3][1] = myType(1.0) / scale[3][1];
-	// SQUARE
-	translation[4] = loadVectorFromStream(dataFile, tmp);
-	orientation[4] = vec3(myType(1.0), myType(0.0), myType(0.0));
-	scale[4][1] = myType(4.0); invScale[4][1] = myType(1.0) / scale[4][1];
-	scale[4][2] = myType(4.0); invScale[4][2] = myType(1.0) / scale[4][2];
-	// SQUARE
-	translation[5] = loadVectorFromStream(dataFile, tmp);
-	orientation[5] = vec3(myType(-1.0), myType(0.0), myType(0.0));
-	scale[5][1] = myType(4.0); invScale[5][1] = myType(1.0) / scale[5][1];
-	scale[5][2] = myType(4.0); invScale[5][2] = myType(1.0) / scale[5][2];
-
-	// CONE
-	translation[6] = loadVectorFromStream(dataFile, tmp);
-//	scale[6][0] = myType(0.5);	invScale[6][0] = myType(1.0) / scale[6][0];
-
-	// SAVING TO LINE BUFFER
+	// SAVING TO LINE BUFFER: T -> R -> S -> IS
 	unsigned objTransformBufferPos = 0;
 	for (unsigned i = 0; i < OBJ_NUM; ++i)
 	{
-		for (unsigned j = 0; j < 3; ++j)
-		{
-			transformationArray[objTransformBufferPos++] = orientation[i][j];
-		}
-		for (unsigned j = 0; j < 3; ++j)
-		{
-			transformationArray[objTransformBufferPos++] = scale[i][j];
-		}
-		for (unsigned j = 0; j < 3; ++j)
-		{
-			transformationArray[objTransformBufferPos++] = invScale[i][j];
-		}
-		for (unsigned j = 0; j < 3; ++j)
-		{
-			transformationArray[objTransformBufferPos++] = translation[i][j];
-		}
+		copyVector(transformationArray, translation[i], objTransformBufferPos);
+		copyVector(transformationArray, orientation[i], objTransformBufferPos);
+		copyVector(transformationArray, scale[i], objTransformBufferPos);
+		copyVector(transformationArray, invScale[i], objTransformBufferPos);
 	}
+
+	for (unsigned i = 0; i < objTransformBufferPos; ++i)
+	{
+		if (i % 12 == 0) cout << "\n";
+		else if (i % 3 == 0) cout << "\t";
+		cout << transformationArray[i] << " ";
+	}
+	cout << endl;
 
 #endif
 
 /////////////////////////////////////////////////////////
 
-	int* objTypeIn = new int[OBJ_NUM];
-	for (unsigned i = 0; i < OBJ_NUM; ++i)
-	{
-		switch(i)
-		{
-		case 0: objTypeIn[i] = SPHERE; break;
-		case 1: objTypeIn[i] = CYLINDER; break;
-		case 2: objTypeIn[i] = PLANE; break;
-		case 3: objTypeIn[i] = DISK; break;
-		case 4: objTypeIn[i] = SQUARE; break;
-		case 5: objTypeIn[i] = SQUARE; break;
-		case 6: objTypeIn[i] = SPHERE; break;
-		default: objTypeIn[i] = INVALID; break;
-		}
-	}
-
-/////////////////////////////////////////////////////////
-
 	vec3* lightPosition = new vec3[LIGHTS_NUM];
-	vec3* lightDir = new vec3[LIGHTS_NUM];
-	vec3* lightColor = new vec3[LIGHTS_NUM];
-	vec3* lightCoeff = new vec3[LIGHTS_NUM];
+	vec3* lightDir 		= new vec3[LIGHTS_NUM];
+	vec3* lightColor 	= new vec3[LIGHTS_NUM];
+	vec3* lightCoeff 	= new vec3[LIGHTS_NUM];
 
-	myType* lightArray = new myType[4 * sizeof(vec3) * LIGHTS_NUM];
+	myType* lightArray 	= new myType[4 * sizeof(vec3) * LIGHTS_NUM];
 
 	unsigned lightBufferPos = 0;
 	for (unsigned i = 0; i < LIGHTS_NUM; ++i)
@@ -232,22 +138,10 @@ int main()
 		lightCoeff[i] = vec3(temp[0], outerMinusInnerInv, temp[2]);
 
 		// SAVING TO LINE BUFFER
-		for (unsigned j = 0; j < 3; ++j)
-		{
-			lightArray[lightBufferPos++] = lightPosition[i][j];
-		}
-		for (unsigned j = 0; j < 3; ++j)
-		{
-			lightArray[lightBufferPos++] = lightDir[i][j];
-		}
-		for (unsigned j = 0; j < 3; ++j)
-		{
-			lightArray[lightBufferPos++] = lightColor[i][j];
-		}
-		for (unsigned j = 0; j < 3; ++j)
-		{
-			lightArray[lightBufferPos++] = lightCoeff[i][j];
-		}
+		copyVector(lightArray, lightPosition[i], lightBufferPos);
+		copyVector(lightArray, lightDir[i], lightBufferPos);
+		copyVector(lightArray, lightColor[i], lightBufferPos);
+		copyVector(lightArray, lightCoeff[i], lightBufferPos);
 	}
 
 /////////////////////////////////////////////////////////
@@ -285,25 +179,16 @@ int main()
 		// SAVING TO LINE BUFFER
 		for (unsigned j = 0; j < 2; ++j)
 		{
-			for (unsigned k = 0; k < 3; ++k)
-			{
-				materialArray[materialBufferPos++] = materialCoeff[i * 2 + j][k];
-			}
+			copyVector(materialArray, materialCoeff[i * 2 + j], materialBufferPos);
 		}
 		for (unsigned j = 0; j < 4; ++j)
 		{
-			for (unsigned k = 0; k < 3; ++k)
-			{
-				materialArray[materialBufferPos++] = materialColors[i * 4 + j][k];
-			}
+			copyVector(materialArray, materialColors[i * 4 + j], materialBufferPos);
 		}
 
 		for (unsigned j = 0; j < 2; ++j)
 		{
-			for (unsigned k = 0; k < 3; ++k)
-			{
-				materialArray[materialBufferPos++] = materialTransform[i * 2 + j][k];
-			}
+			copyVector(materialArray, materialTransform[i * 2 + j], materialBufferPos);
 		}
 	}
 
@@ -326,38 +211,19 @@ int main()
 
 	for (unsigned i = 0; i < OBJ_NUM; ++i)
 	{
-		textureDescriptionData[i] 	= getTextureDescriptionCode();
+		textureDescriptionData[i] 	= (128 << 10) + 128; // REQUIRED DUMMY
 		textureBaseAddr[i]			= 0;
 	}
 
-	/*
-	 * TODO: Create Texture Helper to easily manage texture binding
-	 */
-
-	CTextureGenerator rgbDots(17, 17, CTextureGenerator::RGB_DOTS);
+/*	CTextureGenerator rgbDots(128, 128, CTextureGenerator::XOR);
 	CTextureGenerator checkerbox(128, 128, CTextureGenerator::CHECKERBOARD, 6, 6);
 	CTextureGenerator wood(128, 128, CTextureGenerator::WOOD, 6, 6, 1784301, 5, 0.2);
-	CTextureGenerator marble(128, 128, CTextureGenerator::MARBLE, 6, 4, 1784301, 3, 0.57);
+	CTextureGenerator marble(128, 128, CTextureGenerator::MARBLE, 6, 4, 1784301, 3, 0.57);*/
 
-	unsigned baseAddress = 0;
-	unsigned rgbAddress = baseAddress;
-	baseAddress += rgbDots.CopyBitmapInto(textureData + baseAddress);
-	unsigned checkerboxAddress = baseAddress;
-	baseAddress += checkerbox.CopyBitmapInto(textureData + baseAddress);
-	unsigned marbleAddress = baseAddress;
-	baseAddress += marble.CopyBitmapInto(textureData + baseAddress);
-	unsigned woodAddress = baseAddress;
-	baseAddress += wood.CopyBitmapInto(textureData + baseAddress);
-
-	textureDescriptionData[0] = getTextureDescriptionCode(marble.GetTextureType(), ViRay::CMaterial::SPHERICAL, marble.GetTextureWidth(), marble.GetTextureHeight());
-	textureDescriptionData[2] = getTextureDescriptionCode(checkerbox.GetTextureType(), ViRay::CMaterial::PLANAR, checkerbox.GetTextureWidth(), checkerbox.GetTextureHeight());
-	textureDescriptionData[4] = getTextureDescriptionCode(rgbDots.GetTextureType(), ViRay::CMaterial::PLANAR, rgbDots.GetTextureWidth(), rgbDots.GetTextureHeight());
-	textureDescriptionData[5] = getTextureDescriptionCode(wood.GetTextureType(), ViRay::CMaterial::PLANAR, wood.GetTextureWidth(), wood.GetTextureHeight());
-
-	textureBaseAddr[0] = marbleAddress;
-	textureBaseAddr[2] = checkerboxAddress;
-	textureBaseAddr[4] = rgbAddress;
-	textureBaseAddr[5] = woodAddress;
+	CTextureHelper textureHelper(textureData, textureDescriptionData, textureBaseAddr);
+	unsigned addr, code;
+	textureHelper.SaveTexture(CTextureGenerator(128, 128, CTextureGenerator::CHECKERBOARD, 6, 6), ViRay::CMaterial::PLANE_PLANAR, code, true, 2);
+	textureHelper.SaveTexture(CTextureGenerator(128, 128, CTextureGenerator::MARBLE, 6, 4, 1784301, 3, 0.57), ViRay::CMaterial::SPHERICAL, code, true, 0);
 
 /////////////////////////////////////////////////////////
 
@@ -428,8 +294,7 @@ int main()
 
 	delete[] objTypeIn;
 #ifndef SIMPLE_OBJECT_TRANSFORM_ENABLE
-	delete[] objInvTransform;
-	delete[] objTransform;
+
 #else
 	delete[] orientation;
 	delete[] invScale;

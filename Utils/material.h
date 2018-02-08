@@ -23,6 +23,7 @@ public:
 
 	enum TextureMapping {
 		PLANAR = 0,
+		PLANE_PLANAR,
 		CYLINDRICAL,
 		SPHERICAL,
 	};
@@ -109,9 +110,8 @@ private:
 									InterpolationData& interpolationData) const
 		{
 		#pragma HLS INLINE
-
+		myType vx, vy, vz;
 #ifdef SIMPLE_OBJECT_TRANSFORM_ENABLE
-			myType vx, vy, vz;
 			if (orientation[0] != myType(0.0))
 			{
 				vx = localHitPoint[2];
@@ -161,9 +161,13 @@ private:
 				v = (vy + myType(1.0)) * myType(0.5);
 				break;
 #endif
+			case PLANE_PLANAR:
+				u = vx;
+				v = vz;
+				break;
 			default: // RECTANGULAR
-				u = /*hls::fabs(vx);*/(vx + myType(1.0)) * myType(0.5);
-				v = /*hls::fabs(vz);*/(vz + myType(1.0)) * myType(0.5);
+				u = (vx + myType(1.0)) * myType(0.5);
+				v = (vz + myType(1.0)) * myType(0.5);
 				break;
 			}
 

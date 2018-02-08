@@ -141,6 +141,7 @@ public:
 	enum TextureGeneratorType{
 		RGB_DOTS,
 		CHECKERBOARD,
+		XOR,
 		WOOD,
 		MARBLE,
 	};
@@ -166,16 +167,16 @@ public:
 		}
 	}
 	
-	unsigned CopyBitmapInto(float_union* copyBuffer)
+	unsigned CopyBitmapInto(float_union* copyBuffer) const
 	{
 		memcpy(copyBuffer, bitmap, sizeof(float_union) * width * height);
 		return width * height;
 	}
 
-	ViRay::CMaterial::TextureType GetTextureType() { return textureContentType; }
+	ViRay::CMaterial::TextureType GetTextureType() const { return textureContentType; }
 
-	unsigned short GetTextureWidth()  { return width; }
-	unsigned short GetTextureHeight() { return height; }
+	unsigned short GetTextureWidth()  const { return width; }
+	unsigned short GetTextureHeight() const { return height; }
 
 private:
 
@@ -189,6 +190,10 @@ private:
 			break;
 		case CHECKERBOARD:
 			GenerateCheckerboard();
+			textureContentType = ViRay::CMaterial::BITMAP_MASK;
+			break;
+		case XOR:
+			GenerateXOR();
 			textureContentType = ViRay::CMaterial::BITMAP_MASK;
 			break;
 		case WOOD:
@@ -226,6 +231,28 @@ private:
 				unsigned short s = xc + yc;
 
 				bitmap[w * height + h].fp_num = (s & 0x1) ? myType(1.0) : myType(0.0);
+			}
+		}
+	}
+
+	void GenerateXOR()
+	{
+		/*
+		 * Based on:
+		 * http://lodev.org/cgtutor/xortexture.html
+		 */
+		for (unsigned short w = 0; w < width; ++w)
+		{
+			for (unsigned short h = 0; h < height; ++h)
+			{
+				unsigned x = w ^ h;
+//				unsigned val = 0;
+//				for (unsigned char i = 0; i < 3; ++i)
+//				{
+//					val += (x << (i * 8));
+//				}
+//				bitmap[w * height + h].raw_bits = val;
+				bitmap[w * height + h].fp_num = x / 255.0;
 			}
 		}
 	}
@@ -287,6 +314,67 @@ private:
 	float_union* bitmap;
 
 	ViRay::CMaterial::TextureType textureContentType;
+};
+
+/*
+ * Simplify texture copy to the texture page and its mapping onto an object
+ */
+class CTextureHelper{
+public:
+	CTextureHelper(float_union* textureData, unsigned* textureDescriptionData, unsigned* textureBaseAddress) :
+		baseAddr(0), textureData(textureData), textureDescriptionData(textureDescriptionData), textureBaseAddress(textureBaseAddress)
+	{
+
+	}
+
+	/*
+	 * Given CTextureGenerator instance save its pixels into the texture page and return its address.
+	 * Optionally bind this texture to the object
+	 */
+	unsigned SaveTexture(const CTextureGenerator& texture, unsigned char textureMapping, unsigned& descriptionCode, bool bindImmediately = false, unsigned objIdx = 0)
+	{
+		unsigned addressToReturn = baseAddr;
+
+		baseAddr += texture.CopyBitmapInto(textureData + baseAddr);
+
+		descriptionCode = GetTextureDescriptionCode(texture.GetTextureType(), textureMapping, texture.GetTextureWidth(), texture.GetTextureHeight());
+
+		if (bindImmediately)
+		{
+			BindTextureToObject(objIdx, addressToReturn, descriptionCode);
+		}
+
+		return addressToReturn;
+	}
+
+	/*
+	 * Knowing texture address inside the texture page and mapping options enclosed in textureDescriptionCode
+	 * bind this texture to the object with objIdx
+	 */
+	void BindTextureToObject(unsigned objIdx, unsigned textureAddr, unsigned textureDescriptionCode)
+	{
+		textureBaseAddress[objIdx] 		= textureAddr;
+		textureDescriptionData[objIdx]  = textureDescriptionCode;
+	}
+
+
+private:
+	unsigned GetTextureDescriptionCode(	unsigned char textureType = ViRay::CMaterial::CONSTANT,
+										unsigned char textureMapping = ViRay::CMaterial::PLANAR,
+										unsigned short textureWidth = 128,
+										unsigned short textureHeight = 128) const
+	{
+		// 6 MSBs are unused
+		return 	((textureType & 0x7) << 23) +
+				((textureMapping & 0x7) << 20) +
+				((textureWidth & 0x3FF) << 10) +
+				((textureHeight) & 0x3FF);
+	}
+
+	unsigned* textureBaseAddress;
+	unsigned* textureDescriptionData;
+	unsigned baseAddr;
+	float_union* textureData;
 };
 
 #endif

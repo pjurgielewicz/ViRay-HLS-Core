@@ -182,20 +182,20 @@ int ViRayMain(	const myType* objTransformationArrayIn,
 		SimpleTransformAssignmentLoop: for (unsigned i = 0; i < OBJ_NUM; ++i)
 		{
 #pragma HLS PIPELINE
+			objTransform[i].translation = GetVectorFromStream(objTransformationArray, objTransformationBufferPos);
 			objTransform[i].orientation = GetVectorFromStream(objTransformationArray, objTransformationBufferPos);
 			objTransform[i].scale 		= GetVectorFromStream(objTransformationArray, objTransformationBufferPos);
 			objTransform[i].invScale 	= GetVectorFromStream(objTransformationArray, objTransformationBufferPos);
-			objTransform[i].translation = GetVectorFromStream(objTransformationArray, objTransformationBufferPos);
 		}
 
 		unsigned objTransformationBufferPosCopy = 0;
 		SimpleTransformAssignmentCopyLoop: for (unsigned i = 0; i < OBJ_NUM; ++i)
 		{
 #pragma HLS PIPELINE
+			objTransformCopy[i].translation = GetVectorFromStream(objTransformationCopyArray, objTransformationBufferPosCopy);
 			objTransformCopy[i].orientation = GetVectorFromStream(objTransformationCopyArray, objTransformationBufferPosCopy);
 			objTransformCopy[i].scale 		= GetVectorFromStream(objTransformationCopyArray, objTransformationBufferPosCopy);
 			objTransformCopy[i].invScale 	= GetVectorFromStream(objTransformationCopyArray, objTransformationBufferPosCopy);
-			objTransformCopy[i].translation = GetVectorFromStream(objTransformationCopyArray, objTransformationBufferPosCopy);
 		}
 #endif
 
