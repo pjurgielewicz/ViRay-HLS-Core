@@ -98,56 +98,6 @@ int ViRayMain(	const myType* objTransformationArrayIn,
 	 * INTERFACE PRAGMAS END
 	 */
 
-	vec3 cameraData[3];
-	memcpy(cameraData, cameraArrayIn, sizeof(vec3) * 3);
-
-
-	CCamera camera(cameraZoom, cameraZoom * (myType(WIDTH) / myType(HEIGHT)),
-				   HEIGHT, WIDTH,
-				   cameraData[0], cameraData[1], cameraData[2]);
-
-	myType posShift[2] = {	myType(-0.5) * (WIDTH  - myType(1.0)),
-				  	 		myType(-0.5) * (HEIGHT - myType(1.0))};
-
-#ifndef SIMPLE_OBJECT_TRANSFORM_ENABLE
-	mat4 objTransform[OBJ_NUM], objInvTransform[OBJ_NUM];
-//#pragma HLS ARRAY_PARTITION variable=objInvTransform cyclic factor=2 dim=1
-#pragma HLS ARRAY_PARTITION variable=objInvTransform complete dim=1
-//#pragma HLS ARRAY_PARTITION variable=objTransform cyclic factor=2 dim=1
-#pragma HLS ARRAY_PARTITION variable=objTransform complete dim=1
-
-	myType objTransformArray[2 * 12 * OBJ_NUM];
-	memcpy(objTransformArray, objTransformationArrayIn, 2 * sizeof(mat4) * OBJ_NUM );
-#else
-	myType objTransformationArray[4 * 3 * OBJ_NUM], objTransformationCopyArray[4 * 3 * OBJ_NUM];
-	memcpy(objTransformationArray, objTransformationArrayIn, 4 * sizeof(vec3) * OBJ_NUM);
-	memcpy(objTransformationCopyArray, objTransformationArrayCopyIn, 4 * sizeof(vec3) * OBJ_NUM);
-	ViRay::SimpleTransform objTransform[OBJ_NUM], objTransformCopy[OBJ_NUM];
-#pragma HLS ARRAY_PARTITION variable=objTransform complete dim=1
-#pragma HLS ARRAY_PARTITION variable=objTransformCopy complete dim=1
-
-#endif
-
-	pixelColorType frameBuffer[FRAME_ROW_BUFFER_SIZE];
-//#pragma HLS ARRAY_PARTITION variable=frameBuffer complete dim=1
-
-	unsigned objType[OBJ_NUM];
-#pragma HLS ARRAY_PARTITION variable=objType complete dim=1
-	memcpy(objType, objTypeIn, sizeof(unsigned) * OBJ_NUM);
-
-	/*
-	 * LIGHTING AND MATERIALS
-	 */
-	myType lightArray[4 * 3 * LIGHTS_NUM];
-	memcpy(lightArray, lightArrayIn, 4 * sizeof(vec3) * LIGHTS_NUM);
-	ViRay::Light lights[LIGHTS_NUM];
-#pragma HLS ARRAY_PARTITION variable=lights complete dim=1
-
-	myType materialArray[8 * 3 * OBJ_NUM];
-	memcpy(materialArray, materialArrayIn, 8 * sizeof(vec3) * OBJ_NUM);
-	ViRay::CMaterial materials[OBJ_NUM];
-//#pragma HLS ARRAY_PARTITION variable=materials complete dim=1
-
 	/*
 	 * TEXTURES
 	 */
@@ -161,86 +111,145 @@ int ViRayMain(	const myType* objTransformationArrayIn,
 	unsigned textureBaseAddress[OBJ_NUM];
 	memcpy(textureBaseAddress, textureBaseAddressIn, sizeof(unsigned) * OBJ_NUM);
 
-	AssignmentLoops:{
+#ifdef SELF_RESTART_ENABLE
+	while(true)
+#endif
+	{
+		/*
+		 * CAMERA
+		 */
+		vec3 cameraData[3];
+		memcpy(cameraData, cameraArrayIn, sizeof(vec3) * 3);
+
+
+		CCamera camera(cameraZoom, cameraZoom * (myType(WIDTH) / myType(HEIGHT)),
+					   HEIGHT, WIDTH,
+					   cameraData[0], cameraData[1], cameraData[2]);
+
+		myType posShift[2] = {	myType(-0.5) * (WIDTH  - myType(1.0)),
+								myType(-0.5) * (HEIGHT - myType(1.0))};
+
+#ifndef SIMPLE_OBJECT_TRANSFORM_ENABLE
+		mat4 objTransform[OBJ_NUM], objInvTransform[OBJ_NUM];
+//#pragma HLS ARRAY_PARTITION variable=objInvTransform cyclic factor=2 dim=1
+#pragma HLS ARRAY_PARTITION variable=objInvTransform complete dim=1
+//#pragma HLS ARRAY_PARTITION variable=objTransform cyclic factor=2 dim=1
+#pragma HLS ARRAY_PARTITION variable=objTransform complete dim=1
+
+		myType objTransformArray[2 * 12 * OBJ_NUM];
+		memcpy(objTransformArray, objTransformationArrayIn, 2 * sizeof(mat4) * OBJ_NUM );
+#else
+		myType objTransformationArray[4 * 3 * OBJ_NUM], objTransformationCopyArray[4 * 3 * OBJ_NUM];
+		memcpy(objTransformationArray, objTransformationArrayIn, 4 * sizeof(vec3) * OBJ_NUM);
+		memcpy(objTransformationCopyArray, objTransformationArrayCopyIn, 4 * sizeof(vec3) * OBJ_NUM);
+		ViRay::SimpleTransform objTransform[OBJ_NUM], objTransformCopy[OBJ_NUM];
+#pragma HLS ARRAY_PARTITION variable=objTransform complete dim=1
+#pragma HLS ARRAY_PARTITION variable=objTransformCopy complete dim=1
+
+#endif
+
+		pixelColorType frameBuffer[FRAME_ROW_BUFFER_SIZE];
+	//#pragma HLS ARRAY_PARTITION variable=frameBuffer complete dim=1
+
+		unsigned objType[OBJ_NUM];
+#pragma HLS ARRAY_PARTITION variable=objType complete dim=1
+		memcpy(objType, objTypeIn, sizeof(unsigned) * OBJ_NUM);
+
+		/*
+		 * LIGHTING AND MATERIALS
+		 */
+		myType lightArray[4 * 3 * LIGHTS_NUM];
+		memcpy(lightArray, lightArrayIn, 4 * sizeof(vec3) * LIGHTS_NUM);
+		ViRay::Light lights[LIGHTS_NUM];
+#pragma HLS ARRAY_PARTITION variable=lights complete dim=1
+
+		myType materialArray[8 * 3 * OBJ_NUM];
+		memcpy(materialArray, materialArrayIn, 8 * sizeof(vec3) * OBJ_NUM);
+		ViRay::CMaterial materials[OBJ_NUM];
+	//#pragma HLS ARRAY_PARTITION variable=materials complete dim=1
+
+
+		AssignmentLoops:{
 #pragma HLS LOOP_MERGE
 
 #ifndef SIMPLE_OBJECT_TRANSFORM_ENABLE
-		unsigned objTransformBufferPos = 0;
-		for (unsigned i = 0; i < OBJ_NUM; ++i)
-		{
-#pragma HLS PIPELINE
-			for (unsigned j = 0; j < 12; ++j)
+			unsigned objTransformBufferPos = 0;
+			for (unsigned i = 0; i < OBJ_NUM; ++i)
 			{
-				objTransform[i].data[j] 	=  objTransformArray[objTransformBufferPos];
-				objInvTransform[i].data[j] 	=  objTransformArray[objTransformBufferPos + 12];
-				++objTransformBufferPos;
+#pragma HLS PIPELINE
+				for (unsigned j = 0; j < 12; ++j)
+				{
+					objTransform[i].data[j] 	=  objTransformArray[objTransformBufferPos];
+					objInvTransform[i].data[j] 	=  objTransformArray[objTransformBufferPos + 12];
+					++objTransformBufferPos;
+				}
+				objTransformBufferPos += 12;
 			}
-			objTransformBufferPos += 12;
-		}
 #else
-		unsigned objTransformationBufferPos = 0;
-		SimpleTransformAssignmentLoop: for (unsigned i = 0; i < OBJ_NUM; ++i)
-		{
+			unsigned objTransformationBufferPos = 0;
+			SimpleTransformAssignmentLoop: for (unsigned i = 0; i < OBJ_NUM; ++i)
+			{
 #pragma HLS PIPELINE
-			objTransform[i].translation = GetVectorFromStream(objTransformationArray, objTransformationBufferPos);
-			objTransform[i].orientation = GetVectorFromStream(objTransformationArray, objTransformationBufferPos);
-			objTransform[i].scale 		= GetVectorFromStream(objTransformationArray, objTransformationBufferPos);
-			objTransform[i].invScale 	= GetVectorFromStream(objTransformationArray, objTransformationBufferPos);
-		}
+				objTransform[i].translation = GetVectorFromStream(objTransformationArray, objTransformationBufferPos);
+				objTransform[i].orientation = GetVectorFromStream(objTransformationArray, objTransformationBufferPos);
+				objTransform[i].scale 		= GetVectorFromStream(objTransformationArray, objTransformationBufferPos);
+				objTransform[i].invScale 	= GetVectorFromStream(objTransformationArray, objTransformationBufferPos);
+			}
 
-		unsigned objTransformationBufferPosCopy = 0;
-		SimpleTransformAssignmentCopyLoop: for (unsigned i = 0; i < OBJ_NUM; ++i)
-		{
+			unsigned objTransformationBufferPosCopy = 0;
+			SimpleTransformAssignmentCopyLoop: for (unsigned i = 0; i < OBJ_NUM; ++i)
+			{
 #pragma HLS PIPELINE
-			objTransformCopy[i].translation = GetVectorFromStream(objTransformationCopyArray, objTransformationBufferPosCopy);
-			objTransformCopy[i].orientation = GetVectorFromStream(objTransformationCopyArray, objTransformationBufferPosCopy);
-			objTransformCopy[i].scale 		= GetVectorFromStream(objTransformationCopyArray, objTransformationBufferPosCopy);
-			objTransformCopy[i].invScale 	= GetVectorFromStream(objTransformationCopyArray, objTransformationBufferPosCopy);
-		}
+				objTransformCopy[i].translation = GetVectorFromStream(objTransformationCopyArray, objTransformationBufferPosCopy);
+				objTransformCopy[i].orientation = GetVectorFromStream(objTransformationCopyArray, objTransformationBufferPosCopy);
+				objTransformCopy[i].scale 		= GetVectorFromStream(objTransformationCopyArray, objTransformationBufferPosCopy);
+				objTransformCopy[i].invScale 	= GetVectorFromStream(objTransformationCopyArray, objTransformationBufferPosCopy);
+			}
 #endif
 
-		unsigned lightBufferPos = 0;
-		LightsAssignmentLoop: for (unsigned i = 0; i < LIGHTS_NUM; ++i)
-		{
+			unsigned lightBufferPos = 0;
+			LightsAssignmentLoop: for (unsigned i = 0; i < LIGHTS_NUM; ++i)
+			{
 #pragma HLS PIPELINE
-			lights[i].position 	= GetVectorFromStream(lightArray, lightBufferPos);
-			lights[i].dir 		= GetVectorFromStream(lightArray, lightBufferPos);
-			lights[i].color 	= GetVectorFromStream(lightArray, lightBufferPos);
-			lights[i].coeff 	= GetVectorFromStream(lightArray, lightBufferPos);
+				lights[i].position 	= GetVectorFromStream(lightArray, lightBufferPos);
+				lights[i].dir 		= GetVectorFromStream(lightArray, lightBufferPos);
+				lights[i].color 	= GetVectorFromStream(lightArray, lightBufferPos);
+				lights[i].coeff 	= GetVectorFromStream(lightArray, lightBufferPos);
+			}
+
+			unsigned materialBufferPos = 0;
+			MaterialAssignmentLoop: for (unsigned i = 0; i < OBJ_NUM; ++i)
+			{
+#pragma HLS PIPELINE
+				materials[i] = ViRay::CMaterial(GetVectorFromStream(materialArray, materialBufferPos + 0),
+												GetVectorFromStream(materialArray, materialBufferPos + 3),
+												GetVectorFromStream(materialArray, materialBufferPos + 6),
+												GetVectorFromStream(materialArray, materialBufferPos + 9),
+												GetVectorFromStream(materialArray, materialBufferPos + 12),
+												GetVectorFromStream(materialArray, materialBufferPos + 15),
+												textureDescription[i],
+												textureBaseAddress[i],
+												GetVectorFromStream(materialArray, materialBufferPos + 18),
+												GetVectorFromStream(materialArray, materialBufferPos + 21));
+
+	//			cout << " " << i << ":\n" << materials[i] << endl;
+				materialBufferPos += 24;
+			}
 		}
 
-		unsigned materialBufferPos = 0;
-		MaterialAssignmentLoop: for (unsigned i = 0; i < OBJ_NUM; ++i)
-		{
-#pragma HLS PIPELINE
-			materials[i] = ViRay::CMaterial(GetVectorFromStream(materialArray, materialBufferPos + 0),
-											GetVectorFromStream(materialArray, materialBufferPos + 3),
-											GetVectorFromStream(materialArray, materialBufferPos + 6),
-											GetVectorFromStream(materialArray, materialBufferPos + 9),
-											GetVectorFromStream(materialArray, materialBufferPos + 12),
-											GetVectorFromStream(materialArray, materialBufferPos + 15),
-											textureDescription[i],
-											textureBaseAddress[i],
-											GetVectorFromStream(materialArray, materialBufferPos + 18),
-											GetVectorFromStream(materialArray, materialBufferPos + 21));
-
-//			cout << " " << i << ":\n" << materials[i] << endl;
-			materialBufferPos += 24;
-		}
-	}
-
-	/*
-	 *
-	 */
+		/*
+		 *
+		 */
 #ifndef SIMPLE_OBJECT_TRANSFORM_ENABLE
-	ViRay::RenderSceneOuterLoop(camera, posShift,
-								objTransform, objInvTransform, objType,
-								lights, materials, textureData, frameBuffer, outColor);
+		ViRay::RenderSceneOuterLoop(camera, posShift,
+									objTransform, objInvTransform, objType,
+									lights, materials, textureData, frameBuffer, outColor);
 #else
-	ViRay::RenderSceneOuterLoop(camera, posShift,
-								objTransform, objTransformCopy,	objType,
-								lights, materials, textureData, frameBuffer, outColor);
+		ViRay::RenderSceneOuterLoop(camera, posShift,
+									objTransform, objTransformCopy,	objType,
+									lights, materials, textureData, frameBuffer, outColor);
 #endif
+	}
 	return 0;
 
 }

@@ -987,23 +987,24 @@ myType ViRayUtils::InvSqrt(myType val)
 
 #ifdef USE_FLOAT
 	long i;
-	float x2, y;
+	float x2;
+	float_union y;
 	const float threehalfs = myType(1.5);
 
 	x2 = val * myType(0.5);
-	y = val;
-	i = *(long *)&y;                       // evil floating point bit level hacking
+	y.fp_num = val;
+	i = y.raw_bits;//*(long *)&y;                       // evil floating point bit level hacking
 										   //		i  = 0x5f3759df - ( i >> 1 );               // what the fuck?
 	i = 0x5f375a86 - (i >> 1);               // what the fuck?
 
-	y = *(float *)&i;
+	y.raw_bits = i;//*(float *)&i;
 
 	for (unsigned char k = 0; k < FAST_INV_SQRT_ORDER; ++k)
 	{
-		y = y * (threehalfs - (x2 * y * y));   // NR iteration
+		y.fp_num = y.fp_num * (threehalfs - (x2 * y.fp_num * y.fp_num));   // NR iteration
 	}
 
-	return y;
+	return y.fp_num;
 #else
 	return hls::sqrt(myType(1.0) / val);
 #endif

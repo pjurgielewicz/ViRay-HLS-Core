@@ -19,7 +19,7 @@
 #define DO_PRAGMA(x) PRAGMA_SUB(x)
 
 #define INNER_LOOP_UNROLL_FACTOR 1
-#define DESIRED_INNER_LOOP_II 8
+#define DESIRED_INNER_LOOP_II 8									// How many clock cylces are required to output the new pixel
 
 //#define USE_FIXEDPOINT
 
@@ -49,7 +49,7 @@ typedef union {
     	unsigned bexp : 8;
     	unsigned sign : 1;
     };
-} float_union;
+} float_union;													// Usage: texture storage & fast inverse square root
 
 #else
 
@@ -58,12 +58,12 @@ typedef half myType;
 #endif
 
 
-#define CORE_BIAS 		(myType(0.001))
-#define MAX_DISTANCE 	(myType(1000000))
+#define CORE_BIAS 		(myType(0.001))							// Small positive number to test against computed distance
+#define MAX_DISTANCE 	(myType(1000000))						// Ray tracer's 'infinity' distance
 
 #endif
 
-typedef unsigned pixelColorType;
+typedef unsigned pixelColorType;								// Pixel buffer type
 
 /*
  * AVAILABLE PRIMITIVES
@@ -77,17 +77,19 @@ enum ObjectType{
 	CYLINDER,
 	CUBE,
 	CONE,
-};
+};																// Globally defined object types
 
 /*
  * ENABLE/DISABLE
  */
 
-#define SIMPLE_OBJECT_TRANSFORM_ENABLE
+#define SIMPLE_OBJECT_TRANSFORM_ENABLE							// If on matrix transforms are off, only axis aligned transformations are allowed
 
-//#define DEEP_RAYTRACING_ENABLE
+//#define SELF_RESTART_ENABLE									// If on the core enters infinite loop of rendering right after loading textures, all other parameters can change between frames
 
-#define SPHERE_OBJECT_ENABLE
+//#define DEEP_RAYTRACING_ENABLE								// Only in simulation mode - allows to specify how deep ray tracing recursion should be used
+
+#define SPHERE_OBJECT_ENABLE									// Start of allowed object togglers
 #define PLANE_OBJECT_ENABLE
 #define DISK_OBJECT_ENABLE
 #define SQUARE_OBJECT_ENABLE
@@ -95,58 +97,56 @@ enum ObjectType{
 //#define CUBE_OBJECT_ENABLE
 #define CONE_OBJECT_ENABLE
 
-#define AMBIENT_COLOR_ENABLE
-#define DIFFUSE_COLOR_ENABLE
-#define SPECULAR_HIGHLIGHT_ENABLE
-#define INTERNAL_SHADING_ENABLE
-#define SHADOW_ENABLE
-#define SELF_SHADOW_ENABLE
-#define FRESNEL_REFLECTION_ENABLE
+#define AMBIENT_COLOR_ENABLE									// Ambient color: on/off
+#define DIFFUSE_COLOR_ENABLE									// Dffuse color: on/off
+#define SPECULAR_HIGHLIGHT_ENABLE								// Specular highlights: on/off
+#define INTERNAL_SHADING_ENABLE									// Surface normal inversion when pointing out of ray direction: on/off
+#define SHADOW_ENABLE											// Shadows rendering: on/off
+#define SELF_SHADOW_ENABLE										// Can an object cast shadows on itself: on/off
+#define FRESNEL_REFLECTION_ENABLE								// Allow to compute reflection amount based on angle of incidence and relative index of refraction: on/off
 
-#define TEXTURE_ENABLE
-//#define TEXTURE_URAM_STORAGE
-#define BILINEAR_TEXTURE_FILTERING_ENABLE
-#define ADVANCED_TEXTURE_MAPPING_ENABLE
-//#ifndef __SYNTHESIS__
-//#define FAST_INV_SQRT_ENABLE
-//#define FAST_DIVISION_ENABLE
-#define FAST_ATAN2_ENABLE
-#define FAST_ACOS_ENABLE
-//#endif
+#define TEXTURE_ENABLE											// Texturing: on/off
+//#define TEXTURE_URAM_STORAGE									// If enabled textures will be placed in the UltraRAM instead of BlockRAM
+#define BILINEAR_TEXTURE_FILTERING_ENABLE						// Texture filtering: on/off
+#define ADVANCED_TEXTURE_MAPPING_ENABLE							// If enabled allow user to use SPHERICAL and CYLINDRICAL texture mapping methods, when off and the user will try to use it RECTANGULAR mapping will be used anyway
+//#define FAST_INV_SQRT_ENABLE									// Newton-Raphson-Quake-based implementation of inverse square root approximation: on/off
+//#define FAST_DIVISION_ENABLE									// Newton-Raphson-based implementation od division: on/off
+#define FAST_ATAN2_ENABLE										// Polynomial approximation of atan2(): on/off
+#define FAST_ACOS_ENABLE										// LUT-based arcus cosinus implementation: on/off
 
 /*
  * SCENE 'RANGE' DEFINITION
  */
 
-#define WIDTH 						((unsigned short)(1920))
-#define HEIGHT 						((unsigned short)(1080))
+#define WIDTH 						((unsigned short)(1920))	// Final image width
+#define HEIGHT 						((unsigned short)(1080))	// Final image height
 
-#define TEXT_PAGE_SIZE				((unsigned)(256 * 256))
+#define TEXT_PAGE_SIZE				((unsigned)(256 * 256))		// How much memory will be used for texture storage
 
-#define FRAME_ROW_BUFFER_SIZE 		(WIDTH)
-#define LIGHTS_NUM 					((unsigned char)(2))
-#define OBJ_NUM 					((unsigned char)(8))
+#define FRAME_ROW_BUFFER_SIZE 		(WIDTH)						// Size of the temporary row framebuffer
+#define LIGHTS_NUM 					((unsigned char)(2))		// The number of lights being processed, the 0-th light is always ambient illumination, 1...n are full lights
+#define OBJ_NUM 					((unsigned char)(8))		// Maximum number of geometric objects in the scene
 
 #ifdef DEEP_RAYTRACING_ENABLE
 
-#define RAYTRACING_DEPTH			((unsigned char)(4))
+#define RAYTRACING_DEPTH			((unsigned char)(4))		// If DEEP_RAYTRACING_ENABLE is specified use this value to determine how deep ray tracing algorithm should go
 
 #else
 
-#define PRIMARY_COLOR_ENABLE
-#define REFLECTION_ENABLE
+#define PRIMARY_COLOR_ENABLE									// If DEEP_RAYTRACING_ENABLE is unset show the resulting color from the primary rays on/off
+#define REFLECTION_ENABLE										// If DEEP_RAYTRACING_ENABLE is unset show the resulting color from the secondary rays on/off
 
 #endif
 
-#define MAX_POWER_LOOP_ITER			((unsigned char)(7))
+#define MAX_POWER_LOOP_ITER			((unsigned char)(7))		// Determines to which maximum natural power the number can be raised
 
-#define FAST_INV_SQRT_ORDER 		((unsigned char)(2))
-#define FAST_DIVISION_ORDER 		((unsigned char)(2))
+#define FAST_INV_SQRT_ORDER 		((unsigned char)(2))		// How many iterations Newto-Raphson fast inverse sqrt algorithm should perform
+#define FAST_DIVISION_ORDER 		((unsigned char)(2))		// How many iterations Newto-Raphson fast division algorithm should perform
 
-#define PI 							(myType(3.141592))
-#define HALF_PI						(myType(1.570796))
-#define TWOPI						(myType(6.283184))
-#define INV_TWOPI					(myType(0.159155))
-#define INV_PI						(myType(0.31831))
+#define PI 							(myType(3.141592))			// PI
+#define HALF_PI						(myType(1.570796))			// 0.5 * PI
+#define TWOPI						(myType(6.283184))			// 2.0 * PI
+#define INV_PI						(myType(0.31831))			// 1.0 / PI
+#define INV_TWOPI					(myType(0.159155))			// 1.0 / (2.0 * PI)
 
 #endif
