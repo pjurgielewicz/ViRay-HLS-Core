@@ -58,7 +58,7 @@ typedef half myType;
 #endif
 
 
-#define CORE_BIAS 		(myType(0.001))							// Small positive number to test against computed distance
+#define CORE_BIAS 		(myType(0.001))						// Small positive number to test against computed distance
 #define MAX_DISTANCE 	(myType(1000000))						// Ray tracer's 'infinity' distance
 
 #endif
@@ -98,7 +98,7 @@ enum ObjectType{
 #define CONE_OBJECT_ENABLE
 
 #define AMBIENT_COLOR_ENABLE									// Ambient color: on/off
-#define DIFFUSE_COLOR_ENABLE									// Dffuse color: on/off
+#define DIFFUSE_COLOR_ENABLE									// Diffuse color: on/off
 #define SPECULAR_HIGHLIGHT_ENABLE								// Specular highlights: on/off
 #define INTERNAL_SHADING_ENABLE									// Surface normal inversion when pointing out of ray direction: on/off
 #define SHADOW_ENABLE											// Shadows rendering: on/off
@@ -129,7 +129,7 @@ enum ObjectType{
 
 #ifdef DEEP_RAYTRACING_ENABLE
 
-#define RAYTRACING_DEPTH			((unsigned char)(4))		// If DEEP_RAYTRACING_ENABLE is specified use this value to determine how deep ray tracing algorithm should go
+#define RAYTRACING_DEPTH			((unsigned char)(2))		// If DEEP_RAYTRACING_ENABLE is specified use this value to determine how deep ray tracing algorithm should go
 
 #else
 
@@ -140,8 +140,8 @@ enum ObjectType{
 
 #define MAX_POWER_LOOP_ITER			((unsigned char)(7))		// Determines to which maximum natural power the number can be raised
 
-#define FAST_INV_SQRT_ORDER 		((unsigned char)(2))		// How many iterations Newto-Raphson fast inverse sqrt algorithm should perform
-#define FAST_DIVISION_ORDER 		((unsigned char)(2))		// How many iterations Newto-Raphson fast division algorithm should perform
+#define FAST_INV_SQRT_ORDER 		((unsigned char)(2))		// How many iterations Newton-Raphson fast inverse sqrt algorithm should perform
+#define FAST_DIVISION_ORDER 		((unsigned char)(2))		// How many iterations Newton-Raphson fast division algorithm should perform
 
 #define PI 							(myType(3.141592))			// PI
 #define HALF_PI						(myType(1.570796))			// 0.5 * PI

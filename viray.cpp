@@ -152,6 +152,7 @@ void PerformHits(const Ray& transformedRay,
 	unsigned char faceIdx(0);
 
 	vec3 abc;
+	bool xInverse(false), yInverse(false), zInverse(false);
 	Ray transformedRayByObjectDirection(transformedRay);
 
 #if defined(SPHERE_OBJECT_ENABLE) || defined(CYLINDER_OBJECT_ENABLE) || defined(CONE_OBJECT_ENABLE) || defined(PLANE_OBJECT_ENABLE) || defined(DISK_OBJECT_ENABLE) || defined(SQUARE_OBJECT_ENABLE)
@@ -169,11 +170,29 @@ void PerformHits(const Ray& transformedRay,
 		 */
 		if (objOrientation[0] != myType(0.0))
 		{
+			if (signbit(objOrientation[0]))
+			{
+				transformedRayByObjectDirection.direction[0] 	= -transformedRayByObjectDirection.direction[0];
+				transformedRayByObjectDirection.origin[0] 		= -transformedRayByObjectDirection.origin[0];
+				xInverse = true;
+			}
 			ViRayUtils::Swap(transformedRayByObjectDirection.direction[0], 	transformedRayByObjectDirection.direction[1]);
 			ViRayUtils::Swap(transformedRayByObjectDirection.origin[0], 	transformedRayByObjectDirection.origin[1]);
 		}
+		else if (objOrientation[1] < myType(0.0))
+		{
+			transformedRayByObjectDirection.direction[1] 		= -transformedRayByObjectDirection.direction[1];
+			transformedRayByObjectDirection.origin[1] 			= -transformedRayByObjectDirection.origin[1];
+			yInverse = true;
+		}
 		else if (objOrientation[2] != myType(0.0))
 		{
+			if (signbit(objOrientation[2]))
+			{
+				transformedRayByObjectDirection.direction[2] 	= -transformedRayByObjectDirection.direction[2];
+				transformedRayByObjectDirection.origin[2] 		= -transformedRayByObjectDirection.origin[2];
+				zInverse = true;
+			}
 			ViRayUtils::Swap(transformedRayByObjectDirection.direction[2], 	transformedRayByObjectDirection.direction[1]);
 			ViRayUtils::Swap(transformedRayByObjectDirection.origin[2], 	transformedRayByObjectDirection.origin[1]);
 		}
@@ -294,11 +313,14 @@ void PerformHits(const Ray& transformedRay,
 #ifdef CONE_OBJECT_ENABLE
 	case CONE:
 #ifndef SIMPLE_OBJECT_TRANSFORM_ENABLE
-		sr.localNormal = vec3(sr.localHitPoint[0], myType(1.0) -sr.localHitPoint[1], sr.localHitPoint[2]);
+		sr.localNormal = vec3(sr.localHitPoint[0], myType(1.0) - sr.localHitPoint[1], sr.localHitPoint[2]);
 #else
-		if 		(objOrientation[0] != myType(0.0))	sr.localNormal = vec3(myType(1.0) - sr.localHitPoint[0], sr.localHitPoint[1], sr.localHitPoint[2]);
-		else if (objOrientation[1] != myType(0.0)) 	sr.localNormal = vec3(sr.localHitPoint[0], myType(1.0) - sr.localHitPoint[1], sr.localHitPoint[2]);
-		else										sr.localNormal = vec3(sr.localHitPoint[0], sr.localHitPoint[1], myType(1.0) - sr.localHitPoint[2]);
+		/*
+		 * IF ORIENTATION IS INVERTED, INVERT ASYMETRIC (1.0 -> -1.0) TERM IN LOCAL NORMAL CALCULATION
+		 */
+		if 		(objOrientation[0] != myType(0.0))	sr.localNormal = vec3((xInverse ? myType(-1.0) : myType(1.0)) - sr.localHitPoint[0], sr.localHitPoint[1], sr.localHitPoint[2]);
+		else if (objOrientation[1] != myType(0.0)) 	sr.localNormal = vec3(sr.localHitPoint[0], (yInverse ? myType(-1.0) : myType(1.0)) - sr.localHitPoint[1], sr.localHitPoint[2]);
+		else										sr.localNormal = vec3(sr.localHitPoint[0], sr.localHitPoint[1], (zInverse ? myType(-1.0) : myType(1.0)) - sr.localHitPoint[2]);
 #endif
 		break;
 #endif
@@ -821,20 +843,20 @@ myType ViRayUtils::Acos(myType x)
 	/*
 	* LUT - BASED ACOS IMPLEMENTATION
 	*/
-	const unsigned LUT_SIZE = 32;
-	const myType acosLUT[LUT_SIZE + 2] = { 1.5708, 1.53954, 1.50826, 1.47691,
-		1.44547, 1.4139, 1.38218, 1.35026,
-		1.31812, 1.2857, 1.25297, 1.21989,
-		1.1864, 1.15245, 1.11798, 1.08292,
-		1.0472, 1.01072, 0.97339, 0.935085,
-		0.895665, 0.854958, 0.812756, 0.768794,
-		0.722734, 0.67413, 0.622369, 0.566564,
-		0.50536, 0.436469, 0.355421, 0.250656,
-		0.0, 0.0 };	// one additional - just in case
+	const unsigned LUT_SIZE(32);
+	const myType acosLUT[LUT_SIZE + 2] = { 	1.5708, 1.53954, 1.50826, 1.47691,
+											1.44547, 1.4139, 1.38218, 1.35026,
+											1.31812, 1.2857, 1.25297, 1.21989,
+											1.1864, 1.15245, 1.11798, 1.08292,
+											1.0472, 1.01072, 0.97339, 0.935085,
+											0.895665, 0.854958, 0.812756, 0.768794,
+											0.722734, 0.67413, 0.622369, 0.566564,
+											0.50536, 0.436469, 0.355421, 0.250656,
+											0.0, 0.0 };	// one additional - just in case
 
-	myType lutIdxF = hls::fabs(x) * LUT_SIZE;
-	myType mix = hls::modf(lutIdxF, &lutIdxF);
-	unsigned lutIdx = lutIdxF;
+	myType lutIdxF 		= hls::fabs(x) * LUT_SIZE;
+	myType mix 			= hls::modf(lutIdxF, &lutIdxF);
+	unsigned lutIdx 	= lutIdxF;
 	unsigned nextLutIdx = lutIdx + 1;
 
 	// linear interpolation
@@ -856,12 +878,11 @@ myType ViRayUtils::Atan2(myType y, myType x)
 	*
 	* https://www.dsprelated.com/showarticle/1052.php
 	*
-	*
 	*/
 
-	const myType n1 = myType(0.97239411);
-	const myType n2 = myType(-0.19194795);
-	myType result = 0.0f;
+	const myType n1(0.97239411);
+	const myType n2(-0.19194795);
+	myType result(0.0);
 
 	if (x != myType(0.0))
 	{
@@ -993,11 +1014,11 @@ myType ViRayUtils::InvSqrt(myType val)
 
 	x2 = val * myType(0.5);
 	y.fp_num = val;
-	i = y.raw_bits;//*(long *)&y;                       // evil floating point bit level hacking
-										   //		i  = 0x5f3759df - ( i >> 1 );               // what the fuck?
-	i = 0x5f375a86 - (i >> 1);               // what the fuck?
+	i = y.raw_bits;
 
-	y.raw_bits = i;//*(float *)&i;
+	i = 0x5f375a86 - (i >> 1);
+
+	y.raw_bits = i;
 
 	for (unsigned char k = 0; k < FAST_INV_SQRT_ORDER; ++k)
 	{
@@ -1031,7 +1052,7 @@ myType ViRayUtils::NaturalPow(myType val, unsigned char n)
 #pragma HLS PIPELINE
 		if (n == 1) continue;
 
-		if (n & 0x1)
+		else if (n & 0x1)
 		{
 			y = x * y;
 		}

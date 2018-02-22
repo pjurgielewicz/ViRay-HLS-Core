@@ -102,14 +102,17 @@ int ViRayMain(	const myType* objTransformationArrayIn,
 	 * TEXTURES
 	 */
 	float_union textureData[TEXT_PAGE_SIZE];
+	unsigned textureDescription[OBJ_NUM];
+	unsigned textureBaseAddress[OBJ_NUM];
 #ifdef TEXTURE_URAM_STORAGE
 #pragma HLS RESOURCE variable=textureData core=XPM_MEMORY uram
 #endif
+
+//#ifdef TEXTURE_ENABLE
 	memcpy(textureData, textureDataIn, sizeof(float_union) * TEXT_PAGE_SIZE);
-	unsigned textureDescription[OBJ_NUM];
 	memcpy(textureDescription, textureDescriptionIn, sizeof(unsigned) * OBJ_NUM);
-	unsigned textureBaseAddress[OBJ_NUM];
 	memcpy(textureBaseAddress, textureBaseAddressIn, sizeof(unsigned) * OBJ_NUM);
+//#endif
 
 #ifdef SELF_RESTART_ENABLE
 	while(true)
