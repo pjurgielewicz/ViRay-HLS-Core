@@ -60,7 +60,11 @@ private:
 		C2DNoiseGenerator(float_union* outputBitmap, unsigned short width, unsigned short height, unsigned char octaves = 1, unsigned seed = 1784301) :
 			outputBitmap(outputBitmap), width(width), height(height)
 		{
+#ifndef UC_OPERATION
 			noise = new float_union[width * height];
+#else
+			noise = (float_union*)UC_TEMP_NOISE_TEXTURE_POOL;
+#endif
 			this->octaves = (octaves >= 1) ? octaves : 1;
 
 			GenerateNoise();
@@ -75,10 +79,12 @@ private:
 		}
 		~C2DNoiseGenerator()
 		{
+#ifndef UC_OPERATION
 			if (noise)
 			{
 				delete[] noise;
 			}
+#endif
 		}
 	private:
 		void GenerateNoise()
@@ -155,16 +161,22 @@ public:
 	{
 		Random::SetSeed(seed);
 
+#ifndef UC_OPERATION
 		bitmap = new float_union[width * height];
+#else
+		bitmap = (float_union*)UC_TEMP_TEXTURE_POOL;
+#endif
 
 		GenerateTexture();
 	}
 	~CTextureGenerator()
 	{
+#ifndef UC_OPERATION
 		if (bitmap)
 		{
 			delete[] bitmap;
 		}
+#endif
 	}
 	
 	unsigned CopyBitmapInto(float_union* copyBuffer) const

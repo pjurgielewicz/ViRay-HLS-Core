@@ -12,7 +12,7 @@ namespace ViRay
 
 void CreatePrimaryRay(const CCamera& camera, const myType* posShift, unsigned short r, unsigned short c, Ray& ray)
 {
-#pragma HLS PIPELINE
+#pragma HLS PIPELINE II=8
 	myType samplePoint[2] = {posShift[0] + /*myType(0.5) +*/ c,
 					 	 	 posShift[1] + /*myType(0.5) +*/ r};
 	ray = camera.GetCameraRayForPixel(samplePoint);
@@ -109,6 +109,7 @@ vec3 GetCubeNormal(const unsigned char& faceIdx)
 myType GetFresnelReflectionCoeff(const myType& cosRefl, const myType& relativeEta, const myType& invRelativeEtaSqr)
 {
 #pragma HLS INLINE
+//#pragma HLS PIPELINE II=4
 
 //	myType cosRefl = -(rayDirection * surfaceNormal);
 	myType cosRefrSqr = myType(1.0) - invRelativeEtaSqr * (myType(1.0) - cosRefl * cosRefl);
@@ -146,7 +147,7 @@ void PerformHits(const Ray& transformedRay,
 				unsigned objType, ShadeRec& sr)
 {
 //#pragma HLS INLINE
-#pragma HLS PIPELINE
+#pragma HLS PIPELINE II=1
 	myType res = MAX_DISTANCE;
 	myType aInv = myType(1.0);
 	unsigned char faceIdx(0);
@@ -170,7 +171,7 @@ void PerformHits(const Ray& transformedRay,
 		 */
 		if (objOrientation[0] != myType(0.0))
 		{
-			if (signbit(objOrientation[0]))
+			if (objOrientation[0] < myType(0.0))
 			{
 				transformedRayByObjectDirection.direction[0] 	= -transformedRayByObjectDirection.direction[0];
 				transformedRayByObjectDirection.origin[0] 		= -transformedRayByObjectDirection.origin[0];
@@ -187,7 +188,7 @@ void PerformHits(const Ray& transformedRay,
 		}
 		else if (objOrientation[2] != myType(0.0))
 		{
-			if (signbit(objOrientation[2]))
+			if (objOrientation[2] < myType(0.0))
 			{
 				transformedRayByObjectDirection.direction[2] 	= -transformedRayByObjectDirection.direction[2];
 				transformedRayByObjectDirection.origin[2] 		= -transformedRayByObjectDirection.origin[2];
@@ -543,8 +544,8 @@ void RenderSceneOuterLoop(const CCamera& camera,
 
 void SaveColorToBuffer(vec3 color, pixelColorType& colorOut)
 {
-#pragma HLS INLINE
-#pragma HLS PIPELINE
+//#pragma HLS INLINE
+#pragma HLS PIPELINE II=8
 
 	pixelColorType tempColor = 0;
 
@@ -552,9 +553,24 @@ void SaveColorToBuffer(vec3 color, pixelColorType& colorOut)
 	{
 #pragma HLS UNROLL
 		if (color[i] > myType(1.0))	color[i] = myType(1.0);
-
+#ifndef RGB_TO_YUV422_CONVERSION_ENABLE
 		tempColor += (( unsigned(color[i] * myType(255.0)) & 0xFF ) << ((2 - i) * 8));
+#endif
 	}
+
+#ifdef RGB_TO_YUV422_CONVERSION_ENABLE
+	// RGB - > YUV444 -> YUV422
+	// RGB_TO_YUV & CHROMA_RESAMPLER CODE IN A COUPLE OF LINES OF CODE
+	// TO REDUCE ALIASING THE ALGORITHM IS USING MEAN OF U&V FOR EACH PIXEL
+	// INSTEAD OF SIMPLE SEQUENTIAL DROPPING ONE OF THESE VALUES
+	{
+//#pragma HLS ALLOCATION instances=fmul limit=20 operation
+		unsigned Y 	= (myType(0.257) * color[0] + myType(0.504) * color[1] + myType(0.098) * color[2]) * myType(255.0);
+		unsigned UV = (myType(0.291) * color[0] - myType(0.659) * color[1] + myType(0.368) * color[2]) * myType(127.5);
+
+		tempColor = ((UV + 128) << 8) + (Y + 16);
+	}
+#endif
 	colorOut = tempColor;
 }
 
@@ -577,7 +593,7 @@ vec3 Shade(	const ShadeRec& closestSr,
 			const myType ndir2min)
 {
 #pragma HLS INLINE
-#pragma HLS PIPELINE
+//#pragma HLS PIPELINE II=4
 
 	vec3 colorOut(myType(0.0), myType(0.0), myType(0.0));
 	Ray transformedRay;
@@ -721,6 +737,7 @@ void TransformRay(const mat4& mat, const Ray& ray, Ray& transformedRay)
 #else
 void TransformRay(const SimpleTransform& transform, const Ray& ray, Ray& transformedRay)
 {
+#pragma HLS PIPELINE II=1
 	transformedRay.direction 	= transform.TransformDirInv(ray.direction);
 	transformedRay.origin 		= transform.TransformInv(ray.origin);
 }
@@ -790,6 +807,8 @@ void VisibilityTest(const Ray& ray,
 					const unsigned* objType,
 					ShadeRec& closestSr)
 {
+#pragma HLS ALLOCATION instances=TransformRay limit=4 function
+#pragma HLS ALLOCATION instances=PerformHits limit=4 function
 #pragma HLS INLINE
 	ShadeRec sr;
 	Ray transformedRay;
@@ -839,7 +858,7 @@ myType ViRayUtils::Abs(myType val)
 myType ViRayUtils::Acos(myType x)
 {
 #ifdef FAST_ACOS_ENABLE
-#pragma HLS PIPELINE
+#pragma HLS PIPELINE II=4
 	/*
 	* LUT - BASED ACOS IMPLEMENTATION
 	*/
@@ -872,7 +891,7 @@ myType ViRayUtils::Acos(myType x)
 myType ViRayUtils::Atan2(myType y, myType x)
 {
 #ifdef FAST_ATAN2_ENABLE
-#pragma HLS PIPELINE
+#pragma HLS PIPELINE II=4
 	/*
 	* BASED ON:
 	*
@@ -964,10 +983,12 @@ myType ViRayUtils::Divide(myType N, myType D)
 	return xi * Nunion.fp_num;
 
 #else
+#pragma HLS INLINE
 	return N / D;
 #endif
 
 #else
+#pragma HLS INLINE
 	return N / D;
 #endif
 }
@@ -1041,7 +1062,7 @@ myType ViRayUtils::NaturalPow(myType val, unsigned char n)
 	/*
 	* N_max = 128 (FF OPENGL - like)
 	*/
-#pragma HLS INLINE
+#pragma HLS PIPELINE II=4
 	myType x = val;
 	myType y(1.0);
 
@@ -1073,6 +1094,7 @@ myType ViRayUtils::Sqrt(myType val)
 
 void ViRayUtils::Swap(myType& val1, myType& val2)
 {
+#pragma HLS INLINE
 	myType tmp = val1;
 	val1 = val2;
 	val2 = tmp;

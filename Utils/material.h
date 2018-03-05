@@ -179,14 +179,53 @@ private:
 //			realRow    = hls::fabs(realRow);
 
 			myType dc, dr;
+#ifndef UC_OPERATION
 			myType fc = hls::modf(realColumn, &dc);
 			myType fr = hls::modf(realRow, 	  &dr);
+#else
+			myType fc = std::modf(realColumn, &dc);
+			myType fr = std::modf(realRow, 	  &dr);
+#endif
 
 			if (fc <= myType(0.0)) fc += 1.0;
 			if (fr <= myType(0.0)) fr += 1.0;
 
+//			dc = hls::fabs(dc);
+//			dr = hls::fabs(dr);
+
+			/*
+			 * BUG IN THE REAL SYSTEM:
+			 * HLS SEEMS TO PERFORM hls::fabs() ON dc & dr
+			 * BEFORE CASTING TO USHORT THUS CREATING ARTIFACTS NOT SEEN IN THE TESTBENCH
+			 * SOLUTION PROVIDED BELOW
+			 */
 			unsigned short uc = (unsigned short)(dc) % textureWidth;
 			unsigned short ur = (unsigned short)(dr) % textureHeight;
+
+			/*
+			 * IF THIS IS BETTER THAN PREVIOUS IMPLEMENTATION HAS TO BE CHECKED
+			 * IN THE REAL SYSTEM...
+			 */
+//			unsigned short uc;
+//			unsigned short ur;
+//			if (dc < myType(0.0))
+//			{
+//				uc = textureWidth - (unsigned short)(-dc) % textureWidth;
+//				ur = textureHeight - (unsigned short)(-dr) % textureHeight;
+//			}
+//			else
+//			{
+//				uc = (unsigned short)(dc) % textureWidth;
+//				ur = (unsigned short)(dr) % textureHeight;
+//			}
+			/*
+			 * ALTERNATIVE SOLUTION
+			 * WARNING: IT IS NOT PRODUCING VALID RESULTS IN TESTBENCH
+			 */
+//			uc = (unsigned short)(dc) % textureWidth;
+//			uc = (dc < myType(0.0)) ? textureWidth - uc : uc;
+//			ur = (unsigned short)(dr) % textureHeight;
+//			ur = (dr < myType(0.0)) ? textureWidth - ur : ur;
 
 #ifdef BILINEAR_TEXTURE_FILTERING_ENABLE
 			/*			interpolationData.c1 = uc;
@@ -257,7 +296,7 @@ private:
 		 * |
 		 * LSB
 		 */
-		vec3 ConvertFloatBufferToRGB(float_union buffVal) const
+		vec3 ConvertFloatBufferToRGB(const float_union& buffVal) const
 		{
 		#pragma HLS INLINE
 			const myType conversionFactor = myType(0.003921568627451); // = 1.0 / 255.0
@@ -298,7 +337,7 @@ public:
 	 * PIXEL_MAP: map texture RGB pixels onto the object.
 	 *
 	 * If BILINEAR_TEXTURE_FILTERING_ENABLE is specified use texture cross-point filtering (bilinear)
-	 * to reduce texture sharpness while introducing blur (which amount depends on the texture size)
+	 * to reduce texture sharpness while introducing blur (which amount depends on the texture size and magnification)
 	 */
 	vec3 GetDiffuseColor(const vec3& localHitPoint,
 #ifdef SIMPLE_OBJECT_TRANSFORM_ENABLE
@@ -308,6 +347,7 @@ public:
 	{
 		//CRITICAL INLINE
 #pragma HLS INLINE
+//#pragma HLS PIPELINE II=4
 		TextureDescription::InterpolationData interpolationData;
 		myType mix;
 
@@ -317,6 +357,23 @@ public:
 #endif
 									interpolationData);
 
+		unsigned short idx11 = textureDesc.baseAddr + interpolationData.c1 * textureDesc.textureHeight + interpolationData.r1;
+		float_union texelColor11 = bitmap[idx11];
+#ifdef BILINEAR_TEXTURE_FILTERING_ENABLE
+		unsigned short idx12 = textureDesc.baseAddr + interpolationData.c1 * textureDesc.textureHeight + interpolationData.r2;
+		unsigned short idx22 = textureDesc.baseAddr + interpolationData.c2 * textureDesc.textureHeight + interpolationData.r2;
+		unsigned short idx21 = textureDesc.baseAddr + interpolationData.c2 * textureDesc.textureHeight + interpolationData.r1;
+
+		float_union texelColor12 = bitmap[idx12];
+		float_union texelColor22 = bitmap[idx22];
+		float_union texelColor21 = bitmap[idx21];
+
+		myType w11 = interpolationData.wc1 * interpolationData.wr1;
+		myType w12 = interpolationData.wc1 * interpolationData.wr2;
+		myType w22 = interpolationData.wc2 * interpolationData.wr2;
+		myType w21 = interpolationData.wc2 * interpolationData.wr1;
+#endif
+
 		switch (textureDesc.textureType)
 		{
 		case CONSTANT:
@@ -324,22 +381,22 @@ public:
 
 		case BITMAP_MASK:
 #ifdef BILINEAR_TEXTURE_FILTERING_ENABLE
-			mix = 	bitmap[textureDesc.baseAddr + interpolationData.c1 * textureDesc.textureHeight + interpolationData.r1].fp_num * interpolationData.wc1 * interpolationData.wr1 +
-					bitmap[textureDesc.baseAddr + interpolationData.c1 * textureDesc.textureHeight + interpolationData.r2].fp_num * interpolationData.wc1 * interpolationData.wr2 +
-					bitmap[textureDesc.baseAddr + interpolationData.c2 * textureDesc.textureHeight + interpolationData.r2].fp_num * interpolationData.wc2 * interpolationData.wr2 +
-					bitmap[textureDesc.baseAddr + interpolationData.c2 * textureDesc.textureHeight + interpolationData.r1].fp_num * interpolationData.wc2 * interpolationData.wr1;
+			mix = 	texelColor11.fp_num * w11 +
+					texelColor12.fp_num * w12 +
+					texelColor22.fp_num * w22 +
+					texelColor21.fp_num * w21;
 #else
-			mix = 	bitmap[textureDesc.baseAddr + interpolationData.c1 * textureDesc.textureHeight + interpolationData.r1].fp_num;
+			mix = 	texelColor11.fp_num;
 #endif
 			return materialDesc.primaryColor * mix + materialDesc.secondaryColor * (myType(1.0) - mix);
 		case PIXEL_MAP:
 #ifdef BILINEAR_TEXTURE_FILTERING_ENABLE
-			return 	textureDesc.ConvertFloatBufferToRGB(bitmap[textureDesc.baseAddr + interpolationData.c1 * textureDesc.textureHeight + interpolationData.r1]) * interpolationData.wc1 * interpolationData.wr1 +
-					textureDesc.ConvertFloatBufferToRGB(bitmap[textureDesc.baseAddr + interpolationData.c1 * textureDesc.textureHeight + interpolationData.r2]) * interpolationData.wc1 * interpolationData.wr2 +
-					textureDesc.ConvertFloatBufferToRGB(bitmap[textureDesc.baseAddr + interpolationData.c2 * textureDesc.textureHeight + interpolationData.r2]) * interpolationData.wc2 * interpolationData.wr2 +
-					textureDesc.ConvertFloatBufferToRGB(bitmap[textureDesc.baseAddr + interpolationData.c2 * textureDesc.textureHeight + interpolationData.r1]) * interpolationData.wc2 * interpolationData.wr1;
+			return 	textureDesc.ConvertFloatBufferToRGB(texelColor11) * w11 +
+					textureDesc.ConvertFloatBufferToRGB(texelColor12) * w12 +
+					textureDesc.ConvertFloatBufferToRGB(texelColor22) * w22 +
+					textureDesc.ConvertFloatBufferToRGB(texelColor21) * w21;
 #else
-			return 	textureDesc.ConvertFloatBufferToRGB(bitmap[textureDesc.baseAddr + interpolationData.c1 * textureDesc.textureHeight + interpolationData.r1]);
+			return 	textureDesc.ConvertFloatBufferToRGB(texelColor11);
 #endif
 		}
 

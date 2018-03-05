@@ -222,8 +222,13 @@ int main()
 
 	CTextureHelper textureHelper(textureData, textureDescriptionData, textureBaseAddr);
 	unsigned addr, code;
-	textureHelper.SaveTexture(CTextureGenerator(128, 128, CTextureGenerator::CHECKERBOARD, 6, 6), ViRay::CMaterial::PLANE_PLANAR, code, true, 2);
-	textureHelper.SaveTexture(CTextureGenerator(128, 128, CTextureGenerator::MARBLE, 6, 4, 1784301, 5, 1.87), ViRay::CMaterial::SPHERICAL, code, true, 0);
+	addr = textureHelper.SaveTexture(CTextureGenerator(128, 128, CTextureGenerator::CHECKERBOARD, 6, 6), ViRay::CMaterial::PLANAR, code, true, 1);
+	textureHelper.BindTextureToObject(6, addr, textureHelper.GetTextureDescriptionCode(ViRay::CMaterial::BITMAP_MASK, ViRay::CMaterial::CYLINDRICAL, 128, 128));
+	textureHelper.BindTextureToObject(7, addr, textureHelper.GetTextureDescriptionCode(ViRay::CMaterial::BITMAP_MASK, ViRay::CMaterial::CYLINDRICAL, 128, 128));
+	addr = textureHelper.SaveTexture(CTextureGenerator(128, 128, CTextureGenerator::MARBLE, 6, 4, 1784301, 5, 1.87), ViRay::CMaterial::SPHERICAL, code, true, 5);
+	textureHelper.BindTextureToObject(4, addr, code);
+//	textureHelper.BindTextureToObject(2, addr, code);
+	textureHelper.SaveTexture(CTextureGenerator(128, 128, CTextureGenerator::WOOD, 6, 6, 1784301, 5, 0.2), ViRay::CMaterial::SPHERICAL, code, true, 3);
 
 /////////////////////////////////////////////////////////
 

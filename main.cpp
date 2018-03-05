@@ -29,7 +29,7 @@ int ViRayMain(	const myType* objTransformationArrayIn,
 				const myType* cameraArrayIn,
 				myType cameraZoom,
 
-				const myType* textureDataIn,
+				const float* textureDataIn,
 				const unsigned* textureDescriptionIn,
 				const unsigned* textureBaseAddressIn,
 
@@ -77,7 +77,11 @@ int ViRayMain(	const myType* objTransformationArrayIn,
 	 */
 
 #pragma HLS INTERFACE s_axilite port=textureDataIn bundle=AXI_LITE_1
+#if !defined(USE_FIXEDPOINT) && !defined(USE_FLOAT)
+#pragma HLS INTERFACE m_axi port=textureDataIn offset=slave bundle=MAXI_DATA_3
+#else
 #pragma HLS INTERFACE m_axi port=textureDataIn offset=slave bundle=MAXI_DATA
+#endif
 
 #pragma HLS INTERFACE s_axilite port=textureDescriptionIn bundle=AXI_LITE_1
 #pragma HLS INTERFACE m_axi port=textureDescriptionIn offset=slave bundle=MAXI_DATA_2
@@ -102,6 +106,7 @@ int ViRayMain(	const myType* objTransformationArrayIn,
 	 * TEXTURES
 	 */
 	float_union textureData[TEXT_PAGE_SIZE];
+#pragma HLS RESOURCE variable=textureData core=RAM_2P_BRAM
 	unsigned textureDescription[OBJ_NUM];
 	unsigned textureBaseAddress[OBJ_NUM];
 #ifdef TEXTURE_URAM_STORAGE

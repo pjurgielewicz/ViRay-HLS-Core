@@ -40,9 +40,16 @@ typedef ap_fixed<FIXEDPOINT_WIDTH, FIXEDPOINT_INTEGER_BITS, AP_RND> myType;
 
 typedef float myType;
 
+#else
+
+typedef half myType;
+
+#endif
+
+// USED MAINLY FOR TEXTURE STORAGE AND FAST BIT CONVERSION
 // SEE << fp_mul_pow2 >> example project
 typedef union {
-    myType fp_num;
+    float fp_num;
     unsigned raw_bits;
     struct {
     	unsigned mant : 23;
@@ -50,12 +57,6 @@ typedef union {
     	unsigned sign : 1;
     };
 } float_union;													// Usage: texture storage & fast inverse square root
-
-#else
-
-typedef half myType;
-
-#endif
 
 
 #define CORE_BIAS 		(myType(0.001))						// Small positive number to test against computed distance
@@ -87,7 +88,9 @@ enum ObjectType{
 
 //#define SELF_RESTART_ENABLE									// If on the core enters infinite loop of rendering right after loading textures, all other parameters can change between frames
 
-//#define DEEP_RAYTRACING_ENABLE								// Only in simulation mode - allows to specify how deep ray tracing recursion should be used
+#define DEEP_RAYTRACING_ENABLE								// Only in simulation mode - allows to specify how deep ray tracing recursion should be used
+
+//#define RGB_TO_YUV422_CONVERSION_ENABLE							// Convert RGB pixel color to YUV422 standard (to use with limited bandwidth ADV7511)
 
 #define SPHERE_OBJECT_ENABLE									// Start of allowed object togglers
 #define PLANE_OBJECT_ENABLE
@@ -148,5 +151,10 @@ enum ObjectType{
 #define TWOPI						(myType(6.283184))			// 2.0 * PI
 #define INV_PI						(myType(0.31831))			// 1.0 / PI
 #define INV_TWOPI					(myType(0.159155))			// 1.0 / (2.0 * PI)
+
+#ifdef UC_OPERATION
+#define UC_TEMP_NOISE_TEXTURE_POOL 	((unsigned char*)0x80000000 + (0x05000000))
+#define UC_TEMP_TEXTURE_POOL 		(UC_TEMP_NOISE_TEXTURE_POOL + TEXT_PAGE_SIZE * 4)
+#endif
 
 #endif
