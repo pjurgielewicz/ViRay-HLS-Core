@@ -45,16 +45,20 @@ private:
 		{
 			unsigned short c1, c2, r1, r2;		// row & column inside bitmap
 			myType wc1, wc2, wr1, wr2;			// weight of column and row
+
+			unsigned short idx11, idx12, idx22, idx21;
+			myType w11, w12, w22, w21;
 		};
 
 
-		vec3 texturePos, textureScale;
 
 		unsigned      baseAddr;
-//		unsigned char textureIdx;
 		unsigned char textureType;
 		unsigned char textureMapping;
 		unsigned short textureWidth, textureHeight;
+
+		myType 			s, t;
+		myType			ss, st;
 
 		/*
 		 * THE WIDTH OF EACH ELEMENT IS BIGGER THAN NECESSARY FOR THE CURRENT IMPLEMENTATION
@@ -76,7 +80,6 @@ private:
 							const vec3& pos, const vec3& scale)
 		{
 			this->baseAddr	= baseAddr;
-//			textureIdx  	= (textureDescriptionCode >> 26) & 0x3F;
 #ifdef TEXTURE_ENABLE
 			textureType		= (textureDescriptionCode >> 23) & 0x7;
 #else
@@ -93,8 +96,11 @@ private:
 			textureHeight	= (textureDescriptionCode      ) & 0x3FF;
 
 			// TEXTURE TRANSFORM
-			texturePos		= pos;
-			textureScale	= scale;
+			s 				= pos[0];		// s := x
+			t				= pos[1];		// t := y
+
+			ss				= scale[0];		// ss := sx
+			st				= scale[1];		// st := sy
 		}
 
 		/*
@@ -103,13 +109,14 @@ private:
 		 *
 		 * If ADVANCED_TEXTURE_MAPPING_ENABLE is specified allow to use SPHERICAL and CYLINDRICAL mapping to [u, v] coordinates
 		 */
-		void GetTexelCoord(const vec3& localHitPoint,
+		InterpolationData GetTexelCoord(const vec3& localHitPoint,
 #ifdef SIMPLE_OBJECT_TRANSFORM_ENABLE
-									const vec3& orientation,
+									const vec3& orientation
 #endif
-									InterpolationData& interpolationData) const
+									) const
 		{
-		#pragma HLS INLINE
+//		#pragma HLS INLINE
+#pragma HLS PIPELINE II=4
 		myType vx, vy, vz;
 #ifdef SIMPLE_OBJECT_TRANSFORM_ENABLE
 			if (orientation[0] != myType(0.0))
@@ -172,8 +179,8 @@ private:
 			}
 
 			// TRANSFORM TEXTURE & FIND MAJOR PIXEL
-			myType realColumn 	= (textureWidth  ) * (u + texturePos[0]) * textureScale[0]; // hls::fabs ??
-			myType realRow 		= (textureHeight ) * (v + texturePos[1]) * textureScale[1]; // hls::fabs ??
+			myType realColumn 	= (textureWidth  ) * (u + this->s) * this->ss; // hls::fabs ??
+			myType realRow 		= (textureHeight ) * (v + this->t) * this->st; // hls::fabs ??
 
 //			realColumn = hls::fabs(realColumn);
 //			realRow    = hls::fabs(realRow);
@@ -201,6 +208,8 @@ private:
 			 */
 			unsigned short uc = (unsigned short)(dc) % textureWidth;
 			unsigned short ur = (unsigned short)(dr) % textureHeight;
+
+			InterpolationData interpolationData;
 
 			/*
 			 * IF THIS IS BETTER THAN PREVIOUS IMPLEMENTATION HAS TO BE CHECKED
@@ -281,6 +290,24 @@ private:
 			interpolationData.c1 = uc;
 			interpolationData.r1 = ur;
 #endif
+
+
+
+			interpolationData.idx11 = baseAddr + interpolationData.c1 * textureHeight + interpolationData.r1;
+	#ifdef BILINEAR_TEXTURE_FILTERING_ENABLE
+			interpolationData.idx12 = baseAddr + interpolationData.c1 * textureHeight + interpolationData.r2;
+			interpolationData.idx22 = baseAddr + interpolationData.c2 * textureHeight + interpolationData.r2;
+			interpolationData.idx21 = baseAddr + interpolationData.c2 * textureHeight + interpolationData.r1;
+
+			interpolationData.w11 = interpolationData.wc1 * interpolationData.wr1;
+			interpolationData.w12 = interpolationData.wc1 * interpolationData.wr2;
+			interpolationData.w22 = interpolationData.wc2 * interpolationData.wr2;
+			interpolationData.w21 = interpolationData.wc2 * interpolationData.wr1;
+	#endif
+
+
+
+			return interpolationData;
 		}
 
 		/*
@@ -296,17 +323,16 @@ private:
 		 * |
 		 * LSB
 		 */
-		vec3 ConvertFloatBufferToRGB(const float_union& buffVal) const
+		static vec3 ConvertFloatBufferToRGB888(float_union buffVal)
 		{
 		#pragma HLS INLINE
-			const myType conversionFactor = myType(0.003921568627451); // = 1.0 / 255.0
 
 			unsigned rawBits = buffVal.raw_bits;
 			myType R = ((rawBits & 0xFF0000) >> 16);
 			myType G = ((rawBits & 0xFF00) >> 8);
 			myType B = ((rawBits & 0xFF));
 
-			return vec3(R, G, B) * conversionFactor;
+			return vec3(R, G, B);
 		}
 	};
 
@@ -345,58 +371,76 @@ public:
 #endif
 							const float_union* bitmap) const
 	{
-		//CRITICAL INLINE
+		//CRITICAL INLINE - THE PROBLEM IS POSED BY ACCESSES TO ARRAYS
+		//ALL OF THEM HAVE TO BE INSIDE INLINED PART OF THE FUNCTION
 #pragma HLS INLINE
 //#pragma HLS PIPELINE II=4
-		TextureDescription::InterpolationData interpolationData;
-		myType mix;
 
-		textureDesc.GetTexelCoord(localHitPoint,
+		TextureDescription::InterpolationData interpolationData(textureDesc.GetTexelCoord(localHitPoint,
 #ifdef SIMPLE_OBJECT_TRANSFORM_ENABLE
-									orientation,
+																orientation
 #endif
-									interpolationData);
+																));
 
-		unsigned short idx11 = textureDesc.baseAddr + interpolationData.c1 * textureDesc.textureHeight + interpolationData.r1;
-		float_union texelColor11 = bitmap[idx11];
+		float_union texelColor11 = bitmap[interpolationData.idx11];
 #ifdef BILINEAR_TEXTURE_FILTERING_ENABLE
-		unsigned short idx12 = textureDesc.baseAddr + interpolationData.c1 * textureDesc.textureHeight + interpolationData.r2;
-		unsigned short idx22 = textureDesc.baseAddr + interpolationData.c2 * textureDesc.textureHeight + interpolationData.r2;
-		unsigned short idx21 = textureDesc.baseAddr + interpolationData.c2 * textureDesc.textureHeight + interpolationData.r1;
-
-		float_union texelColor12 = bitmap[idx12];
-		float_union texelColor22 = bitmap[idx22];
-		float_union texelColor21 = bitmap[idx21];
-
-		myType w11 = interpolationData.wc1 * interpolationData.wr1;
-		myType w12 = interpolationData.wc1 * interpolationData.wr2;
-		myType w22 = interpolationData.wc2 * interpolationData.wr2;
-		myType w21 = interpolationData.wc2 * interpolationData.wr1;
+		float_union texelColor12 = bitmap[interpolationData.idx12];
+		float_union texelColor22 = bitmap[interpolationData.idx22];
+		float_union texelColor21 = bitmap[interpolationData.idx21];
 #endif
 
+		vec3 interpolationResult = InterpolateTexture(interpolationData, texelColor11,
+#ifdef BILINEAR_TEXTURE_FILTERING_ENABLE
+														texelColor12, texelColor22, texelColor21
+#endif
+				);
+
+		// BE THAT WAY...
 		switch (textureDesc.textureType)
 		{
 		case CONSTANT:
-			return materialDesc.primaryColor;
+			interpolationResult = materialDesc.primaryColor;
+			break;
+		case BITMAP_MASK:
+			interpolationResult = materialDesc.primaryColor * interpolationResult[0] + materialDesc.secondaryColor * interpolationResult[1];
+			break;
+		}
+		return interpolationResult;
+	}
 
+	vec3 InterpolateTexture(const TextureDescription::InterpolationData& interpolationData,
+							float_union texelColor11,
+#ifdef BILINEAR_TEXTURE_FILTERING_ENABLE
+							float_union texelColor12, float_union texelColor22, float_union texelColor21
+#endif
+							) const
+	{
+//#pragma HLS INLINE
+#pragma HLS PIPELINE II=4
+		const myType conversionFactor = myType(0.003921568627451); // = 1.0 / 255.0
+		myType mix;
+		switch (textureDesc.textureType)
+		{
+		case CONSTANT:
+			break;
 		case BITMAP_MASK:
 #ifdef BILINEAR_TEXTURE_FILTERING_ENABLE
-			mix = 	texelColor11.fp_num * w11 +
-					texelColor12.fp_num * w12 +
-					texelColor22.fp_num * w22 +
-					texelColor21.fp_num * w21;
+			mix = 	texelColor11.fp_num * interpolationData.w11 +
+					texelColor12.fp_num * interpolationData.w12 +
+					texelColor22.fp_num * interpolationData.w22 +
+					texelColor21.fp_num * interpolationData.w21;
 #else
 			mix = 	texelColor11.fp_num;
 #endif
-			return materialDesc.primaryColor * mix + materialDesc.secondaryColor * (myType(1.0) - mix);
+			return vec3(mix, (myType(1.0) - mix), myType(0.0));
 		case PIXEL_MAP:
 #ifdef BILINEAR_TEXTURE_FILTERING_ENABLE
-			return 	textureDesc.ConvertFloatBufferToRGB(texelColor11) * w11 +
-					textureDesc.ConvertFloatBufferToRGB(texelColor12) * w12 +
-					textureDesc.ConvertFloatBufferToRGB(texelColor22) * w22 +
-					textureDesc.ConvertFloatBufferToRGB(texelColor21) * w21;
+			return 	(TextureDescription::ConvertFloatBufferToRGB888(texelColor11) * interpolationData.w11  +
+					 TextureDescription::ConvertFloatBufferToRGB888(texelColor12) * interpolationData.w12  +
+					 TextureDescription::ConvertFloatBufferToRGB888(texelColor22) * interpolationData.w22  +
+					 TextureDescription::ConvertFloatBufferToRGB888(texelColor21) * interpolationData.w21) * conversionFactor;
 #else
-			return 	textureDesc.ConvertFloatBufferToRGB(texelColor11);
+			return 	TextureDescription::ConvertFloatBufferToRGB888(texelColor11) * conversionFactor;
 #endif
 		}
 
@@ -422,8 +466,8 @@ public:
 						m.materialDesc.secondaryColor << "\n" <<
 						m.materialDesc.specularColor << "\n\n" <<
 
-						m.textureDesc.texturePos << "\n" <<
-						m.textureDesc.textureScale << "\n" <<
+						m.textureDesc.s << " " << m.textureDesc.t << "\n" <<
+						m.textureDesc.ss << " " << m.textureDesc.st << "\n" <<
 						(unsigned)m.textureDesc.baseAddr << " " << (unsigned)m.textureDesc.textureType << " " << (unsigned)m.textureDesc.textureMapping << " " << m.textureDesc.textureWidth << " " << m.textureDesc.textureHeight << "\n";
 	}
 #endif

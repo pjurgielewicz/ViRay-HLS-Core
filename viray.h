@@ -88,6 +88,7 @@ namespace ViRay
 		 * Custom swap function solution
 		 */
 		void Swap(myType& val1, myType& val2);
+
 	}
 
 	/*

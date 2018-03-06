@@ -858,7 +858,8 @@ myType ViRayUtils::Abs(myType val)
 myType ViRayUtils::Acos(myType x)
 {
 #ifdef FAST_ACOS_ENABLE
-#pragma HLS PIPELINE II=4
+#pragma HLS INLINE
+//#pragma HLS PIPELINE II=4
 	/*
 	* LUT - BASED ACOS IMPLEMENTATION
 	*/
@@ -891,7 +892,8 @@ myType ViRayUtils::Acos(myType x)
 myType ViRayUtils::Atan2(myType y, myType x)
 {
 #ifdef FAST_ATAN2_ENABLE
-#pragma HLS PIPELINE II=4
+#pragma HLS INLINE
+//#pragma HLS PIPELINE II=4
 	/*
 	* BASED ON:
 	*
@@ -995,6 +997,8 @@ myType ViRayUtils::Divide(myType N, myType D)
 
 myType ViRayUtils::GeomObjectSolve(const vec3& abc, const Ray& transformedRay, myType& aInv)
 {
+#pragma HLS INLINE
+//#pragma HLS PIPELINE
 	aInv = ViRayUtils::Divide(myType(1.0), abc[0]);
 
 	myType d2 = abc[1] * abc[1] - abc[0] * abc[2];
