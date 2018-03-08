@@ -220,6 +220,22 @@ namespace ViRay
 	 */
 	myType GetFresnelReflectionCoeff(const myType& cosRefl, const myType& relativeEta, const myType& invRelativeEtaSqr);
 
+
+	/*
+	 * Calculate angle-dependent term in Oren-Nayar model
+	 * cosR - cosine between toViewer and normal
+	 * cosI - cosine between toLight and normal
+	 */
+	myType GetOrenNayarDiffuseCoeff(const myType& cosR, const myType& cosI);
+
+	/*
+	 * Calculate geometric term in Torrance-Sparrow model
+	 * cosR - cosine between toViewer and normal
+	 * cosI - cosine between toLight and normal
+	 */
+	myType GetTorranceSparrowGeometricCoeff(const vec3& normal, const vec3& toViewer, const vec3& toLight, const myType& cosR, const myType& cosI, myType& nhalfDot);
+
+
 	/*
 	 * Determine whether and where exactly (in local coordinates) the hit occurred
 	 * The user can change the complexity of this function by enabling/disabling object flags (ie. SPHERE_OBJECT_ENABLE)
@@ -331,7 +347,10 @@ namespace ViRay
 
 				const float_union* textureData,
 
-				const myType ndir2min);
+				const myType ndir2min,
+				const vec3& toViewer,
+
+				const myType& fresnelCoeff);
 
 	/*
 	 * Very similar to the VisibilityTest() but uses shadow-specific functionality.

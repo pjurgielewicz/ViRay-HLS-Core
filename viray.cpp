@@ -106,6 +106,41 @@ vec3 GetCubeNormal(const unsigned char& faceIdx)
 	}
 }
 
+myType GetOrenNayarDiffuseCoeff(const myType& cosR, const myType& cosI)
+{
+#pragma HLS INLINE
+	myType sinRS 	= myType(1.0) - cosR * cosR;
+	myType sinIS 	= myType(1.0) - cosI * cosI;
+
+	myType sinRsinI = ViRayUtils::Sqrt(sinRS * sinIS);
+
+	myType minInv 	= myType(1.0) / ((cosR > cosI) ? cosR : cosI);
+
+	myType f 		= (cosR * cosI + sinRsinI) * sinRsinI * minInv;
+f 					= f > myType(0.0) ? f : myType(0.0);
+
+	return f;
+}
+
+myType GetTorranceSparrowGeometricCoeff(const vec3& normal, const vec3& toViewer, const vec3& toLight, const myType& cosR, const myType& cosI,
+										myType& nhalfDot)
+{
+#pragma HLS INLINE
+	vec3 half = (toViewer + toLight).Normalize();
+	myType halfDotInv = myType(1.0) / (half * toViewer);
+
+	nhalfDot = normal * half;
+	myType tmp = myType(2.0) * halfDotInv * nhalfDot;
+	myType f1 = tmp * cosR;
+	myType f2 = tmp * cosI;
+
+	myType f = (f1 < f2) ? f1 : f2;
+	f = (f < myType(1.0)) ? f : myType(1.0);
+
+	return f / (myType(4.0) * cosR * cosI);
+
+}
+
 myType GetFresnelReflectionCoeff(const myType& cosRefl, const myType& relativeEta, const myType& invRelativeEtaSqr)
 {
 #pragma HLS INLINE
@@ -401,13 +436,18 @@ DO_PRAGMA(HLS UNROLL factor=INNER_LOOP_UNROLL_FACTOR)
 			myType ndir = closestSr.normal * ray.direction;
 			myType ndir2min = myType(-2.0) * ndir;
 
+			myType fresnelReflectionCoeff = GetFresnelReflectionCoeff( -ndir,
+																		materials[closestSr.objIdx].GetMaterialDescription().fresnelData[1],
+																		materials[closestSr.objIdx].GetMaterialDescription().fresnelData[2]);
+
+
 			vec3 depthColor = Shade(closestSr, ray,
 #ifndef SIMPLE_OBJECT_TRANSFORM_ENABLE
 									objTransform, objTransformInv,
 #else
 									objTransform,
 #endif
-									objType, lights, materials, textureData, ndir2min);
+									objType, lights, materials, textureData, ndir2min, -ray.direction, fresnelReflectionCoeff);
 
 			colorAccum += depthColor * currentReflectivity;
 
@@ -415,11 +455,9 @@ DO_PRAGMA(HLS UNROLL factor=INNER_LOOP_UNROLL_FACTOR)
 			 * NEXT DEPTH STEP PREPARATION
 			 */
 #ifdef FRESNEL_REFLECTION_ENABLE
-			myType reflectivity = (materials[closestSr.objIdx].GetMaterialDescription().fresnelData[0] != myType(0.0)) ? GetFresnelReflectionCoeff( -ndir,
-																																					materials[closestSr.objIdx].GetMaterialDescription().fresnelData[1],
-																																					materials[closestSr.objIdx].GetMaterialDescription().fresnelData[2]) : materials[closestSr.objIdx].GetMaterialDescription().k[1];
+			myType reflectivity = (materials[closestSr.objIdx].GetMaterialDescription().useFresnelReflection) ? fresnelReflectionCoeff : materials[closestSr.objIdx].GetMaterialDescription().ks;
 #else
-			myType reflectivity = materials[closestSr.objIdx].GetMaterialDescription().k[1];
+			myType reflectivity = materials[closestSr.objIdx].GetMaterialDescription().ks;
 #endif
 			currentReflectivity *= reflectivity;
 
@@ -474,7 +512,7 @@ DO_PRAGMA(HLS UNROLL factor=INNER_LOOP_UNROLL_FACTOR)
 #else
 						objTransform,
 #endif
-						objType, lights, materials, textureData, ndir2min);
+						objType, lights, materials, textureData, ndir2min, -ray.direction);
 #endif
 
 #ifdef REFLECTION_ENABLE
@@ -492,7 +530,7 @@ DO_PRAGMA(HLS UNROLL factor=INNER_LOOP_UNROLL_FACTOR)
 #else
 							objTransformCopy,
 #endif
-							objType, lights, materials, textureData, ndir2minRefl) * reflectivity : vec3(myType(0.0));
+							objType, lights, materials, textureData, ndir2minRefl, -reflectedRay.direction) * reflectivity : vec3(myType(0.0));
 #endif
 		}
 
@@ -590,7 +628,10 @@ vec3 Shade(	const ShadeRec& closestSr,
 
 			const float_union* textureData,
 
-			const myType ndir2min)
+			const myType ndir2min,
+			const vec3& toViewer,
+
+			const myType& fresnelCoeff)
 {
 #pragma HLS INLINE
 //#pragma HLS PIPELINE II=4
@@ -623,6 +664,24 @@ vec3 Shade(	const ShadeRec& closestSr,
 		vec3 dirToLight = objToLight * dInv;
 
 		myType dot = closestSr.normal * dirToLight;
+
+#ifdef OREN_NAYAR_DIFFUSE_MODEL_ENABLE
+		// k[0] := A	A == 1 && B == 0 -> Lambertian
+		// k[1] := B
+		myType OrenNayarCoeff = materials[closestSr.objIdx].GetMaterialDescription().k[0] + materials[closestSr.objIdx].GetMaterialDescription().k[1] * GetOrenNayarDiffuseCoeff(ndir2min * myType(0.5), dot);
+#endif
+
+		myType nhalfDot;
+		myType TorranceSparrowGCoeff = GetTorranceSparrowGeometricCoeff(closestSr.normal, toViewer, dirToLight, ndir2min * myType(0.5), dot, nhalfDot);
+		myType TorranceSparrowDCoeff = ViRayUtils::NaturalPow(nhalfDot, materials[closestSr.objIdx].GetMaterialDescription().specExp) * (materials[closestSr.objIdx].GetMaterialDescription().specExp + myType(2.0)) * INV_TWOPI;
+#ifdef TORRANCE_SPARROW_SPECULAR_MODEL_ENABLE
+
+		myType TorranceSparrowFCoeff = GetFresnelReflectionCoeff(nhalfDot, materials[closestSr.objIdx].GetMaterialDescription().fresnelData[1], materials[closestSr.objIdx].GetMaterialDescription().fresnelData[2]);//fresnelCoeff;
+		myType specularCoeff = (materials[closestSr.objIdx].GetMaterialDescription().useTorranceSparrowSpecularReflection) ? TorranceSparrowDCoeff * TorranceSparrowGCoeff * TorranceSparrowFCoeff: TorranceSparrowDCoeff;
+#else
+		myType specularCoeff = TorranceSparrowDCoeff;
+#endif
+
 		dot = ViRayUtils::Clamp(dot, myType(0.0), myType(1.0));
 
 		ShadeRec shadowSr;
@@ -655,13 +714,17 @@ vec3 Shade(	const ShadeRec& closestSr,
 
 		vec3 baseColor =
 #ifdef DIFFUSE_COLOR_ENABLE
-							diffuseColor  // * materials[closestSr.objIdx].k[0]
+							diffuseColor
 #else
 						   vec3(myType(0.0), myType(0.0), myType(0.0))
 #endif
+
+#ifdef OREN_NAYAR_DIFFUSE_MODEL_ENABLE
+							* OrenNayarCoeff
+#endif
 							+
 #ifdef SPECULAR_HIGHLIGHT_ENABLE
-							materials[closestSr.objIdx].GetMaterialDescription().specularColor * ViRayUtils::NaturalPow(specularDot, materials[closestSr.objIdx].GetMaterialDescription().k[2])// * materials[closestSr.objIdx].k[1]
+							materials[closestSr.objIdx].GetMaterialDescription().specularColor * specularCoeff
 #else
 						   vec3(myType(0.0), myType(0.0), myType(0.0))
 #endif

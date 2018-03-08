@@ -32,11 +32,21 @@ private:
 	struct MaterialDescription
 	{
 		vec3 k;						// 0 - diffuse, 1 - specular, 2 - specular exp
+		myType ks, specExp;
+		bool useFresnelReflection;
+		bool useTorranceSparrowSpecularReflection;
+
 		vec3 fresnelData;			// 0 - use Fresnel, 1 - eta, 2 - invEtaSqr
 
 		vec3 ambientColor;
 		vec3 primaryColor, secondaryColor;
 		vec3 specularColor;
+
+		enum MaterialInfo
+		{
+			FRESNEL_REFLECTION = 1,
+			TORRANCE_SPARROW_SPECULAR = 2
+		};
 	};
 
 	struct TextureDescription
@@ -348,10 +358,25 @@ public:
 	{
 		materialDesc.k 				= k;
 		materialDesc.fresnelData 	= fresnelData;
+
+
 		materialDesc.ambientColor 	= ambientColor;
 		materialDesc.primaryColor 	= primaryColor;
 		materialDesc.secondaryColor = secondaryColor;
 		materialDesc.specularColor 	= specularColor;
+
+		//////////////////////////////////////////////////
+#ifndef UC_OPERATION
+		materialDesc.ks				= hls::modf(k[2], &materialDesc.specExp);
+#else
+		materialDesc.ks				= std::modf(k[2], &materialDesc.specExp);
+#endif
+
+		float_union materialInfo;
+		materialInfo.fp_num			= fresnelData[0];
+
+		materialDesc.useFresnelReflection 					= materialInfo.raw_bits & MaterialDescription::FRESNEL_REFLECTION;
+		materialDesc.useTorranceSparrowSpecularReflection 	= materialInfo.raw_bits & MaterialDescription::TORRANCE_SPARROW_SPECULAR;
 	}
 
 	/*

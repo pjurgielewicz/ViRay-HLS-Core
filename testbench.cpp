@@ -160,7 +160,16 @@ int main()
 			materialCoeff[i * 2 + j] = loadVectorFromStream(materialFile, tmp);
 		}
 
+		// Oren-Nayar diffuse model coefficients
+		myType sigmaSqr = materialCoeff[i * 2 + 1][2];
+		myType onA = myType(1.0) - myType(0.5) * sigmaSqr / (sigmaSqr + myType(0.33));
+		myType onB = myType(0.45) * sigmaSqr / (sigmaSqr + myType(0.09));
+
 		materialCoeff[i * 2 + 1][2] = myType(1.0) / (materialCoeff[i * 2 + 1][1] * materialCoeff[i * 2 + 1][1]);
+		// SAVE INFO EG. WHETHER TO USE TORRANCE-SPARROW SPECULAR REFLECTION OR NOT
+		float_union materialInfo;
+		materialInfo.raw_bits = unsigned(materialCoeff[i * 2 + 1][0]);
+		materialCoeff[i * 2 + 1][0] = materialInfo.fp_num;
 
 		for (unsigned j = 0; j < 4; ++j)
 		{
@@ -172,9 +181,19 @@ int main()
 			materialTransform[i * 2 + j] = loadVectorFromStream(materialFile, tmp);
 		}
 
-		materialColors[i * 4 + 1] *= materialCoeff[i * 2 + 0][0]; 	// PRIMARY_DIFFUSE 		* K[0]
-		materialColors[i * 4 + 2] *= materialCoeff[i * 2 + 0][0]; 	// SECONDARY_DIFFUSE 	* K[0]
-		materialColors[i * 4 + 3] *= materialCoeff[i * 2 + 0][1];  	// SPECULAR 			* K[1] /*???? TODEBUG*/
+		myType diffuseNormFactor 	= 1;//INV_PI;
+		myType specularNormFactor 	= 1;//INV_TWOPI * (unsigned(materialCoeff[i * 2 + 0][2]) + myType(2.0));
+
+		materialColors[i * 4 + 1] *= materialCoeff[i * 2 + 0][0] * diffuseNormFactor; 		// PRIMARY_DIFFUSE 		* K[0]
+		materialColors[i * 4 + 2] *= materialCoeff[i * 2 + 0][0] * diffuseNormFactor; 		// SECONDARY_DIFFUSE 	* K[0]
+		materialColors[i * 4 + 3] *= materialCoeff[i * 2 + 0][1] * specularNormFactor;  	// SPECULAR 			* K[1] /*???? TODEBUG*/
+
+		// specular exp + ks
+		materialCoeff[i * 2 + 0][2] += materialCoeff[i * 2 + 0][1];
+
+		// NOW K[0] AND K[1] CAN BE SUBSTITUTED BY <A> AND <B> ACCORDINGLY
+		materialCoeff[i * 2 + 0][0]	= onA;
+		materialCoeff[i * 2 + 0][1] = onB;
 
 		// SAVING TO LINE BUFFER
 		for (unsigned j = 0; j < 2; ++j)

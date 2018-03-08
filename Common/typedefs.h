@@ -1,7 +1,7 @@
 #ifndef TYPEDEFS__H_
 #define TYPEDEFS__H_
 
-//#define UC_OPERATION
+#define UC_OPERATION
 
 #ifndef UC_OPERATION
 
@@ -107,6 +107,8 @@ enum ObjectType{
 #define SHADOW_ENABLE											// Shadows rendering: on/off
 #define SELF_SHADOW_ENABLE										// Can an object cast shadows on itself: on/off
 #define FRESNEL_REFLECTION_ENABLE								// Allow to compute reflection amount based on angle of incidence and relative index of refraction: on/off
+#define OREN_NAYAR_DIFFUSE_MODEL_ENABLE							// Use roughness-based statistical model to compute amount of diffuse light
+#define TORRANCE_SPARROW_SPECULAR_MODEL_ENABLE
 
 #define TEXTURE_ENABLE											// Texturing: on/off
 //#define TEXTURE_URAM_STORAGE									// If enabled textures will be placed in the UltraRAM instead of BlockRAM
