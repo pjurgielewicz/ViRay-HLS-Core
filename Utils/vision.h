@@ -24,28 +24,29 @@ struct Ray
  * - position of the observer
  * - viewing direction
  * - space distortion & zoom
+ * Assumes that viewing coordinate system is correctly passed to this object (resource usage reduction)
  */
 class CCamera
 {
 public:
 	CCamera(myType hDepthRatio, myType vDepthRatio,
-			unsigned refHRes = 1920, unsigned refVRes = 1080,
-			const vec3 &eyePosition = vec3(0.0, 0.0, 0.0),
-			const vec3 &lookAtDir = vec3(0.0, 0.0, -1.0),
-			const vec3 &up = vec3(0.0, 1.0, 0.0)) :
-				refHRes(refHRes), refVRes(refVRes),
-				eyePosition(eyePosition), lookAtDir(lookAtDir), up(up)
+			const vec3& eyePosition = vec3(0.0, 0.0, 0.0),
+			const vec3& u = vec3(1.0, 0.0, 0.0),
+			const vec3& v = vec3(0.0, 1.0, 0.0),
+			const vec3& w = vec3(0.0, 0.0, 1.0)) :
+				eyePosition(eyePosition),
+				u(u), v(v), w(w)
 	{
-		hFactor = hDepthRatio / (myType(refHRes));
-		vFactor = vDepthRatio / (myType(refVRes));
+		hFactor = hDepthRatio * HEIGHT_INV;
+		vFactor = vDepthRatio * WIDTH_INV;
 
-		ComputeUVW();
+//		ComputeUVW();
 	}
 
 	/*
 	 * Build camera coordinate system
 	 */
-	void ComputeUVW()
+/*	void ComputeUVW()
 	{
 		// DON'T HAVE TO NORMALIZE AS LONG AS INPUT VECTORS ARE UNIT VECTORS
 		w = -lookAtDir;		// camera z
@@ -53,14 +54,14 @@ public:
 		u = up ^ w;			// camera x
 //		u = u.Normalize();
 		v = w ^ u;			// camera y
-	}
+	}*/
 
 	/*
 	 * Get the ray that corresponds to the current camera frame and the position of the pixel
 	 */
 	Ray GetCameraRayForPixel(const myType* p) const
 	{
-//#pragma HLS INLINE
+#pragma HLS INLINE
 		vec3 direction = u * p[0] * hFactor +
 						 v * p[1] * vFactor -
 						 w;
@@ -73,16 +74,9 @@ public:
 		return Ray(eyePosition, direction.Normalize());
 	}
 
-	myType GetRefHRes() const { return refHRes; }
-	myType GetRefVRes() const { return refVRes; }
 protected:
 	vec3 eyePosition;
-	vec3 lookAtDir;
-	vec3 up;
 	vec3 u, v, w;
-
-	myType refHRes;
-	myType refVRes;
 
 	myType hFactor, vFactor;
 };

@@ -217,8 +217,9 @@ namespace ViRay
 	/*
 	 * Knowing angle between ray.direction and object normal (cosRefl)
 	 * compute Fresnel reflection coefficient for the unpolarized beam of light
+	 * Differentiate results between dielectrics and conductors
 	 */
-	myType GetFresnelReflectionCoeff(const myType& cosRefl, const myType& relativeEta, const myType& invRelativeEtaSqr);
+	myType GetFresnelReflectionCoeff(const myType& cosRefl, const myType& relativeEta, const myType& invRelativeEtaSqrORExtendedAbsorptionCoeff, bool isConductor);
 
 
 	/*
@@ -274,10 +275,10 @@ namespace ViRay
 								const mat4* objTransform,
 								const mat4* objTransformInv,
 #else
-								const SimpleTransform* objTransform, const SimpleTransform* objTransformCopy,
+								const SimpleTransform* objTransform,
 #endif
 								const unsigned* objType,
-								unsigned short h,
+								unsigned short verticalPart,
 
 								const Light* lights,
 								const CMaterial* materials,
@@ -298,7 +299,7 @@ namespace ViRay
 								const mat4* objTransform,
 								const mat4* objTransformInv,
 #else
-								const SimpleTransform* objTransform, const SimpleTransform* objTransformCopy,
+								const SimpleTransform* objTransform,
 #endif
 								const unsigned* objType,
 

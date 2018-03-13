@@ -12,7 +12,8 @@ namespace ViRay
 
 void CreatePrimaryRay(const CCamera& camera, const myType* posShift, unsigned short r, unsigned short c, Ray& ray)
 {
-#pragma HLS PIPELINE II=8
+#pragma HLS INLINE //?
+//#pragma HLS PIPELINE II=8
 	myType samplePoint[2] = {posShift[0] + /*myType(0.5) +*/ c,
 					 	 	 posShift[1] + /*myType(0.5) +*/ r};
 	ray = camera.GetCameraRayForPixel(samplePoint);
@@ -20,6 +21,7 @@ void CreatePrimaryRay(const CCamera& camera, const myType* posShift, unsigned sh
 
 myType CubeTest(const Ray& transformedRay, unsigned char& face)
 {
+//#pragma HLS INLINE
 #pragma HLS PIPELINE
 	vec3 t_min, t_max, abc;
 
@@ -89,6 +91,7 @@ myType CubeTest(const Ray& transformedRay, unsigned char& face)
 
 vec3 GetCubeNormal(const unsigned char& faceIdx)
 {
+#pragma HLS PIPELINE
 	switch(faceIdx)
 	{
 	case 0:
@@ -106,9 +109,54 @@ vec3 GetCubeNormal(const unsigned char& faceIdx)
 	}
 }
 
+myType GetFresnelReflectionCoeff(const myType& cosRefl, const myType& relativeEta, const myType& invRelativeEtaSqrORExtendedAbsorptionCoeff, bool isConductor)
+{
+#pragma HLS INLINE
+//#pragma HLS PIPELINE II=4
+
+	myType f1(1.0), f2(1.0); // Handling total internal reflection in advance (eta < 1.0)
+
+	if (!isConductor)
+	{
+		myType invRelativeEtaSqr = invRelativeEtaSqrORExtendedAbsorptionCoeff;
+		myType cosRefrSqr = myType(1.0) - invRelativeEtaSqr * (myType(1.0) - cosRefl * cosRefl);
+		if (cosRefrSqr >= myType(0.0))
+		{
+#if defined(FAST_INV_SQRT_ENABLE) && defined(USE_FLOAT)
+			myType invCosRefr = ViRayUtils::InvSqrt(cosRefrSqr);
+			myType k = cosRefl * invCosRefr;
+
+			f1 = (k - relativeEta) / (k + relativeEta);
+			f2 = (relativeEta * k - myType(1.0)) / (relativeEta * k + myType(1.0));
+#else
+			myType cosRefr = ViRayUtils::Sqrt(cosRefrSqr);
+
+			f1 = (relativeEta * cosRefl - cosRefr) / (relativeEta * cosRefl + cosRefr);
+			f2 = (relativeEta * cosRefr - cosRefl) / (relativeEta * cosRefr + cosRefl);
+#endif
+		}
+	}
+	else
+	{
+		myType etak = invRelativeEtaSqrORExtendedAbsorptionCoeff;
+		myType cosSqr = cosRefl * cosRefl;
+		myType doubleEtaCos = myType(2.0) * relativeEta * cosRefl;
+
+		// APPROX FORMULA FROM PHYSICALLY BASED RENDERING
+		f1 = (etak * cosSqr - doubleEtaCos + myType(1.0)) / (etak * cosSqr + doubleEtaCos + myType(1.0));
+		f2 = (etak - doubleEtaCos + cosSqr) / (etak + doubleEtaCos + cosSqr);
+	}
+
+	/*
+	 * ASSUMING EQUAL CONTRIBUTION OF EACH KIND OF POLARIZATION <-> UNPOLARIZED LIGHT
+	 */
+	return myType(0.5) * (f1 * f1 + f2 * f2);
+}
+
 myType GetOrenNayarDiffuseCoeff(const myType& cosR, const myType& cosI)
 {
 #pragma HLS INLINE
+//#pragma HLS PIPELINE II=4
 	myType sinRS 	= myType(1.0) - cosR * cosR;
 	myType sinIS 	= myType(1.0) - cosI * cosI;
 
@@ -117,7 +165,7 @@ myType GetOrenNayarDiffuseCoeff(const myType& cosR, const myType& cosI)
 	myType minInv 	= myType(1.0) / ((cosR > cosI) ? cosR : cosI);
 
 	myType f 		= (cosR * cosI + sinRsinI) * sinRsinI * minInv;
-f 					= f > myType(0.0) ? f : myType(0.0);
+	f 				= f > myType(0.0) ? f : myType(0.0);
 
 	return f;
 }
@@ -126,6 +174,7 @@ myType GetTorranceSparrowGeometricCoeff(const vec3& normal, const vec3& toViewer
 										myType& nhalfDot)
 {
 #pragma HLS INLINE
+//#pragma HLS PIPELINE II=4
 	vec3 half = (toViewer + toLight).Normalize();
 	myType halfDotInv = myType(1.0) / (half * toViewer);
 
@@ -139,40 +188,6 @@ myType GetTorranceSparrowGeometricCoeff(const vec3& normal, const vec3& toViewer
 
 	return f / (myType(4.0) * cosR * cosI);
 
-}
-
-myType GetFresnelReflectionCoeff(const myType& cosRefl, const myType& relativeEta, const myType& invRelativeEtaSqr)
-{
-#pragma HLS INLINE
-//#pragma HLS PIPELINE II=4
-
-//	myType cosRefl = -(rayDirection * surfaceNormal);
-	myType cosRefrSqr = myType(1.0) - invRelativeEtaSqr * (myType(1.0) - cosRefl * cosRefl);
-
-#if defined(FAST_INV_SQRT_ENABLE) && defined(USE_FLOAT)
-	myType invCosRefr = ViRayUtils::InvSqrt(cosRefrSqr);
-	myType k = cosRefl * invCosRefr;
-
-	myType f1 = (k - relativeEta) / (k + relativeEta);
-	myType f2 = (relativeEta * k - myType(1.0)) / (relativeEta * k + myType(1.0));
-#else
-	myType cosRefr = ViRayUtils::Sqrt(cosRefrSqr);
-
-	myType f1 = (relativeEta * cosRefl - cosRefr) / (relativeEta * cosRefl + cosRefr);
-	myType f2 = (relativeEta * cosRefr - cosRefl) / (relativeEta * cosRefr + cosRefl);
-#endif
-
-	/*
-	 * ASSUMING EQUAL CONTRIBUTION OF EACH KIND OF POLARIZATION - UNPOLARIZED LIGHT
-	 */
-
-	myType fCoeff = myType(0.5) * (f1 * f1 + f2 * f2);
-
-	/*
-	 * ACCOUNT FOR TOTAL INTERNAL REFLECTION
-	 * ETA < 1.0
-	 */
-	return (cosRefrSqr < myType(0.0)) ? myType(1.0) : fCoeff;
 }
 
 void PerformHits(const Ray& transformedRay,
@@ -388,10 +403,10 @@ void RenderSceneInnerLoop(const CCamera& camera,
 							const mat4* objTransform,
 							const mat4* objTransformInv,
 #else
-							const SimpleTransform* objTransform, const SimpleTransform* objTransformCopy,
+							const SimpleTransform* objTransform,
 #endif
 							const unsigned* objType,
-							unsigned short h,
+							unsigned short verticalPart,
 
 							const Light* lights,
 							const CMaterial* materials,
@@ -405,10 +420,19 @@ void RenderSceneInnerLoop(const CCamera& camera,
 	const vec3 clearColor(myType(0.0));
 	vec3 colorAccum;
 
-	RenderPixelLoop: for (unsigned short w = 0; w < WIDTH; ++w)
+	unsigned short h = HEIGHT - 1 - verticalPart * FRAME_ROWS_IN_BUFFER;
+	unsigned short w = 0;
+
+	RenderPixelLoop: for (unsigned short fbPos = 0; fbPos < FRAME_ROW_BUFFER_SIZE; ++fbPos, ++w)
 	{
 DO_PRAGMA(HLS PIPELINE II=DESIRED_INNER_LOOP_II)
 DO_PRAGMA(HLS UNROLL factor=INNER_LOOP_UNROLL_FACTOR)
+
+		if (w == WIDTH)
+		{
+			w -= WIDTH;
+			h -= 1;
+		}
 
 		colorAccum = vec3(myType(0.0));
 
@@ -417,7 +441,6 @@ DO_PRAGMA(HLS UNROLL factor=INNER_LOOP_UNROLL_FACTOR)
 
 		CreatePrimaryRay(camera, posShift, h, w, ray);
 
-#if defined(DEEP_RAYTRACING_ENABLE)
 		myType currentReflectivity(1.0);
 		for (unsigned char depth = 0; depth < RAYTRACING_DEPTH; ++depth)
 		{
@@ -438,7 +461,8 @@ DO_PRAGMA(HLS UNROLL factor=INNER_LOOP_UNROLL_FACTOR)
 
 			myType fresnelReflectionCoeff = GetFresnelReflectionCoeff( -ndir,
 																		materials[closestSr.objIdx].GetMaterialDescription().fresnelData[1],
-																		materials[closestSr.objIdx].GetMaterialDescription().fresnelData[2]);
+																		materials[closestSr.objIdx].GetMaterialDescription().fresnelData[2],
+																		materials[closestSr.objIdx].GetMaterialDescription().isConductor);
 
 
 			vec3 depthColor = Shade(closestSr, ray,
@@ -465,78 +489,7 @@ DO_PRAGMA(HLS UNROLL factor=INNER_LOOP_UNROLL_FACTOR)
 			ray = Ray(closestSr.hitPoint, (-ray.direction).Reflect(closestSr.normal));
 		}
 
-#else
-
-		VisibilityTest(ray,
-#ifndef SIMPLE_OBJECT_TRANSFORM_ENABLE
-						objTransform, objTransformInv,
-#else
-						objTransform,
-#endif
-						objType, closestSr);
-
-		/*
-		 * NO NEED TO CHECK WHETHER ANY OBJECT WAS HIT
-		 * IT IS BEING DONE AT THE COLOR ACCUMULATION STAGE
-		 */
-
-		myType ndir = closestSr.normal * ray.direction;
-		myType ndir2min = myType(-2.0) * ndir;
-
-#ifdef REFLECTION_ENABLE
-
-		/*
-		 * REFLECTION PASS (DEPTH = 1)
-		 */
-
-//		reflectedRay = Ray(closestSr.hitPoint, (-ray.direction).Reflect(closestSr.normal));
-		reflectedRay = Ray(closestSr.hitPoint, closestSr.normal * ndir2min + ray.direction);
-		VisibilityTest(reflectedRay,
-#ifndef SIMPLE_OBJECT_TRANSFORM_ENABLE
-						objTransform, objTransformInv,
-#else
-						objTransformCopy,
-#endif
-						objType, closestReflectedSr);
-#endif
-		/*
-		 * SHADING
-		 */
-		ShadingBlock: {
-//#pragma HLS LOOP_MERGE
-
-#ifdef PRIMARY_COLOR_ENABLE
-		colorAccum += Shade(closestSr, ray,
-#ifndef SIMPLE_OBJECT_TRANSFORM_ENABLE
-						objTransform, objTransformInv,
-#else
-						objTransform,
-#endif
-						objType, lights, materials, textureData, ndir2min, -ray.direction);
-#endif
-
-#ifdef REFLECTION_ENABLE
-		myType ndir2minRefl = (closestReflectedSr.normal * reflectedRay.direction) * myType(-2.0);
-#ifdef FRESNEL_REFLECTION_ENABLE
-		myType reflectivity = (materials[closestSr.objIdx].GetMaterialDescription().fresnelData[0] != myType(0.0)) ? GetFresnelReflectionCoeff(	-ndir,
-																																				materials[closestSr.objIdx].GetMaterialDescription().fresnelData[1],
-																																				materials[closestSr.objIdx].GetMaterialDescription().fresnelData[2]) : materials[closestSr.objIdx].GetMaterialDescription().k[1];
-#else
-		myType reflectivity = materials[closestSr.objIdx].GetMaterialDescription().k[1];
-#endif
-		colorAccum += (closestSr.isHit) ? Shade(closestReflectedSr, reflectedRay,
-#ifndef SIMPLE_OBJECT_TRANSFORM_ENABLE
-							objTransform, objTransformInv,
-#else
-							objTransformCopy,
-#endif
-							objType, lights, materials, textureData, ndir2minRefl, -reflectedRay.direction) * reflectivity : vec3(myType(0.0));
-#endif
-		}
-
-#endif
-
-		SaveColorToBuffer(colorAccum, frameBuffer[w]);
+		SaveColorToBuffer(colorAccum, frameBuffer[fbPos]);
 	}
 }
 
@@ -546,7 +499,7 @@ void RenderSceneOuterLoop(const CCamera& camera,
 							const mat4* objTransform,
 							const mat4* objTransformInv,
 #else
-							const SimpleTransform* objTransform, const SimpleTransform* objTransformCopy,
+							const SimpleTransform* objTransform,
 #endif
 							const unsigned* objType,
 
@@ -559,7 +512,7 @@ void RenderSceneOuterLoop(const CCamera& camera,
 							pixelColorType* outColor)
 {
 #pragma HLS INLINE
-	for (unsigned short h = 0; h < HEIGHT; ++h)
+	for (unsigned short verticalPart = 0; verticalPart < VERTICAL_PARTS_OF_FRAME; ++verticalPart)
 	{
 #pragma HLS DATAFLOW
 		RenderSceneInnerLoop(	camera,
@@ -568,22 +521,23 @@ void RenderSceneOuterLoop(const CCamera& camera,
 								objTransform,
 								objTransformInv,
 #else
-								objTransform, objTransformCopy,
+								objTransform,
 #endif
 								objType,
-								HEIGHT - 1 - h,
+								verticalPart,
 								lights,
 								materials,
 								textureData,
 								frameBuffer);
-		memcpy(outColor + FRAME_ROW_BUFFER_SIZE * h, frameBuffer, sizeof(pixelColorType) * FRAME_ROW_BUFFER_SIZE);
+
+		memcpy(outColor + FRAME_ROW_BUFFER_SIZE * verticalPart, frameBuffer, sizeof(pixelColorType) * FRAME_ROW_BUFFER_SIZE);
 	}
 }
 
 void SaveColorToBuffer(vec3 color, pixelColorType& colorOut)
 {
-//#pragma HLS INLINE
-#pragma HLS PIPELINE II=8
+#pragma HLS INLINE
+//#pragma HLS PIPELINE II=8
 
 	pixelColorType tempColor = 0;
 
@@ -675,11 +629,13 @@ vec3 Shade(	const ShadeRec& closestSr,
 		myType TorranceSparrowGCoeff = GetTorranceSparrowGeometricCoeff(closestSr.normal, toViewer, dirToLight, ndir2min * myType(0.5), dot, nhalfDot);
 		myType TorranceSparrowDCoeff = ViRayUtils::NaturalPow(nhalfDot, materials[closestSr.objIdx].GetMaterialDescription().specExp) * (materials[closestSr.objIdx].GetMaterialDescription().specExp + myType(2.0)) * INV_TWOPI;
 #ifdef TORRANCE_SPARROW_SPECULAR_MODEL_ENABLE
-
-		myType TorranceSparrowFCoeff = GetFresnelReflectionCoeff(nhalfDot, materials[closestSr.objIdx].GetMaterialDescription().fresnelData[1], materials[closestSr.objIdx].GetMaterialDescription().fresnelData[2]);//fresnelCoeff;
+		myType TorranceSparrowFCoeff = GetFresnelReflectionCoeff(nhalfDot,
+																	materials[closestSr.objIdx].GetMaterialDescription().fresnelData[1],
+																	materials[closestSr.objIdx].GetMaterialDescription().fresnelData[2],
+																	materials[closestSr.objIdx].GetMaterialDescription().isConductor);//fresnelCoeff;
 		myType specularCoeff = (materials[closestSr.objIdx].GetMaterialDescription().useTorranceSparrowSpecularReflection) ? TorranceSparrowDCoeff * TorranceSparrowGCoeff * TorranceSparrowFCoeff: TorranceSparrowDCoeff;
 #else
-		myType specularCoeff = TorranceSparrowDCoeff;
+		myType specularCoeff = TorranceSparrowDCoeff;		// USE BLINN-PHONG MODEL INSTEAD
 #endif
 
 		dot = ViRayUtils::Clamp(dot, myType(0.0), myType(1.0));
@@ -699,10 +655,10 @@ vec3 Shade(	const ShadeRec& closestSr,
 #endif
 
 //		myType specularDot = -(ray.direction * dirToLight.Reflect(closestSr.normal));
-		myType specularDot = dirToLight * ray.direction + ndir2min * dot; // TODO: DO NOT CARE ABOUT < DOT > CLAMPING
-		specularDot = (( specularDot > myType(0.0) ) ? specularDot : myType(0.0));
-		// SHOULD NEVER EXCEED 1
-		if ( specularDot > myType(1.0) ) cout << "SD: " << specularDot << ", ";
+//		myType specularDot = dirToLight * ray.direction + ndir2min * dot; // TODO: DO NOT CARE ABOUT < DOT > CLAMPING
+//		specularDot = (( specularDot > myType(0.0) ) ? specularDot : myType(0.0));
+//		// SHOULD NEVER EXCEED 1
+//		if ( specularDot > myType(1.0) ) cout << "SD: " << specularDot << ", ";
 
 		myType lightToObjLightDirDot = -(dirToLight * lights[l].dir);
 		myType lightSpotCoeff = (lightToObjLightDirDot - lights[l].coeff[0]) * lights[l].coeff[1];
@@ -714,9 +670,9 @@ vec3 Shade(	const ShadeRec& closestSr,
 
 		vec3 baseColor =
 #ifdef DIFFUSE_COLOR_ENABLE
-							diffuseColor
+							diffuseColor * INV_PI
 #else
-						   vec3(myType(0.0), myType(0.0), myType(0.0))
+						   vec3(myType(0.0))
 #endif
 
 #ifdef OREN_NAYAR_DIFFUSE_MODEL_ENABLE
@@ -724,9 +680,17 @@ vec3 Shade(	const ShadeRec& closestSr,
 #endif
 							+
 #ifdef SPECULAR_HIGHLIGHT_ENABLE
+#ifdef CUSTOM_COLOR_SPECULAR_HIGHLIGHTS_ENABLE
 							materials[closestSr.objIdx].GetMaterialDescription().specularColor * specularCoeff
 #else
-						   vec3(myType(0.0), myType(0.0), myType(0.0))
+							// MOST MATERIALS EXHIBIT PROPERTY THAT SPECULAR HIGHLIGHT COLOR IS THE SAME AS THE COLOR OF THE LIGHT SOURCE (SCRATCHAPIXEL)
+							// HOWEVER THIS CHANGES FOR CONDUCTORS
+							// THIS PROPERTY CAN BE ALSO EMULATED BY USING VEC3(1.0) AS THE SPECULAR HIGHLIGHTS COLOR WHEN CUSTOM_COLOR_SPECULAR_HIGHLIGHTS_ENABLE IS ON
+							// BUT THIS FLEXIBILITY AFFECTS AREA
+							vec3(specularCoeff)
+#endif
+#else
+						   vec3(myType(0.0))
 #endif
 							;
 
@@ -870,8 +834,8 @@ void VisibilityTest(const Ray& ray,
 					const unsigned* objType,
 					ShadeRec& closestSr)
 {
-#pragma HLS ALLOCATION instances=TransformRay limit=4 function
-#pragma HLS ALLOCATION instances=PerformHits limit=4 function
+//#pragma HLS ALLOCATION instances=TransformRay limit=4 function
+//#pragma HLS ALLOCATION instances=PerformHits limit=4 function
 #pragma HLS INLINE
 	ShadeRec sr;
 	Ray transformedRay;
@@ -1127,7 +1091,7 @@ myType ViRayUtils::InvSqrt(myType val)
 myType ViRayUtils::NaturalPow(myType val, unsigned char n)
 {
 	/*
-	* N_max = 128 (FF OPENGL - like)
+	* N_max = 2^MAX_POWER_LOOP_ITER (FF OPENGL - like)
 	*/
 #pragma HLS PIPELINE II=4
 	myType x = val;

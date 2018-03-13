@@ -88,9 +88,9 @@ enum ObjectType{
 
 //#define SELF_RESTART_ENABLE									// If on the core enters infinite loop of rendering right after loading textures, all other parameters can change between frames
 
-#define DEEP_RAYTRACING_ENABLE								// Only in simulation mode - allows to specify how deep ray tracing recursion should be used
+#define DEEP_RAYTRACING_ENABLE									// Allows to specify how deep ray tracing recursion should be used
 
-//#define RGB_TO_YUV422_CONVERSION_ENABLE							// Convert RGB pixel color to YUV422 standard (to use with limited bandwidth ADV7511)
+//#define RGB_TO_YUV422_CONVERSION_ENABLE						// Convert RGB pixel color to YUV422 standard (to use with limited bandwidth ADV7511)
 
 #define SPHERE_OBJECT_ENABLE									// Start of allowed object togglers
 #define PLANE_OBJECT_ENABLE
@@ -103,6 +103,7 @@ enum ObjectType{
 #define AMBIENT_COLOR_ENABLE									// Ambient color: on/off
 #define DIFFUSE_COLOR_ENABLE									// Diffuse color: on/off
 #define SPECULAR_HIGHLIGHT_ENABLE								// Specular highlights: on/off
+#define CUSTOM_COLOR_SPECULAR_HIGHLIGHTS_ENABLE					// If on use assigned specular highlight color and the color of the light otherwise
 #define INTERNAL_SHADING_ENABLE									// Surface normal inversion when pointing out of ray direction: on/off
 #define SHADOW_ENABLE											// Shadows rendering: on/off
 #define SELF_SHADOW_ENABLE										// Can an object cast shadows on itself: on/off
@@ -125,10 +126,16 @@ enum ObjectType{
 
 #define WIDTH 						((unsigned short)(1920))	// Final image width
 #define HEIGHT 						((unsigned short)(1080))	// Final image height
+#define WIDTH_INV					(myType(1.0) / myType(WIDTH))
+#define HEIGHT_INV					(myType(1.0) / myType(HEIGHT))
+
+#define FRAME_ROWS_IN_BUFFER		((unsigned short)(27))				// Optimized for loosing as least clock cycles as possible for RenderInnerLoop start while being the divider of HEIGHT
+#define VERTICAL_PARTS_OF_FRAME		(HEIGHT / FRAME_ROWS_IN_BUFFER)		// How many iterations of RenderOuterLoop there will be
+#define FRAME_ROW_BUFFER_SIZE 		(WIDTH * FRAME_ROWS_IN_BUFFER)		// Size of the temporary row framebuffer
+
 
 #define TEXT_PAGE_SIZE				((unsigned)(256 * 256))		// How much memory will be used for texture storage
 
-#define FRAME_ROW_BUFFER_SIZE 		(WIDTH)						// Size of the temporary row framebuffer
 #define LIGHTS_NUM 					((unsigned char)(2))		// The number of lights being processed, the 0-th light is always ambient illumination, 1...n are full lights
 #define OBJ_NUM 					((unsigned char)(8))		// Maximum number of geometric objects in the scene
 
@@ -143,7 +150,7 @@ enum ObjectType{
 
 #endif
 
-#define MAX_POWER_LOOP_ITER			((unsigned char)(7))		// Determines to which maximum natural power the number can be raised
+#define MAX_POWER_LOOP_ITER			((unsigned char)(10))		// Determines to which maximum natural power the number can be raised (2^MAX_POWER_LOOP_ITER)
 
 #define FAST_INV_SQRT_ORDER 		((unsigned char)(2))		// How many iterations Newton-Raphson fast inverse sqrt algorithm should perform
 #define FAST_DIVISION_ORDER 		((unsigned char)(2))		// How many iterations Newton-Raphson fast division algorithm should perform
@@ -157,6 +164,8 @@ enum ObjectType{
 #ifdef UC_OPERATION
 #define UC_TEMP_NOISE_TEXTURE_POOL 	((unsigned char*)0x80000000 + (0x05000000))
 #define UC_TEMP_TEXTURE_POOL 		(UC_TEMP_NOISE_TEXTURE_POOL + TEXT_PAGE_SIZE * 4)
+//#define UC_DIAGNOSTIC_VERBOSE
+//#define UC_DIAGNOSTIC_DEBUG
 #endif
 
 #endif

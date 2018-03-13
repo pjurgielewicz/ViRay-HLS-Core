@@ -35,8 +35,9 @@ private:
 		myType ks, specExp;
 		bool useFresnelReflection;
 		bool useTorranceSparrowSpecularReflection;
+		bool isConductor;
 
-		vec3 fresnelData;			// 0 - use Fresnel, 1 - eta, 2 - invEtaSqr
+		vec3 fresnelData;			// 0 - use Fresnel, 1 - eta, 2 - invEtaSqr / absorption coeff
 
 		vec3 ambientColor;
 		vec3 primaryColor, secondaryColor;
@@ -44,8 +45,9 @@ private:
 
 		enum MaterialInfo
 		{
-			FRESNEL_REFLECTION = 1,
-			TORRANCE_SPARROW_SPECULAR = 2
+			FRESNEL_REFLECTION 			= 1,
+			TORRANCE_SPARROW_SPECULAR 	= 2,
+			FRESNEL_CONDUCTOR			= 4,
 		};
 	};
 
@@ -119,9 +121,9 @@ private:
 		 *
 		 * If ADVANCED_TEXTURE_MAPPING_ENABLE is specified allow to use SPHERICAL and CYLINDRICAL mapping to [u, v] coordinates
 		 */
-		InterpolationData GetTexelCoord(const vec3& localHitPoint,
+		InterpolationData GetTexelCoord(const vec3& localHitPoint
 #ifdef SIMPLE_OBJECT_TRANSFORM_ENABLE
-									const vec3& orientation
+									,const vec3& orientation
 #endif
 									) const
 		{
@@ -216,8 +218,8 @@ private:
 			 * BEFORE CASTING TO USHORT THUS CREATING ARTIFACTS NOT SEEN IN THE TESTBENCH
 			 * SOLUTION PROVIDED BELOW
 			 */
-			unsigned short uc = (unsigned short)(dc) % textureWidth;
-			unsigned short ur = (unsigned short)(dr) % textureHeight;
+//			unsigned short uc = (unsigned short)(dc) % textureWidth;
+//			unsigned short ur = (unsigned short)(dr) % textureHeight;
 
 			InterpolationData interpolationData;
 
@@ -225,18 +227,18 @@ private:
 			 * IF THIS IS BETTER THAN PREVIOUS IMPLEMENTATION HAS TO BE CHECKED
 			 * IN THE REAL SYSTEM...
 			 */
-//			unsigned short uc;
-//			unsigned short ur;
-//			if (dc < myType(0.0))
-//			{
-//				uc = textureWidth - (unsigned short)(-dc) % textureWidth;
-//				ur = textureHeight - (unsigned short)(-dr) % textureHeight;
-//			}
-//			else
-//			{
-//				uc = (unsigned short)(dc) % textureWidth;
-//				ur = (unsigned short)(dr) % textureHeight;
-//			}
+			unsigned short uc;
+			unsigned short ur;
+			if (dc < myType(0.0))
+			{
+				uc = textureWidth - (unsigned short)(-dc) % textureWidth;
+				ur = textureHeight - (unsigned short)(-dr) % textureHeight;
+			}
+			else
+			{
+				uc = (unsigned short)(dc) % textureWidth;
+				ur = (unsigned short)(dr) % textureHeight;
+			}
 			/*
 			 * ALTERNATIVE SOLUTION
 			 * WARNING: IT IS NOT PRODUCING VALID RESULTS IN TESTBENCH
@@ -377,6 +379,7 @@ public:
 
 		materialDesc.useFresnelReflection 					= materialInfo.raw_bits & MaterialDescription::FRESNEL_REFLECTION;
 		materialDesc.useTorranceSparrowSpecularReflection 	= materialInfo.raw_bits & MaterialDescription::TORRANCE_SPARROW_SPECULAR;
+		materialDesc.isConductor							= materialInfo.raw_bits & MaterialDescription::FRESNEL_CONDUCTOR;
 	}
 
 	/*
@@ -401,9 +404,9 @@ public:
 #pragma HLS INLINE
 //#pragma HLS PIPELINE II=4
 
-		TextureDescription::InterpolationData interpolationData(textureDesc.GetTexelCoord(localHitPoint,
+		TextureDescription::InterpolationData interpolationData(textureDesc.GetTexelCoord(localHitPoint
 #ifdef SIMPLE_OBJECT_TRANSFORM_ENABLE
-																orientation
+																,orientation
 #endif
 																));
 

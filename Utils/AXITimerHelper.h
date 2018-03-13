@@ -7,7 +7,7 @@
 
 class CAXITimerHelper
 {
-	public:
+public:
 	CAXITimerHelper(unsigned id, unsigned freq)
 	{
 		XTmrCtr_Initialize(&axiTimer, id);
@@ -17,17 +17,18 @@ class CAXITimerHelper
 	}
 	virtual ~CAXITimerHelper() 
 	{
-		
 	}
 	
 	unsigned GetElapsedTicks()
 	{
 		return tickCounter2 - tickCounter1;
 	}
+
 	float GetElapsedSeconds()
 	{
 		return (float)(tickCounter2 - tickCounter1) * clockPeriodSeconds;
 	}
+
 	unsigned StartTimer()
 	{
 		XTmrCtr_Reset(&axiTimer, 0);
@@ -36,27 +37,30 @@ class CAXITimerHelper
 		
 		return tickCounter1;
 	}
+
 	unsigned StopTimer()
 	{
 		XTmrCtr_Stop(&axiTimer, 0);
 		tickCounter2 = XTmrCtr_GetValue(&axiTimer, 0);
 		return tickCounter2 - tickCounter1;
 	}
+
 	float GetClockPeriod()
 	{
 		return clockPeriodSeconds;
 	}
+
 	float GetTimerClockFrequency()
 	{
 		return timerClockFrequency;
 	}
 	
-	private:
-	XTmrCtr axiTimer;
-	unsigned tickCounter1;
-	unsigned tickCounter2;
-	float clockPeriodSeconds;
-	float timerClockFrequency;
+private:
+	XTmrCtr 	axiTimer;
+	unsigned 	tickCounter1;
+	unsigned 	tickCounter2;
+	float 		clockPeriodSeconds;
+	float 		timerClockFrequency;
 };
 
 #endif

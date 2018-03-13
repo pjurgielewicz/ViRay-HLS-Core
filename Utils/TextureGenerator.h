@@ -336,7 +336,11 @@ public:
 	CTextureHelper(float_union* textureData, unsigned* textureDescriptionData, unsigned* textureBaseAddress) :
 		baseAddr(0), textureData(textureData), textureDescriptionData(textureDescriptionData), textureBaseAddress(textureBaseAddress)
 	{
-
+		for (unsigned i = 0; i < OBJ_NUM; ++i)
+		{
+			this->textureDescriptionData[i] 	= (128 << 10) + 128; // REQUIRED DUMMY
+			this->textureBaseAddress[i]			= 0;
+		}
 	}
 
 	/*
@@ -379,6 +383,10 @@ public:
 				((textureWidth & 0x3FF) << 10) +
 				((textureHeight) & 0x3FF);
 	}
+
+	const unsigned* GetTextureDataAddress() const {return (unsigned*)textureData;}
+	const unsigned* GetTextureDescriptionDataAddress() const {return textureDescriptionData;}
+	const unsigned* GetTextureBaseAddressAddress() const {return textureBaseAddress;}
 
 private:
 

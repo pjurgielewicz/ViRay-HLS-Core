@@ -181,12 +181,16 @@ int main()
 			materialTransform[i * 2 + j] = loadVectorFromStream(materialFile, tmp);
 		}
 
-		myType diffuseNormFactor 	= 1;//INV_PI;
-		myType specularNormFactor 	= 1;//INV_TWOPI * (unsigned(materialCoeff[i * 2 + 0][2]) + myType(2.0));
+		// quick fix for conductors
+		if (materialInfo.raw_bits & 0x4/*ViRay::CMaterial::MaterialDescription::FRESNEL_CONDUCTOR*/)
+		{
+			myType conductorAbsorptionCoeff = materialTransform[i * 2 + 1][2]; // scale[2] (scale.z)
+			materialCoeff[i * 2 + 1][2] = materialCoeff[i * 2 + 1][1] * materialCoeff[i * 2 + 1][1] + conductorAbsorptionCoeff * conductorAbsorptionCoeff;
+		}
 
-		materialColors[i * 4 + 1] *= materialCoeff[i * 2 + 0][0] * diffuseNormFactor; 		// PRIMARY_DIFFUSE 		* K[0]
-		materialColors[i * 4 + 2] *= materialCoeff[i * 2 + 0][0] * diffuseNormFactor; 		// SECONDARY_DIFFUSE 	* K[0]
-		materialColors[i * 4 + 3] *= materialCoeff[i * 2 + 0][1] * specularNormFactor;  	// SPECULAR 			* K[1] /*???? TODEBUG*/
+		materialColors[i * 4 + 1] *= materialCoeff[i * 2 + 0][0]; 		// PRIMARY_DIFFUSE 		* K[0]
+		materialColors[i * 4 + 2] *= materialCoeff[i * 2 + 0][0]; 		// SECONDARY_DIFFUSE 	* K[0]
+		materialColors[i * 4 + 3] *= materialCoeff[i * 2 + 0][1];  		// SPECULAR 			* K[1]
 
 		// specular exp + ks
 		materialCoeff[i * 2 + 0][2] += materialCoeff[i * 2 + 0][1];
@@ -213,11 +217,11 @@ int main()
 
 /////////////////////////////////////////////////////////
 
-	myType* cameraArray = new myType[3 * sizeof(vec3)];
+	myType* cameraArray = new myType[4 * sizeof(vec3)];
 	myType zoom;
 
 	cameraFile >> zoom;
-	for (unsigned i = 0; i < 9; ++i)
+	for (unsigned i = 0; i < 12; ++i)
 	{
 		cameraFile >> cameraArray[i];
 	}
@@ -259,7 +263,6 @@ int main()
 	timer = clock();
 
 	ViRayMain(
-			transformationArray,
 			transformationArray,
 			objTypeIn,
 
