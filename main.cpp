@@ -73,7 +73,7 @@ int ViRayMain(	const myType* objTransformationArrayIn,
 	 */
 
 #pragma HLS INTERFACE s_axilite port=textureDataIn bundle=AXI_LITE_1
-#if !defined(USE_FIXEDPOINT) && !defined(USE_FLOAT)
+#if !defined(USE_FIXEDPOINT) && !defined(USE_FLOAT) || defined(USE_FIXEDPOINT)
 #pragma HLS INTERFACE m_axi port=textureDataIn offset=slave bundle=MAXI_DATA_3
 #else
 #pragma HLS INTERFACE m_axi port=textureDataIn offset=slave bundle=MAXI_DATA

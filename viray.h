@@ -35,6 +35,7 @@ namespace ViRay
 		 * This approximate solution reduces FPGA LUT utilization by roughly 13k.
 		 * Call hls::atan2() otherwise.
 		 */
+		myType AtanUtility(myType z);
 		myType Atan2(myType y, myType x);
 
 		/*

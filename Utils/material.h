@@ -199,15 +199,22 @@ private:
 
 			myType dc, dr;
 #ifndef UC_OPERATION
+#ifdef USE_FIXEDPOINT
+			myType fc = realColumn 	& LOW_BITS;
+			myType fr = realRow 	& LOW_BITS;
+			dc 		  = realColumn 	& HIGH_BITS;
+			dr 		  = realRow 	& HIGH_BITS;
+#else
 			myType fc = hls::modf(realColumn, &dc);
 			myType fr = hls::modf(realRow, 	  &dr);
+#endif
 #else
 			myType fc = std::modf(realColumn, &dc);
 			myType fr = std::modf(realRow, 	  &dr);
 #endif
 
-			if (fc <= myType(0.0)) fc += 1.0;
-			if (fr <= myType(0.0)) fr += 1.0;
+			if (fc <= myType(0.0)) fc += myType(1.0);
+			if (fr <= myType(0.0)) fr += myType(1.0);
 
 //			dc = hls::fabs(dc);
 //			dr = hls::fabs(dr);
@@ -340,9 +347,9 @@ private:
 		#pragma HLS INLINE
 
 			unsigned rawBits = buffVal.raw_bits;
-			myType R = ((rawBits & 0xFF0000) >> 16);
-			myType G = ((rawBits & 0xFF00) >> 8);
-			myType B = ((rawBits & 0xFF));
+			myType R = myType((rawBits & 0xFF0000) >> 16);
+			myType G = myType((rawBits & 0xFF00) >> 8);
+			myType B = myType((rawBits & 0xFF));
 
 			return vec3(R, G, B);
 		}
@@ -369,7 +376,12 @@ public:
 
 		//////////////////////////////////////////////////
 #ifndef UC_OPERATION
+#ifdef USE_FIXEDPOINT
+		materialDesc.ks				= k[2] & LOW_BITS;
+		materialDesc.specExp		= k[2] & HIGH_BITS;
+#else
 		materialDesc.ks				= hls::modf(k[2], &materialDesc.specExp);
+#endif
 #else
 		materialDesc.ks				= std::modf(k[2], &materialDesc.specExp);
 #endif
@@ -453,12 +465,12 @@ public:
 			break;
 		case BITMAP_MASK:
 #ifdef BILINEAR_TEXTURE_FILTERING_ENABLE
-			mix = 	texelColor11.fp_num * interpolationData.w11 +
-					texelColor12.fp_num * interpolationData.w12 +
-					texelColor22.fp_num * interpolationData.w22 +
-					texelColor21.fp_num * interpolationData.w21;
+			mix = 	(myType)texelColor11.fp_num * interpolationData.w11 +
+					(myType)texelColor12.fp_num * interpolationData.w12 +
+					(myType)texelColor22.fp_num * interpolationData.w22 +
+					(myType)texelColor21.fp_num * interpolationData.w21;
 #else
-			mix = 	texelColor11.fp_num;
+			mix = 	(myType)texelColor11.fp_num;
 #endif
 			return vec3(mix, (myType(1.0) - mix), myType(0.0));
 		case PIXEL_MAP:

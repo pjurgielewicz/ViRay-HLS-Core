@@ -25,12 +25,14 @@
 
 #ifdef USE_FIXEDPOINT
 
-#define FIXEDPOINT_WIDTH 32
-#define FIXEDPOINT_INTEGER_BITS 22
+#define FIXEDPOINT_WIDTH 		32
+#define FIXEDPOINT_INTEGER_BITS 16
+#define HIGH_BITS 				0xFFFF0000
+#define LOW_BITS				0x0000FFFF
 typedef ap_fixed<FIXEDPOINT_WIDTH, FIXEDPOINT_INTEGER_BITS, AP_RND> myType;
 
-#define CORE_BIAS (myType(0.01))
-#define MAX_DISTANCE 1000000
+#define CORE_BIAS (myType(0.001))
+#define MAX_DISTANCE (myType(1000000))
 
 #else
 
@@ -46,6 +48,11 @@ typedef half myType;
 
 #endif
 
+#define CORE_BIAS 		(myType(0.001))									// Small positive number to test against computed distance
+#define MAX_DISTANCE 	(myType(1000000))								// Ray tracer's 'infinity' distance
+
+#endif
+
 // USED MAINLY FOR TEXTURE STORAGE AND FAST BIT CONVERSION
 // SEE << fp_mul_pow2 >> example project
 typedef union {
@@ -57,12 +64,6 @@ typedef union {
     	unsigned sign : 1;
     };
 } float_union;															// Usage: texture storage & fast inverse square root
-
-
-#define CORE_BIAS 		(myType(0.001))									// Small positive number to test against computed distance
-#define MAX_DISTANCE 	(myType(1000000))								// Ray tracer's 'infinity' distance
-
-#endif
 
 typedef unsigned pixelColorType;										// Pixel buffer type
 

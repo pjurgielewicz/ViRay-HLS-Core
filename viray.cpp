@@ -738,7 +738,7 @@ vec3 Shade(	const ShadeRec& closestSr,
 																	materials[closestSr.objIdx].GetMaterialDescription().fresnelData[1],
 																	materials[closestSr.objIdx].GetMaterialDescription().fresnelData[2],
 																	materials[closestSr.objIdx].GetMaterialDescription().isConductor);//fresnelCoeff;
-		myType specularCoeff = (materials[closestSr.objIdx].GetMaterialDescription().useTorranceSparrowSpecularReflection) ? TorranceSparrowDCoeff * TorranceSparrowGCoeff * TorranceSparrowFCoeff: TorranceSparrowDCoeff;
+		myType specularCoeff = (materials[closestSr.objIdx].GetMaterialDescription().useTorranceSparrowSpecularReflection) ? myType(TorranceSparrowDCoeff * TorranceSparrowGCoeff * TorranceSparrowFCoeff) : TorranceSparrowDCoeff;
 #else
 		myType specularCoeff = TorranceSparrowDCoeff;		// USE BLINN-PHONG MODEL INSTEAD
 #endif
@@ -978,6 +978,7 @@ void VisibilityTest(const Ray& ray,
 
 myType ViRayUtils::Abs(myType val)
 {
+#pragma HLS INLINE
 #ifdef USE_FIXEDPOINT
 	return (val > myType(0.0)) ? myType(val) : myType(-val);
 #elif defined(USE_FLOAT)
@@ -1006,36 +1007,52 @@ myType ViRayUtils::Acos(myType x)
 											0.50536, 0.436469, 0.355421, 0.250656,
 											0.0, 0.0 };	// one additional - just in case
 
-	myType lutIdxF 		= hls::fabs(x) * LUT_SIZE;
+	myType lutIdxF 		= ViRayUtils::Abs(x) * LUT_SIZE;
+#ifdef USE_FIXEDPOINT
+	myType mix			= lutIdxF & LOW_BITS;
+	lutIdxF				= lutIdxF & HIGH_BITS;
+#else
 	myType mix 			= hls::modf(lutIdxF, &lutIdxF);
+#endif
 	unsigned lutIdx 	= lutIdxF;
 	unsigned nextLutIdx = lutIdx + 1;
 
 	// linear interpolation
 	myType calcAngle = (myType(1.0) - mix) * acosLUT[lutIdx] + mix * acosLUT[nextLutIdx];
 
-	return ((x < myType(0.0)) ? (PI - calcAngle) : calcAngle);
+	return ((x < myType(0.0)) ? myType(PI - calcAngle) : calcAngle);
 #else
 #pragma HLS INLINE
 	return hls::acos(x);
 #endif
 }
 
+myType ViRayUtils::AtanUtility(myType z)
+{
+#pragma HLS INLINE
+    const myType n1(0.97239411);
+    const myType n2(-0.19194795);
+
+    return (n1 + n2 * z * z) * z;
+}
+
 myType ViRayUtils::Atan2(myType y, myType x)
 {
-#ifdef FAST_ATAN2_ENABLE
 #pragma HLS INLINE
 //#pragma HLS PIPELINE II=4
+
+#ifdef FAST_ATAN2_ENABLE
 	/*
 	* BASED ON:
 	*
 	* https://www.dsprelated.com/showarticle/1052.php
 	*
 	*/
+	myType result(0.0);
+#ifdef USE_FLOAT
 
 	const myType n1(0.97239411);
 	const myType n2(-0.19194795);
-	myType result(0.0);
 
 	if (x != myType(0.0))
 	{
@@ -1043,7 +1060,7 @@ myType ViRayUtils::Atan2(myType y, myType x)
 		tXSign.fp_num = x;
 		tYSign.fp_num = y;
 
-		if (hls::fabs(x) >= hls::fabs(y))
+		if (ViRayUtils::Abs(x) >= ViRayUtils::Abs(y))
 		{
 			tOffset.fp_num = PI;
 			// Add or subtract PI based on y's sign.
@@ -1072,6 +1089,57 @@ myType ViRayUtils::Atan2(myType y, myType x)
 	{
 		result = -HALF_PI;
 	}
+#else
+
+    if (x != myType(0.0))
+    {
+        if (Abs(x) > Abs(y))
+        {
+            const float z = y / x;
+            if (x > myType(0.0))
+            {
+                // atan2(y,x) = atan(y/x) if x > 0
+                result = AtanUtility(z);
+            }
+            else if (y >= myType(0.0))
+            {
+                // atan2(y,x) = atan(y/x) + PI if x < 0, y >= 0
+            	result = AtanUtility(z) + PI;
+            }
+            else
+            {
+                // atan2(y,x) = atan(y/x) - PI if x < 0, y < 0
+            	result = AtanUtility(z) - PI;
+            }
+        }
+        else // Use property atan(y/x) = PI/2 - atan(x/y) if |y/x| > 1.
+        {
+            const myType z = x / y;
+            if (y > myType(0.0))
+            {
+                // atan2(y,x) = PI/2 - atan(x/y) if |y/x| > 1, y > 0
+            	result = -AtanUtility(z) + HALF_PI;
+            }
+            else
+            {
+                // atan2(y,x) = -PI/2 - atan(x/y) if |y/x| > 1, y < 0
+            	result = -AtanUtility(z) - HALF_PI;
+            }
+        }
+    }
+    else
+    {
+        if (y > myType(0.0)) // x = 0, y > 0
+        {
+        	result = HALF_PI;
+        }
+        else if (y < myType(0.0)) // x = 0, y < 0
+        {
+        	result = -HALF_PI;
+        }
+    }
+
+#endif
 	return result;
 #else
 	return hls::atan2(y, x);
@@ -1184,11 +1252,20 @@ myType ViRayUtils::InvSqrt(myType val)
 
 	return y.fp_num;
 #else
+#ifdef USE_FIXEDPOINT
+	return hls::sqrt(float(myType(1.0) / val));
+#else
 	return hls::sqrt(myType(1.0) / val);
+#endif
 #endif
 
 #else
+
+#ifdef USE_FIXEDPOINT
+	return hls::sqrt(float(myType(1.0) / val));
+#else
 	return hls::sqrt(myType(1.0) / val);
+#endif
 #endif
 
 }
@@ -1221,10 +1298,15 @@ myType ViRayUtils::NaturalPow(myType val, unsigned char n)
 
 myType ViRayUtils::Sqrt(myType val)
 {
+#pragma HLS INLINE
 #ifdef FAST_INV_SQRT_ENABLE
 	return val * InvSqrt(val);
 #else
-	return hls::sqrt(myType(val));
+#ifdef USE_FIXEDPOINT
+	return hls::sqrt(float(val));
+#else
+	return hls::sqrt(val);
+#endif
 #endif
 }
 

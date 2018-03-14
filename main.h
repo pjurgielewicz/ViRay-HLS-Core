@@ -12,7 +12,7 @@ int ViRayMain(	const myType* objTransformationArrayIn,
 				const myType* cameraArrayIn,
 				myType cameraZoom,
 
-				const myType* textureDataIn,
+				const float* textureDataIn,
 				const unsigned* textureDescriptionIn,
 				const unsigned* textureBaseAddressIn,
 

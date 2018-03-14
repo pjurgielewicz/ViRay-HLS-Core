@@ -16,7 +16,7 @@ vec3& loadVectorFromStream(ifstream& file, vec3& vec)
 
 vec3 getInverseScale(const vec3& vec)
 {
-	return vec3(1.0 / vec[0], 1.0 / vec[1], 1.0 / vec[2]);
+	return vec3(myType(1.0) / vec[0], myType(1.0) / vec[1], myType(1.0) / vec[2]);
 }
 
 void copyVector(myType* dst, const vec3& vec, unsigned& pos)
@@ -133,7 +133,7 @@ int main()
 		vec3 temp = loadVectorFromStream(lightFile, tmp);
 
 		myType outerMinusInner = temp[1] - temp[0];
-		myType outerMinusInnerInv = (outerMinusInner > CORE_BIAS) ? myType(1.0) / (outerMinusInner) : MAX_DISTANCE;
+		myType outerMinusInnerInv = (outerMinusInner > CORE_BIAS) ? myType(myType(1.0) / (outerMinusInner)) : MAX_DISTANCE;
 
 		lightCoeff[i] = vec3(temp[0], outerMinusInnerInv, temp[2]);
 
@@ -272,7 +272,7 @@ int main()
 			cameraArray,
 			zoom,
 
-			(myType*)textureData,
+			(float*)textureData,
 			textureDescriptionData,
 			textureBaseAddr,
 

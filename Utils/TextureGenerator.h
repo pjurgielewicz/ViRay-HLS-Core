@@ -41,7 +41,7 @@ namespace Random{
 
 	static myType RandReal(myType lo, myType hi)
 	{
-		return (((double) ( Rand() % maxRand ) / (double) (maxRand)) * (hi - lo) + lo );
+		return (myType((double) ( Rand() % maxRand ) / (double) (maxRand)) * (hi - lo) + lo );
 	}
 };
 
@@ -286,7 +286,7 @@ private:
 				yVal = (float)( h - height * 0.5 ) / (float)height;
 
 				xyDist = std::sqrt(xVal * xVal + yVal * yVal) + turbPower * bitmap[w * height + h].fp_num;
-				bitmap[w * height + h].fp_num = std::fabs(std::sin(xyDist * param1 * TWOPI));
+				bitmap[w * height + h].fp_num = std::fabs(std::sin(xyDist * param1 * float(TWOPI)));
 			}
 		}
 	}
@@ -307,7 +307,7 @@ private:
 			for (unsigned short h = 0; h < height; ++h)
 			{
 				xyRes = w * param1 / width + h * param2 / height + turbPower * bitmap[w * height + h].fp_num;
-				bitmap[w * height + h].fp_num = std::fabs(std::sin(xyRes * PI));
+				bitmap[w * height + h].fp_num = std::fabs(std::sin(xyRes * (float)PI));
 			}
 		}
 	}
