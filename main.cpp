@@ -116,7 +116,7 @@ int ViRayMain(	const myType* objTransformationArrayIn,
 //#endif
 
 #ifdef SELF_RESTART_ENABLE
-	while(true)
+	ViRaySelfRestartLoop: while(true)
 #endif
 	{
 		/*
@@ -149,8 +149,9 @@ int ViRayMain(	const myType* objTransformationArrayIn,
 
 #endif
 
+#ifdef RENDER_DATAFLOW_ENABLE
 		pixelColorType frameBuffer[FRAME_ROW_BUFFER_SIZE];
-//#pragma HLS ARRAY_PARTITION variable=frameBuffer complete dim=1
+#endif
 
 		unsigned objType[OBJ_NUM];
 #pragma HLS ARRAY_PARTITION variable=objType complete dim=1
@@ -231,15 +232,26 @@ int ViRayMain(	const myType* objTransformationArrayIn,
 		/*
 		 *
 		 */
-#ifndef SIMPLE_OBJECT_TRANSFORM_ENABLE
+
+#ifdef RENDER_DATAFLOW_ENABLE
 		ViRay::RenderSceneOuterLoop(camera, posShift,
-									objTransform, objInvTransform, objType,
-									lights, materials, textureData, frameBuffer, outColor);
+											objTransform,
+		#ifndef SIMPLE_OBJECT_TRANSFORM_ENABLE
+											objInvTransform,
+		#endif
+											objType,
+											lights, materials, textureData, frameBuffer, outColor);
 #else
-		ViRay::RenderSceneOuterLoop(camera, posShift,
-									objTransform, objType,
-									lights, materials, textureData, frameBuffer, outColor);
+		ViRay::RenderScene(camera, posShift,
+							objTransform,
+		#ifndef SIMPLE_OBJECT_TRANSFORM_ENABLE
+							objInvTransform,
+		#endif
+							objType,
+							lights, materials, textureData, outColor);
 #endif
+
+
 	}
 	return 0;
 

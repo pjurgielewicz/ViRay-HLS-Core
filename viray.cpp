@@ -397,6 +397,7 @@ void PerformHits(const Ray& transformedRay,
 	}
 }
 
+#ifdef RENDER_DATAFLOW_ENABLE
 void RenderSceneInnerLoop(const CCamera& camera,
 							const myType* posShift,
 #ifndef SIMPLE_OBJECT_TRANSFORM_ENABLE
@@ -406,7 +407,6 @@ void RenderSceneInnerLoop(const CCamera& camera,
 							const SimpleTransform* objTransform,
 #endif
 							const unsigned* objType,
-							unsigned short verticalPart,
 
 							const Light* lights,
 							const CMaterial* materials,
@@ -415,12 +415,11 @@ void RenderSceneInnerLoop(const CCamera& camera,
 
 							pixelColorType* frameBuffer)
 {
-//#pragma HLS INLINE
 
 	const vec3 clearColor(myType(0.0));
 	vec3 colorAccum;
 
-	unsigned short h = HEIGHT - 1 - verticalPart * FRAME_ROWS_IN_BUFFER;
+	static unsigned short h = HEIGHT - 1;
 	unsigned short w = 0;
 
 	RenderPixelLoop: for (unsigned short fbPos = 0; fbPos < FRAME_ROW_BUFFER_SIZE; ++fbPos, ++w)
@@ -491,6 +490,16 @@ DO_PRAGMA(HLS UNROLL factor=INNER_LOOP_UNROLL_FACTOR)
 
 		SaveColorToBuffer(colorAccum, frameBuffer[fbPos]);
 	}
+
+	// Go to next row in the next call or reset row (in SELF_RESTART MODE)
+	if (h != 0)
+	{
+		--h;
+	}
+	else
+	{
+		h = HEIGHT - 1;
+	}
 }
 
 void RenderSceneOuterLoop(const CCamera& camera,
@@ -524,7 +533,7 @@ void RenderSceneOuterLoop(const CCamera& camera,
 								objTransform,
 #endif
 								objType,
-								verticalPart,
+
 								lights,
 								materials,
 								textureData,
@@ -532,7 +541,103 @@ void RenderSceneOuterLoop(const CCamera& camera,
 
 		memcpy(outColor + FRAME_ROW_BUFFER_SIZE * verticalPart, frameBuffer, sizeof(pixelColorType) * FRAME_ROW_BUFFER_SIZE);
 	}
+
 }
+#else
+void RenderScene(const CCamera& camera,
+					const myType* posShift,
+#ifndef SIMPLE_OBJECT_TRANSFORM_ENABLE
+					const mat4* objTransform,
+					const mat4* objTransformInv,
+#else
+					const SimpleTransform* objTransform,
+#endif
+					const unsigned* objType,
+
+					const Light* lights,
+					const CMaterial* materials,
+
+					const float_union* textureData,
+
+					pixelColorType* outColor)
+{
+	unsigned short w = 0;
+	unsigned short h = HEIGHT - 1;
+
+	vec3 colorAccum;
+	pixelColorType codedColor;
+
+	RenderPixelLoop: for (unsigned px = 0; px < NUM_OF_PIXELS; ++px, ++w)
+	{
+DO_PRAGMA(HLS PIPELINE II=DESIRED_INNER_LOOP_II)
+DO_PRAGMA(HLS UNROLL factor=INNER_LOOP_UNROLL_FACTOR)
+		if (w == WIDTH)
+		{
+			w = (unsigned short)(0);
+			h -= 1;
+		}
+
+		colorAccum = vec3(myType(0.0));
+
+		Ray ray, transformedRay, reflectedRay;
+		ShadeRec closestSr, closestReflectedSr;
+
+		CreatePrimaryRay(camera, posShift, h, w, ray);
+
+		myType currentReflectivity(1.0);
+		for (unsigned char depth = 0; depth < RAYTRACING_DEPTH; ++depth)
+		{
+			closestSr = ShadeRec();
+
+			VisibilityTest(ray,
+#ifndef SIMPLE_OBJECT_TRANSFORM_ENABLE
+							objTransform, objTransformInv,
+#else
+							objTransform,
+#endif
+							objType, closestSr);
+
+			if (!closestSr.isHit) break;
+
+			myType ndir = closestSr.normal * ray.direction;
+			myType ndir2min = myType(-2.0) * ndir;
+
+			myType fresnelReflectionCoeff = GetFresnelReflectionCoeff( -ndir,
+																		materials[closestSr.objIdx].GetMaterialDescription().fresnelData[1],
+																		materials[closestSr.objIdx].GetMaterialDescription().fresnelData[2],
+																		materials[closestSr.objIdx].GetMaterialDescription().isConductor);
+
+
+			vec3 depthColor = Shade(closestSr, ray,
+#ifndef SIMPLE_OBJECT_TRANSFORM_ENABLE
+									objTransform, objTransformInv,
+#else
+									objTransform,
+#endif
+									objType, lights, materials, textureData, ndir2min, -ray.direction, fresnelReflectionCoeff);
+
+			colorAccum += depthColor * currentReflectivity;
+
+			/*
+			 * NEXT DEPTH STEP PREPARATION
+			 */
+#ifdef FRESNEL_REFLECTION_ENABLE
+			myType reflectivity = (materials[closestSr.objIdx].GetMaterialDescription().useFresnelReflection) ? fresnelReflectionCoeff : materials[closestSr.objIdx].GetMaterialDescription().ks;
+#else
+			myType reflectivity = materials[closestSr.objIdx].GetMaterialDescription().ks;
+#endif
+			currentReflectivity *= reflectivity;
+
+			// RAY ALREADY USED TO COMPUTE REFLECTIVITY -> REFLECT
+			ray = Ray(closestSr.hitPoint, (-ray.direction).Reflect(closestSr.normal));
+		}
+
+		SaveColorToBuffer(colorAccum, codedColor);
+
+		memcpy(outColor + px, &codedColor, sizeof(pixelColorType));
+	}
+}
+#endif
 
 void SaveColorToBuffer(vec3 color, pixelColorType& colorOut)
 {

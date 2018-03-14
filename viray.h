@@ -248,6 +248,7 @@ namespace ViRay
 #endif
 						unsigned objType, ShadeRec& sr);
 
+#ifdef RENDER_DATAFLOW_ENABLE
 	/*
 	 * Per pixel image processing - this function triggers:
 	 * - primary ray creation
@@ -261,13 +262,10 @@ namespace ViRay
 	 * In theory the code might process 1 pixel per 1 clock cycle however the resource usage becomes enormous.
 	 * Thus, the user has to find the golden mean between the area and performance
 	 *
-	 * The user can enable/disable reflection pass using: REFLECTION_ENABLE
+	 * The user can control ray tracing depth using: RAYTRACING_DEPTH
 	 *
 	 * To make all surfaces mirror-like comment: FRESNEL_REFLECTION_ENABLE then the reflection coefficient will be
 	 * constant on the entire surface and equal to the specular highlight coefficient
-	 *
-	 * If DEEP_RAYTRACING_ENABLE is specified (only for C++ simulation) it can reach up to:
-	 * RAYTRACING_DEPTH raytracing depth (1 - direct, 2 - single reflection, 3 - double reflection, ..., n - 1 reflection)
 	 */
 	void RenderSceneInnerLoop(const CCamera& camera,
 								const myType* posShift,
@@ -278,7 +276,6 @@ namespace ViRay
 								const SimpleTransform* objTransform,
 #endif
 								const unsigned* objType,
-								unsigned short verticalPart,
 
 								const Light* lights,
 								const CMaterial* materials,
@@ -310,6 +307,29 @@ namespace ViRay
 
 								pixelColorType* frameBuffer,
 								pixelColorType* outColor);
+#else
+	/*
+	 * Equivalent of RenderSceneInnerLoop when RENDER_DATAFLOW_ENABLE is not specified
+	 * but using plain PIPELINE without need of temporary frame buffer
+	 * There is no overhead connected with DATAFLOW but the logic around it seems to be much bigger
+	 */
+	void RenderScene(const CCamera& camera,
+						const myType* posShift,
+#ifndef SIMPLE_OBJECT_TRANSFORM_ENABLE
+						const mat4* objTransform,
+						const mat4* objTransformInv,
+#else
+						const SimpleTransform* objTransform,
+#endif
+						const unsigned* objType,
+
+						const Light* lights,
+						const CMaterial* materials,
+
+						const float_union* textureData,
+
+						pixelColorType* outColor);
+#endif
 
 	/*
 	 * Having internal color values transform them to the 0...255 range using unsigned char (x * 255) transformation
