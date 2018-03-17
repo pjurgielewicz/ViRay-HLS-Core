@@ -1,7 +1,7 @@
 #ifndef TYPEDEFS__H_
 #define TYPEDEFS__H_
 
-//#define UC_OPERATION													// Switch between HLS and SDK environments
+#define UC_OPERATION													// Switch between HLS and SDK environments
 
 #ifndef UC_OPERATION
 
@@ -27,8 +27,8 @@
 
 #define FIXEDPOINT_WIDTH 		32
 #define FIXEDPOINT_INTEGER_BITS 16
-#define HIGH_BITS 				0xFFFF0000
-#define LOW_BITS				0x0000FFFF
+#define HIGH_BITS 				((0xFFFFFFFF >> (FIXEDPOINT_WIDTH - FIXEDPOINT_INTEGER_BITS)) << (FIXEDPOINT_WIDTH - FIXEDPOINT_INTEGER_BITS) )
+#define LOW_BITS				(0xFFFFFFFF - HIGH_BITS)
 typedef ap_fixed<FIXEDPOINT_WIDTH, FIXEDPOINT_INTEGER_BITS, AP_RND> myType;
 
 #define CORE_BIAS (myType(0.001))
@@ -134,7 +134,7 @@ enum ObjectType{
 #define WIDTH_INV					(myType(1.0) / myType(WIDTH))
 #define HEIGHT_INV					(myType(1.0) / myType(HEIGHT))
 
-#define FRAME_ROWS_IN_BUFFER		((unsigned short)(24))				// Optimized for loosing as least clock cycles as possible for RenderInnerLoop start while being the divider of HEIGHT
+#define FRAME_ROWS_IN_BUFFER		((unsigned short)(20))				// Optimized for loosing as least clock cycles as possible for RenderInnerLoop start while being the divider of HEIGHT
 #define VERTICAL_PARTS_OF_FRAME		(HEIGHT / FRAME_ROWS_IN_BUFFER)		// How many iterations of RenderOuterLoop there will be
 #define FRAME_ROW_BUFFER_SIZE 		(WIDTH * FRAME_ROWS_IN_BUFFER)		// Size of the temporary row framebuffer
 

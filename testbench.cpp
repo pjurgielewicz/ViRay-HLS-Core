@@ -218,9 +218,9 @@ int main()
 /////////////////////////////////////////////////////////
 
 	myType* cameraArray = new myType[4 * sizeof(vec3)];
-	myType zoom;
+	myType zoom, nearPlane;
 
-	cameraFile >> zoom;
+	cameraFile >> zoom >> nearPlane;
 	for (unsigned i = 0; i < 12; ++i)
 	{
 		cameraFile >> cameraArray[i];
@@ -271,6 +271,7 @@ int main()
 
 			cameraArray,
 			zoom,
+			nearPlane,
 
 			(float*)textureData,
 			textureDescriptionData,

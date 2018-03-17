@@ -11,6 +11,7 @@ int ViRayMain(	const myType* objTransformationArrayIn,
 
 				const myType* cameraArrayIn,
 				myType cameraZoom,
+				myType nearPlane,
 
 				const float* textureDataIn,
 				const unsigned* textureDescriptionIn,

@@ -27,6 +27,7 @@ int ViRayMain(	const myType* objTransformationArrayIn,
 
 				const myType* cameraArrayIn,
 				myType cameraZoom,
+				myType cameraNearPlane,
 
 				const float* textureDataIn,
 				const unsigned* textureDescriptionIn,
@@ -67,6 +68,7 @@ int ViRayMain(	const myType* objTransformationArrayIn,
 #pragma HLS INTERFACE m_axi port=cameraArrayIn offset=slave bundle=MAXI_DATA
 
 #pragma HLS INTERFACE s_axilite port=cameraZoom bundle=AXI_LITE_1
+#pragma HLS INTERFACE s_axilite port=cameraNearPlane bundle=AXI_LITE_1
 
 	/*
 	 * TEXTURE DATA
@@ -126,7 +128,7 @@ int ViRayMain(	const myType* objTransformationArrayIn,
 		memcpy(cameraData, cameraArrayIn, sizeof(vec3) * 4);
 
 
-		CCamera camera(cameraZoom, cameraZoom * (myType(WIDTH) / myType(HEIGHT)),
+		CCamera camera(cameraZoom, cameraZoom * (myType(WIDTH) / myType(HEIGHT)), cameraNearPlane,
 					   cameraData[0], cameraData[1], cameraData[2], cameraData[3]);
 
 		myType posShift[2] = {	myType(-0.5) * (WIDTH  - myType(1.0)),

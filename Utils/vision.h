@@ -30,10 +30,12 @@ class CCamera
 {
 public:
 	CCamera(myType hDepthRatio, myType vDepthRatio,
+			myType nearPlane,
 			const vec3& eyePosition = vec3(0.0, 0.0, 0.0),
 			const vec3& u = vec3(1.0, 0.0, 0.0),
 			const vec3& v = vec3(0.0, 1.0, 0.0),
 			const vec3& w = vec3(0.0, 0.0, 1.0)) :
+				nearPlane(nearPlane),
 				eyePosition(eyePosition),
 				u(u), v(v), w(w)
 	{
@@ -64,7 +66,7 @@ public:
 #pragma HLS INLINE
 		vec3 direction = u * p[0] * hFactor +
 						 v * p[1] * vFactor -
-						 w;
+						 w * nearPlane;
 
 		/*
 		 * ALTHOUGH NORMALIZATION IS NOT MANDATORY WHEN CHECKING FOR DISTANCE FROM OBJECT,
@@ -79,6 +81,7 @@ protected:
 	vec3 u, v, w;
 
 	myType hFactor, vFactor;
+	myType nearPlane;
 };
 
 #endif
