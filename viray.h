@@ -344,8 +344,21 @@ namespace ViRay
 	 * 8b : B = (unsigned char)clamp(color[2] * 255, 0, 255)
 	 * |
 	 * LSB
+	 *
+	 * If PIXEL_COLOR_CONVERSION_ENABLE is enabled values' pattern is as follows (for subsequent pixels):
+	 * 16b : < not used >
+	 * 8b  : G
+	 * 8b  : B
+	 * 16b : < not used >
+	 * 8b  : G
+	 * 8b  : R
+	 * ...
 	 */
-	void SaveColorToBuffer(vec3 color, pixelColorType& colorOut);
+	void SaveColorToBuffer(vec3 color,
+#ifdef PIXEL_COLOR_CONVERSION_ENABLE
+							unsigned short horizontalPos,
+#endif
+							pixelColorType& colorOut);
 
 	/*
 	 * Determine object illumination (including shadows):

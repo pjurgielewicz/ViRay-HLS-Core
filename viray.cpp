@@ -488,7 +488,11 @@ DO_PRAGMA(HLS UNROLL factor=INNER_LOOP_UNROLL_FACTOR)
 			ray = Ray(closestSr.hitPoint, (-ray.direction).Reflect(closestSr.normal));
 		}
 
-		SaveColorToBuffer(colorAccum, frameBuffer[fbPos]);
+		SaveColorToBuffer(colorAccum,
+#ifdef PIXEL_COLOR_CONVERSION_ENABLE
+							w,
+#endif
+							frameBuffer[fbPos]);
 	}
 
 	// Go to next row in the next call or reset row (in SELF_RESTART MODE)
@@ -632,14 +636,22 @@ DO_PRAGMA(HLS UNROLL factor=INNER_LOOP_UNROLL_FACTOR)
 			ray = Ray(closestSr.hitPoint, (-ray.direction).Reflect(closestSr.normal));
 		}
 
-		SaveColorToBuffer(colorAccum, codedColor);
+		SaveColorToBuffer(colorAccum,
+#ifdef PIXEL_COLOR_CONVERSION_ENABLE
+							w,
+#endif
+							codedColor);
 
 		memcpy(outColor + px, &codedColor, sizeof(pixelColorType));
 	}
 }
 #endif
 
-void SaveColorToBuffer(vec3 color, pixelColorType& colorOut)
+void SaveColorToBuffer(vec3 color,
+#ifdef PIXEL_COLOR_CONVERSION_ENABLE
+						unsigned short horizontalPos,
+#endif
+						pixelColorType& colorOut)
 {
 #pragma HLS INLINE
 //#pragma HLS PIPELINE II=8
@@ -649,26 +661,32 @@ void SaveColorToBuffer(vec3 color, pixelColorType& colorOut)
 	for (unsigned char i = 0; i < 3; ++i)
 	{
 #pragma HLS UNROLL
+
 		if (color[i] > myType(1.0))	color[i] = myType(1.0);
-#ifndef RGB_TO_YUV422_CONVERSION_ENABLE
 		tempColor += (( unsigned(color[i] * myType(255.0)) & 0xFF ) << ((2 - i) * 8));
-#endif
 	}
 
-#ifdef RGB_TO_YUV422_CONVERSION_ENABLE
+
+#ifdef PIXEL_COLOR_CONVERSION_ENABLE
+	if (horizontalPos & 0x1) // Odd pixel -> time for GR
+	{
+		tempColor = ((tempColor & 0x0000FF00) + ((tempColor >> 16) & 0x00FF));
+	}
+#endif
+
+/*#ifdef PIXEL_COLOR_CONVERSION_ENABLE
 	// RGB - > YUV444 -> YUV422
 	// RGB_TO_YUV & CHROMA_RESAMPLER CODE IN A COUPLE OF LINES OF CODE
 	// TO REDUCE ALIASING THE ALGORITHM IS USING MEAN OF U&V FOR EACH PIXEL
 	// INSTEAD OF SIMPLE SEQUENTIAL DROPPING ONE OF THESE VALUES
 	{
-//#pragma HLS ALLOCATION instances=fmul limit=20 operation
 		unsigned Y 	= (myType(0.257) * color[0] + myType(0.504) * color[1] + myType(0.098) * color[2]) * myType(255.0);
 		unsigned UV = (myType(0.291) * color[0] - myType(0.659) * color[1] + myType(0.368) * color[2]) * myType(127.5);
 
 		tempColor = ((UV + 128) << 8) + (Y + 16);
 	}
-#endif
-	colorOut = tempColor;
+#endif*/
+	colorOut = tempColor & 0xFFFF;
 }
 
 vec3 Shade(	const ShadeRec& closestSr,
