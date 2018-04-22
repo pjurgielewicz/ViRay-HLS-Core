@@ -131,9 +131,11 @@ myType GetFresnelReflectionCoeff(const myType& cosRefl, const myType& relativeEt
 #else
 			myType cosRefr = ViRayUtils::Sqrt(cosRefrSqr);
 
-			f1 = (relativeEta * cosRefl - cosRefr) / (relativeEta * cosRefl + cosRefr);
-			f2 = (relativeEta * cosRefr - cosRefl) / (relativeEta * cosRefr + cosRefl);
+			f1 = (relativeEta * cosRefl - cosRefr) / (relativeEta * cosRefl + cosRefr);		// parallel
+			f2 = (cosRefl - relativeEta * cosRefr) / (relativeEta * cosRefr + cosRefl);		// perpendicular
 #endif
+			f1 *= f1;																		// parallel^2
+			f2 *= f2;																		// perpendicular^2
 		}
 	}
 	else
@@ -143,14 +145,14 @@ myType GetFresnelReflectionCoeff(const myType& cosRefl, const myType& relativeEt
 		myType doubleEtaCos = myType(2.0) * relativeEta * cosRefl;
 
 		// APPROX FORMULA FROM PHYSICALLY BASED RENDERING
-		f1 = (etak * cosSqr - doubleEtaCos + myType(1.0)) / (etak * cosSqr + doubleEtaCos + myType(1.0));
-		f2 = (etak - doubleEtaCos + cosSqr) / (etak + doubleEtaCos + cosSqr);
+		f1 = (etak * cosSqr - doubleEtaCos + myType(1.0)) / (etak * cosSqr + doubleEtaCos + myType(1.0));	// parallel^2
+		f2 = (etak - doubleEtaCos + cosSqr) / (etak + doubleEtaCos + cosSqr);								// perpendicular^2
 	}
 
 	/*
 	 * ASSUMING EQUAL CONTRIBUTION OF EACH KIND OF POLARIZATION <-> UNPOLARIZED LIGHT
 	 */
-	return myType(0.5) * (f1 * f1 + f2 * f2);
+	return myType(0.5) * (f1 + f2);
 }
 
 myType GetOrenNayarDiffuseCoeff(const myType& cosR, const myType& cosI)

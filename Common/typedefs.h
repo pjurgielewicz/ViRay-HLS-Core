@@ -1,7 +1,7 @@
 #ifndef TYPEDEFS__H_
 #define TYPEDEFS__H_
 
-#define UC_OPERATION													// Switch between HLS and SDK environments
+//#define UC_OPERATION												// Switch between HLS and SDK environments
 
 #ifndef UC_OPERATION
 
@@ -95,7 +95,7 @@ enum ObjectType{
 																		// The amount of theses extra cycles can be optimized by FRAME_ROWS_IN_BUFFER
 																		// If disabled use plain RenderScene with PIPELINE only
 																		// HINT: In Vivado after synthesis the difference in area consumption is almost negligible so PIPELINE is preferred over DATAFLOW
-																		// HINT2: Implementation says that PIPELINE solution is almost not feasible
+																		// HINT2: Implementation says that PIPELINE solution is almost not feasible (high implementation effort)
 
 #define SPHERE_OBJECT_ENABLE											// Start of allowed object togglers
 #define PLANE_OBJECT_ENABLE
