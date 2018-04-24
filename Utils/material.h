@@ -223,7 +223,7 @@ private:
 			 * BUG IN THE REAL SYSTEM:
 			 * HLS SEEMS TO PERFORM hls::fabs() ON dc & dr
 			 * BEFORE CASTING TO USHORT THUS CREATING ARTIFACTS NOT SEEN IN THE TESTBENCH
-			 * SOLUTION PROVIDED BELOW
+			 * SOLUTION(?) PROVIDED BELOW
 			 */
 //			unsigned short uc = (unsigned short)(dc) % textureWidth;
 //			unsigned short ur = (unsigned short)(dr) % textureHeight;

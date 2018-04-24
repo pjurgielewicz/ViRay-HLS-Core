@@ -158,6 +158,7 @@ struct vec3
 	 */
 	vec3 operator^(const vec3& v) const
 	{
+#pragma HLS INLINE
 		vec3 temp;
 		temp[0] = data[1] * v[2] - data[2] * v[1];
 		temp[1] = data[2] * v[0] - data[0] * v[2];

@@ -155,21 +155,72 @@ myType GetFresnelReflectionCoeff(const myType& cosRefl, const myType& relativeEt
 	return myType(0.5) * (f1 + f2);
 }
 
-myType GetOrenNayarDiffuseCoeff(const myType& cosR, const myType& cosI)
+//myType GetOrenNayarDiffuseCoeff(const myType& cosR, const myType& cosI)
+//{
+//#pragma HLS INLINE
+////#pragma HLS PIPELINE II=4
+//	myType sinRS 	= myType(1.0) - cosR * cosR;
+//	myType sinIS 	= myType(1.0) - cosI * cosI;
+//
+//	myType sinRsinI = ViRayUtils::Sqrt(sinRS * sinIS);
+//
+//	myType minInv 	= myType(1.0) / ((cosR > cosI) ? cosR : cosI);
+//
+//	myType f 		= (cosR * cosI + sinRsinI) * sinRsinI * minInv;
+//	f 				= f > myType(0.0) ? f : myType(0.0);
+//
+//	return f;
+//}
+
+myType GetOrenNayarDiffuseCoeff(const vec3& wi, const vec3& wo, const vec3& n, myType cosThetai, myType cosThetao)
 {
-#pragma HLS INLINE
 //#pragma HLS PIPELINE II=4
-	myType sinRS 	= myType(1.0) - cosR * cosR;
-	myType sinIS 	= myType(1.0) - cosI * cosI;
+#pragma HLS INLINE
 
-	myType sinRsinI = ViRayUtils::Sqrt(sinRS * sinIS);
+//	myType minInv   = myType(1.0) / ((ViRayUtils::Abs(wi.data[2]) > ViRayUtils::Abs(wo.data[2])) ? ViRayUtils::Abs(wi.data[2]) : ViRayUtils::Abs(wo.data[2]));
+//	myType f		= ViRayUtils::Clamp(wi.data[0] * wo.data[0] + wi.data[1] * wo.data[1], myType(0.0), myType(1.0)) * minInv;
+//
+//	return f;
 
-	myType minInv 	= myType(1.0) / ((cosR > cosI) ? cosR : cosI);
+//	myType cosThetai = n * wi;
+//	myType cosThetao = n * wo;
 
-	myType f 		= (cosR * cosI + sinRsinI) * sinRsinI * minInv;
-	f 				= f > myType(0.0) ? f : myType(0.0);
+	vec3 ri = wi - n * cosThetai;
+	vec3 ro = wo - n * cosThetao;
 
-	return f;
+	myType riSqr = ri * ri;
+	myType roSqr = ro * ro;
+
+	vec3 localX = (vec3(myType(0.00424), myType(1.0), myType(0.00764))^n);//.Normalize();
+//	myType localXSqr;
+//	myType riLocalX, roLocalX;
+
+//	if (ViRayUtils::Abs(n[0]) < myType(0.9) )
+//	{
+//		localX = vec3(0, n[2], -n[1]);
+////		localXSqr = n[2] * n[2] + n[1] * n[1];
+////		riLocalX = ri[1] * n[2] - ri[2] * n[1];
+////		roLocalX = ro[1] * n[2] - ro[2] * n[1];
+//	}
+//	else
+//	{
+//		localX = vec3(-n[2], 0, n[0]);
+////		localXSqr = n[2] * n[2] + n[0] * n[0];
+////		riLocalX = -ri[0] * n[2] + ri[2] * n[0];
+////		roLocalX = -ro[0] * n[2] + ro[2] * n[0];
+//	}
+	myType localXSqr = localX * localX;
+
+	myType riLocalX = ri * localX;
+	myType roLocalX = ro * localX;
+
+	myType sinPhiTerm = ViRayUtils::Sqrt((riSqr * localXSqr - riLocalX * riLocalX) * (roSqr * localXSqr - roLocalX * roLocalX) );
+
+	myType minInv   = myType(1.0) / (localXSqr * ((ViRayUtils::Abs(cosThetai) > ViRayUtils::Abs(cosThetao)) ? ViRayUtils::Abs(cosThetai) : ViRayUtils::Abs(cosThetao)));
+
+	myType phiTerm = riLocalX * roLocalX + sinPhiTerm;
+
+	return (phiTerm > myType(0.0)) ? phiTerm * minInv : myType(0.0);
 }
 
 myType GetTorranceSparrowGeometricCoeff(const vec3& normal, const vec3& toViewer, const vec3& toLight, const myType& cosR, const myType& cosI,
@@ -674,21 +725,10 @@ void SaveColorToBuffer(vec3 color,
 	{
 		tempColor = ((tempColor & 0x0000FF00) + ((tempColor >> 16) & 0x00FF));
 	}
-#endif
-
-/*#ifdef PIXEL_COLOR_CONVERSION_ENABLE
-	// RGB - > YUV444 -> YUV422
-	// RGB_TO_YUV & CHROMA_RESAMPLER CODE IN A COUPLE OF LINES OF CODE
-	// TO REDUCE ALIASING THE ALGORITHM IS USING MEAN OF U&V FOR EACH PIXEL
-	// INSTEAD OF SIMPLE SEQUENTIAL DROPPING ONE OF THESE VALUES
-	{
-		unsigned Y 	= (myType(0.257) * color[0] + myType(0.504) * color[1] + myType(0.098) * color[2]) * myType(255.0);
-		unsigned UV = (myType(0.291) * color[0] - myType(0.659) * color[1] + myType(0.368) * color[2]) * myType(127.5);
-
-		tempColor = ((UV + 128) << 8) + (Y + 16);
-	}
-#endif*/
 	colorOut = tempColor & 0xFFFF;
+#else
+	colorOut = tempColor & 0xFFFFFF;
+#endif
 }
 
 vec3 Shade(	const ShadeRec& closestSr,
@@ -747,7 +787,7 @@ vec3 Shade(	const ShadeRec& closestSr,
 #ifdef OREN_NAYAR_DIFFUSE_MODEL_ENABLE
 		// k[0] := A	A == 1 && B == 0 -> Lambertian
 		// k[1] := B
-		myType OrenNayarCoeff = materials[closestSr.objIdx].GetMaterialDescription().k[0] + materials[closestSr.objIdx].GetMaterialDescription().k[1] * GetOrenNayarDiffuseCoeff(ndir2min * myType(0.5), dot);
+		myType OrenNayarCoeff = materials[closestSr.objIdx].GetMaterialDescription().k[0] + materials[closestSr.objIdx].GetMaterialDescription().k[1] * GetOrenNayarDiffuseCoeff(toViewer, dirToLight, closestSr.normal, ndir2min * myType(0.5), dot);//GetOrenNayarDiffuseCoeff(ndir2min * myType(0.5), dot);
 #endif
 
 		myType nhalfDot;

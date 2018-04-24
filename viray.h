@@ -225,10 +225,11 @@ namespace ViRay
 
 	/*
 	 * Calculate angle-dependent term in Oren-Nayar model
-	 * cosR - cosine between toViewer and normal
-	 * cosI - cosine between toLight and normal
+//	 * cosR - cosine between toViewer and normal
+//	 * cosI - cosine between toLight and normal
 	 */
-	myType GetOrenNayarDiffuseCoeff(const myType& cosR, const myType& cosI);
+//	myType GetOrenNayarDiffuseCoeff(const myType& cosR, const myType& cosI);
+	myType GetOrenNayarDiffuseCoeff(const vec3& wi, const vec3& wo, const vec3& n, myType cosThetai, myType cosThetao);
 
 	/*
 	 * Calculate geometric term in Torrance-Sparrow model
