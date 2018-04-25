@@ -20,6 +20,81 @@ namespace ViRay{
 /*
  * Simple 3D vector implementation
  */
+//#if defined(AGGRESSIVE_AREA_OPTIMIZATION_ENABLE) && !defined(UC_OPERATION)
+struct vec3NC
+{
+	myTypeNC data[3];
+	vec3NC()
+	{
+#pragma HLS ARRAY_PARTITION variable=data complete dim=1
+	}
+
+	vec3NC(myTypeNC x, myTypeNC y, myTypeNC z)
+	{
+		data[0] = x;
+		data[1] = y;
+		data[2] = z;
+	}
+
+	vec3NC(myTypeNC s)
+	{
+		data[0] = s;
+		data[1] = s;
+		data[2] = s;
+	}
+
+	vec3NC operator=(const vec3NC& v)
+	{
+		data[0] = v[0];
+		data[1] = v[1];
+		data[2] = v[2];
+		return *this;
+	}
+
+	vec3NC operator+(const vec3NC& v) const
+	{
+		vec3NC temp;
+		temp[0] = data[0] + v[0];
+		temp[1] = data[1] + v[1];
+		temp[2] = data[2] + v[2];
+		return temp;
+	}
+
+	vec3NC operator-(const vec3NC& v) const
+	{
+		vec3NC temp;
+		temp[0] = data[0] - v[0];
+		temp[1] = data[1] - v[1];
+		temp[2] = data[2] - v[2];
+		return temp;
+	}
+
+	vec3NC operator*(myTypeNC s) const
+	{
+		vec3NC temp;
+		temp[0] = data[0] * s;
+		temp[1] = data[1] * s;
+		temp[2] = data[2] * s;
+		return temp;
+	}
+
+	/*
+	 * Get vector i-th component
+	 */
+	const myTypeNC& operator[](int i) const
+	{
+		return data[i];
+	}
+
+	/*
+	 * Get vector i-th component
+	 */
+	myTypeNC& operator[](int i)
+	{
+		return data[i];
+	}
+};
+//#endif
 
 struct vec3
 {

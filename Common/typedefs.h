@@ -1,7 +1,7 @@
 #ifndef TYPEDEFS__H_
 #define TYPEDEFS__H_
 
-//#define UC_OPERATION												// Switch between HLS and SDK environments
+#define UC_OPERATION												// Switch between HLS and SDK environments
 
 #ifndef UC_OPERATION
 
@@ -96,6 +96,22 @@ enum ObjectType{
 																		// If disabled use plain RenderScene with PIPELINE only
 																		// HINT: In Vivado after synthesis the difference in area consumption is almost negligible so PIPELINE is preferred over DATAFLOW
 																		// HINT2: Implementation says that PIPELINE solution is almost not feasible (high implementation effort)
+
+#define AGGRESSIVE_AREA_OPTIMIZATION_ENABLE								// To use or not to use half's for some less computational critical tasks
+#if defined(AGGRESSIVE_AREA_OPTIMIZATION_ENABLE) && !defined(UC_OPERATION)
+typedef half myTypeNC;
+typedef union {
+    half fp_num;
+    unsigned short raw_bits;
+    struct {
+    	unsigned mant : 10;
+    	unsigned bexp : 5;
+    	unsigned sign : 1;
+    };
+} half_union;
+#else
+typedef myType myTypeNC;
+#endif
 
 #define SPHERE_OBJECT_ENABLE											// Start of allowed object togglers
 #define PLANE_OBJECT_ENABLE

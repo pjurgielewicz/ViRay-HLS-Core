@@ -5,8 +5,8 @@
 
 namespace ViRay {
 	namespace ViRayUtils {
-		myType Acos(myType x);
-		myType Atan2(myType y, myType x);
+		myTypeNC Acos(myTypeNC x);
+		myTypeNC Atan2(myTypeNC y, myTypeNC x);
 	};
 };
 
@@ -56,10 +56,10 @@ private:
 		struct InterpolationData
 		{
 			unsigned short c1, c2, r1, r2;		// row & column inside bitmap
-			myType wc1, wc2, wr1, wr2;			// weight of column and row
+			myTypeNC wc1, wc2, wr1, wr2;			// weight of column and row
 
 			unsigned short idx11, idx12, idx22, idx21;
-			myType w11, w12, w22, w21;
+			myTypeNC w11, w12, w22, w21;
 		};
 
 
@@ -69,8 +69,8 @@ private:
 		unsigned char textureMapping;
 		unsigned short textureWidth, textureHeight;
 
-		myType 			s, t;
-		myType			ss, st;
+		myTypeNC 			s, t;
+		myTypeNC			ss, st;
 
 		/*
 		 * THE WIDTH OF EACH ELEMENT IS BIGGER THAN NECESSARY FOR THE CURRENT IMPLEMENTATION
@@ -129,7 +129,7 @@ private:
 		{
 //		#pragma HLS INLINE
 #pragma HLS PIPELINE II=4
-		myType vx, vy, vz;
+		myTypeNC vx, vy, vz;
 #ifdef SIMPLE_OBJECT_TRANSFORM_ENABLE
 			if (orientation[0] != myType(0.0))
 			{
@@ -162,22 +162,22 @@ private:
 //			vz = hls::modf(vz, &dummy);
 
 #ifdef ADVANCED_TEXTURE_MAPPING_ENABLE
-			myType phi 		= ViRayUtils::Atan2(vx, vz) + PI;
-			myType theta	= ViRayUtils::Acos(vy);
+			myTypeNC phi 		= ViRayUtils::Atan2(vx, vz) + myTypeNC(PI);
+			myTypeNC theta		= ViRayUtils::Acos(vy);
 #endif
 
-			myType u, v;
+			myTypeNC u, v;
 
 			switch (textureMapping)
 			{
 #ifdef ADVANCED_TEXTURE_MAPPING_ENABLE
 			case SPHERICAL:
-				u = phi * INV_TWOPI;
-				v = myType(1.0) - theta  * INV_PI;
+				u = phi * myTypeNC(INV_TWOPI);
+				v = myTypeNC(1.0) - theta  * myTypeNC(INV_PI);
 				break;
 			case CYLINDRICAL:
-				u = phi * INV_TWOPI;
-				v = (vy + myType(1.0)) * myType(0.5);
+				u = phi * myTypeNC(INV_TWOPI);
+				v = (vy + myTypeNC(1.0)) * myTypeNC(0.5);
 				break;
 #endif
 			case PLANE_PLANAR:
@@ -185,19 +185,19 @@ private:
 				v = vz;
 				break;
 			default: // RECTANGULAR
-				u = (vx + myType(1.0)) * myType(0.5);
-				v = (vz + myType(1.0)) * myType(0.5);
+				u = (vx + myTypeNC(1.0)) * myTypeNC(0.5);
+				v = (vz + myTypeNC(1.0)) * myTypeNC(0.5);
 				break;
 			}
 
 			// TRANSFORM TEXTURE & FIND MAJOR PIXEL
-			myType realColumn 	= (textureWidth  ) * (u + this->s) * this->ss; // hls::fabs ??
-			myType realRow 		= (textureHeight ) * (v + this->t) * this->st; // hls::fabs ??
+			myTypeNC realColumn 	= (textureWidth  ) * (u + this->s) * this->ss; // hls::fabs ??
+			myTypeNC realRow 		= (textureHeight ) * (v + this->t) * this->st; // hls::fabs ??
 
 //			realColumn = hls::fabs(realColumn);
 //			realRow    = hls::fabs(realRow);
 
-			myType dc, dr;
+			myTypeNC dc, dr;
 #ifndef UC_OPERATION
 #ifdef USE_FIXEDPOINT
 			myType fc = realColumn 	& LOW_BITS;
@@ -205,16 +205,16 @@ private:
 			dc 		  = realColumn 	& HIGH_BITS;
 			dr 		  = realRow 	& HIGH_BITS;
 #else
-			myType fc = hls::modf(realColumn, &dc);
-			myType fr = hls::modf(realRow, 	  &dr);
+			myTypeNC fc = hls::modf(realColumn, &dc);
+			myTypeNC fr = hls::modf(realRow, 	  &dr);
 #endif
 #else
-			myType fc = std::modf(realColumn, &dc);
-			myType fr = std::modf(realRow, 	  &dr);
+			myTypeNC fc = std::modf(realColumn, &dc);
+			myTypeNC fr = std::modf(realRow, 	  &dr);
 #endif
 
-			if (fc <= myType(0.0)) fc += myType(1.0);
-			if (fr <= myType(0.0)) fr += myType(1.0);
+			if (fc <= myTypeNC(0.0)) fc += myTypeNC(1.0);
+			if (fr <= myTypeNC(0.0)) fr += myTypeNC(1.0);
 
 //			dc = hls::fabs(dc);
 //			dr = hls::fabs(dr);
@@ -273,36 +273,36 @@ private:
 			*/
 			// HORIZONTAL FILTER
 			interpolationData.c1 = uc;
-			if (fc < myType(0.5))
+			if (fc < myTypeNC(0.5))
 			{
 				interpolationData.c2 = uc - 1;
 				if (interpolationData.c1 == 0) interpolationData.c2 = textureWidth - 1;
-				interpolationData.wc1 = myType(0.5) + fc;
-				interpolationData.wc2 = myType(0.5) - fc;
+				interpolationData.wc1 = myTypeNC(0.5) + fc;
+				interpolationData.wc2 = myTypeNC(0.5) - fc;
 			}
 			else
 			{
 				interpolationData.c2 = uc + 1;
 				if (interpolationData.c2 == textureWidth) interpolationData.c2 = 0;
-				interpolationData.wc1 = myType(1.5) - fc;
-				interpolationData.wc2 = myType(-0.5) + fc;
+				interpolationData.wc1 = myTypeNC(1.5) - fc;
+				interpolationData.wc2 = myTypeNC(-0.5) + fc;
 			}
 
 			// VERTICAL FILTER
 			interpolationData.r1 = ur;
-			if (fr < myType(0.5))
+			if (fr < myTypeNC(0.5))
 			{
 				interpolationData.r2 = ur - 1;
 				if (interpolationData.r1 == 0) interpolationData.r2 = textureHeight - 1;
-				interpolationData.wr1 = myType(0.5) + fr;
-				interpolationData.wr2 = myType(0.5) - fr;
+				interpolationData.wr1 = myTypeNC(0.5) + fr;
+				interpolationData.wr2 = myTypeNC(0.5) - fr;
 			}
 			else
 			{
 				interpolationData.r2 = ur + 1;
 				if (interpolationData.r2 == textureHeight) interpolationData.r2 = 0;
-				interpolationData.wr1 = myType(1.5) - fr;
-				interpolationData.wr2 = myType(-0.5) + fr;
+				interpolationData.wr1 = myTypeNC(1.5) - fr;
+				interpolationData.wr2 = myTypeNC(-0.5) + fr;
 			}
 
 #else
@@ -324,8 +324,6 @@ private:
 			interpolationData.w21 = interpolationData.wc2 * interpolationData.wr1;
 	#endif
 
-
-
 			return interpolationData;
 		}
 
@@ -342,16 +340,16 @@ private:
 		 * |
 		 * LSB
 		 */
-		static vec3 ConvertFloatBufferToRGB888(float_union buffVal)
+		static vec3NC ConvertFloatBufferToRGB888(float_union buffVal)
 		{
 		#pragma HLS INLINE
 
 			unsigned rawBits = buffVal.raw_bits;
-			myType R = myType((rawBits & 0xFF0000) >> 16);
-			myType G = myType((rawBits & 0xFF00) >> 8);
-			myType B = myType((rawBits & 0xFF));
+			myTypeNC R = myTypeNC((rawBits & 0xFF0000) >> 16);
+			myTypeNC G = myTypeNC((rawBits & 0xFF00) >> 8);
+			myTypeNC B = myTypeNC((rawBits & 0xFF));
 
-			return vec3(R, G, B);
+			return vec3NC(R, G, B);
 		}
 	};
 
@@ -457,34 +455,36 @@ public:
 	{
 //#pragma HLS INLINE
 #pragma HLS PIPELINE II=4
-		const myType conversionFactor = myType(0.003921568627451); // = 1.0 / 255.0
-		myType mix;
+		const myTypeNC conversionFactor = myTypeNC(0.003921568627451); // = 1.0 / 255.0
+		myTypeNC mix;
+		vec3NC tmp;
 		switch (textureDesc.textureType)
 		{
 		case CONSTANT:
 			break;
 		case BITMAP_MASK:
 #ifdef BILINEAR_TEXTURE_FILTERING_ENABLE
-			mix = 	(myType)texelColor11.fp_num * interpolationData.w11 +
-					(myType)texelColor12.fp_num * interpolationData.w12 +
-					(myType)texelColor22.fp_num * interpolationData.w22 +
-					(myType)texelColor21.fp_num * interpolationData.w21;
+			mix = 	(myTypeNC)texelColor11.fp_num * interpolationData.w11 +
+					(myTypeNC)texelColor12.fp_num * interpolationData.w12 +
+					(myTypeNC)texelColor22.fp_num * interpolationData.w22 +
+					(myTypeNC)texelColor21.fp_num * interpolationData.w21;
 #else
-			mix = 	(myType)texelColor11.fp_num;
+			mix = 	(myTypeNC)texelColor11.fp_num;
 #endif
-			return vec3(mix, (myType(1.0) - mix), myType(0.0));
+			return vec3(mix, (myTypeNC(1.0) - mix), myType(0.0));
 		case PIXEL_MAP:
 #ifdef BILINEAR_TEXTURE_FILTERING_ENABLE
-			return 	(TextureDescription::ConvertFloatBufferToRGB888(texelColor11) * interpolationData.w11  +
+			tmp =  	(TextureDescription::ConvertFloatBufferToRGB888(texelColor11) * interpolationData.w11  +
 					 TextureDescription::ConvertFloatBufferToRGB888(texelColor12) * interpolationData.w12  +
 					 TextureDescription::ConvertFloatBufferToRGB888(texelColor22) * interpolationData.w22  +
 					 TextureDescription::ConvertFloatBufferToRGB888(texelColor21) * interpolationData.w21) * conversionFactor;
 #else
-			return 	TextureDescription::ConvertFloatBufferToRGB888(texelColor11) * conversionFactor;
+			tmp 	TextureDescription::ConvertFloatBufferToRGB888(texelColor11) * conversionFactor;
 #endif
+			return vec3(tmp[0], tmp[1], tmp[2]);
 		}
 
-		return vec3(1.0, 1.0, 0.0);
+		return vec3(myType(1.0), myType(1.0), myType(0.0));
 	}
 
 	/*

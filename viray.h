@@ -15,10 +15,13 @@ namespace ViRay
 	namespace ViRayUtils
 	{
 		/*
-		 * Custom absolute value solution to help working with deifferent data types.
+		 * Custom absolute value solution to help working with different data types.
 		 * return |val|.
 		 */
 		myType Abs(myType val);
+#ifndef UC_OPERATION
+		half Abs(half val);
+#endif
 
 		/*
 		 * Get arcus cosinus value for parameter x.
@@ -26,7 +29,7 @@ namespace ViRay
 		 * This reduces FPGA LUT utilization by roughly 4k.
 		 * Call hls::acos() otherwise.
 		 */
-		myType Acos(myType x);
+		myTypeNC Acos(myTypeNC x);
 
 		/*
 		 * Get arcus tangens value for parameters y and x.
@@ -35,8 +38,8 @@ namespace ViRay
 		 * This approximate solution reduces FPGA LUT utilization by roughly 13k.
 		 * Call hls::atan2() otherwise.
 		 */
-		myType AtanUtility(myType z);
-		myType Atan2(myType y, myType x);
+		myTypeNC AtanUtility(myTypeNC z);
+		myTypeNC Atan2(myTypeNC y, myTypeNC x);
 
 		/*
 		 * Restrict val within [min, max] range
@@ -220,7 +223,7 @@ namespace ViRay
 	 * compute Fresnel reflection coefficient for the unpolarized beam of light
 	 * Differentiate results between dielectrics and conductors
 	 */
-	myType GetFresnelReflectionCoeff(const myType& cosRefl, const myType& relativeEta, const myType& invRelativeEtaSqrORExtendedAbsorptionCoeff, bool isConductor);
+	myTypeNC GetFresnelReflectionCoeff(const myTypeNC& cosRefl, const myTypeNC& relativeEta, const myTypeNC& invRelativeEtaSqrORExtendedAbsorptionCoeff, bool isConductor);
 
 
 	/*
@@ -229,15 +232,14 @@ namespace ViRay
 //	 * cosI - cosine between toLight and normal
 	 */
 //	myType GetOrenNayarDiffuseCoeff(const myType& cosR, const myType& cosI);
-	myType GetOrenNayarDiffuseCoeff(const vec3& wi, const vec3& wo, const vec3& n, myType cosThetai, myType cosThetao);
+	myType GetOrenNayarDiffuseCoeff(const vec3& wi, const vec3& wo, const vec3& n, const myTypeNC& cosThetai, const myTypeNC& cosThetao);
 
 	/*
 	 * Calculate geometric term in Torrance-Sparrow model
 	 * cosR - cosine between toViewer and normal
 	 * cosI - cosine between toLight and normal
 	 */
-	myType GetTorranceSparrowGeometricCoeff(const vec3& normal, const vec3& toViewer, const vec3& toLight, const myType& cosR, const myType& cosI, myType& nhalfDot);
-
+	myTypeNC GetTorranceSparrowGeometricCoeff(const vec3& normal, const vec3& toViewer, const vec3& toLight, const myTypeNC& cosR, const myTypeNC& cosI, myTypeNC& nhalfDot);
 
 	/*
 	 * Determine whether and where exactly (in local coordinates) the hit occurred
@@ -249,6 +251,12 @@ namespace ViRay
 						const vec3& objOrientation,
 #endif
 						unsigned objType, ShadeRec& sr);
+
+	void PerformShadowHits(const Ray& transformedRay,
+#ifdef SIMPLE_OBJECT_TRANSFORM_ENABLE
+							const vec3& objOrientation,
+#endif
+							unsigned objType, ShadeRec& sr);
 
 #ifdef RENDER_DATAFLOW_ENABLE
 	/*
