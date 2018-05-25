@@ -223,7 +223,7 @@ namespace ViRay
 	 * compute Fresnel reflection coefficient for the unpolarized beam of light
 	 * Differentiate results between dielectrics and conductors
 	 */
-	myTypeNC GetFresnelReflectionCoeff(const myTypeNC& cosRefl, const myTypeNC& relativeEta, const myTypeNC& invRelativeEtaSqrORExtendedAbsorptionCoeff, bool isConductor);
+	myType GetFresnelReflectionCoeff(const myType& cosRefl, const myType& relativeEta, const myType& invRelativeEtaSqrORExtendedAbsorptionCoeff, bool isConductor);
 
 
 	/*
@@ -239,7 +239,7 @@ namespace ViRay
 	 * cosR - cosine between toViewer and normal
 	 * cosI - cosine between toLight and normal
 	 */
-	myTypeNC GetTorranceSparrowGeometricCoeff(const vec3& normal, const vec3& toViewer, const vec3& toLight, const myTypeNC& cosR, const myTypeNC& cosI, myTypeNC& nhalfDot);
+	myType GetTorranceSparrowGeometricCoeff(const vec3& normal, const vec3& toViewer, const vec3& toLight, const myType& cosR, const myType& cosI, myType& nhalfDot);
 
 	/*
 	 * Determine whether and where exactly (in local coordinates) the hit occurred
@@ -394,7 +394,7 @@ namespace ViRay
 				const myType ndir2min,
 				const vec3& toViewer,
 
-				const myType& fresnelCoeff);
+				/*const */myType& fresnelCoeff);
 
 	/*
 	 * Very similar to the VisibilityTest() but uses shadow-specific functionality.

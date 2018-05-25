@@ -1,5 +1,4 @@
 #include "main.h"
-
 using namespace std;
 
 vec3 GetVectorFromStream(const myType* s, unsigned& pos)

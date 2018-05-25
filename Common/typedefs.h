@@ -18,7 +18,6 @@
 #define PRAGMA_SUB(x) _Pragma (#x)
 #define DO_PRAGMA(x) PRAGMA_SUB(x)
 
-#define INNER_LOOP_UNROLL_FACTOR 1
 #define DESIRED_INNER_LOOP_II 8											// How many clock cylces are required to output the new pixel
 
 //#define USE_FIXEDPOINT
@@ -89,7 +88,7 @@ enum ObjectType{
 
 //#define SELF_RESTART_ENABLE												// If on core enters infinite loop of rendering right after loading textures, all other parameters can change between frames - reduces # of clock cycles (TEXT_PAGE_SIZE)
 
-#define PIXEL_COLOR_CONVERSION_ENABLE									// Convert RGB pixel color to 422 standard (to use with limited bandwidth ADV7511)
+//#define PIXEL_COLOR_CONVERSION_ENABLE									// Convert RGB pixel color to 422 standard (to use with limited bandwidth ADV7511)
 
 #define RENDER_DATAFLOW_ENABLE											// DATAFLOW seems to require less logic around rendering loop however this construct uses extra cycles for each start of RenderSceneInnerLoop and final buffer dump
 																		// The amount of theses extra cycles can be optimized by FRAME_ROWS_IN_BUFFER
@@ -97,7 +96,7 @@ enum ObjectType{
 																		// HINT: In Vivado after synthesis the difference in area consumption is almost negligible so PIPELINE is preferred over DATAFLOW
 																		// HINT2: Implementation says that PIPELINE solution is almost not feasible (high implementation effort)
 
-#define AGGRESSIVE_AREA_OPTIMIZATION_ENABLE								// To use or not to use half's for some less computational critical tasks
+//#define AGGRESSIVE_AREA_OPTIMIZATION_ENABLE								// To use or not to use half's for some less computational critical tasks
 #if defined(AGGRESSIVE_AREA_OPTIMIZATION_ENABLE) && !defined(UC_OPERATION)
 typedef half myTypeNC;
 typedef union {
@@ -129,7 +128,7 @@ typedef myType myTypeNC;
 #define SHADOW_ENABLE													// Shadows rendering: on/off
 #define SELF_SHADOW_ENABLE												// Can an object cast shadows on itself: on/off
 #define FRESNEL_REFLECTION_ENABLE										// Allow to compute reflection amount based on angle of incidence and relative index of refraction: on/off
-#define OREN_NAYAR_DIFFUSE_MODEL_ENABLE									// Use roughness-based statistical model to compute amount of diffused light which is seamlessly able to blend to the Lambert model of diffuse reflection
+//#define OREN_NAYAR_DIFFUSE_MODEL_ENABLE									// Use roughness-based statistical model to compute amount of diffused light which is seamlessly able to blend to the Lambert model of diffuse reflection
 #define TORRANCE_SPARROW_SPECULAR_MODEL_ENABLE							// Enable possibility to use Torrance-Sparrow specular reflection model
 
 #define TEXTURE_ENABLE													// Texturing: on/off
@@ -162,7 +161,7 @@ typedef myType myTypeNC;
 #define LIGHTS_NUM 					((unsigned char)(2))				// The number of lights being processed, the 0-th light is always ambient illumination, 1...n are full lights
 #define OBJ_NUM 					((unsigned char)(8))				// Maximum number of geometric objects in the scene
 
-#define RAYTRACING_DEPTH			((unsigned char)(2))				// If DEEP_RAYTRACING_ENABLE is specified use this value to determine how deep ray tracing algorithm should go
+#define RAYTRACING_DEPTH			((unsigned char)(2))				// Use this value to determine how deep ray tracing algorithm should go
 
 #define MAX_POWER_LOOP_ITER			((unsigned char)(10))				// Determines to which maximum natural power the number can be raised (2^MAX_POWER_LOOP_ITER)
 
@@ -174,6 +173,11 @@ typedef myType myTypeNC;
 #define TWOPI						(myType(6.283184))					// 2.0 * PI
 #define INV_PI						(myType(0.31831))					// 1.0 / PI
 #define INV_TWOPI					(myType(0.159155))					// 1.0 / (2.0 * PI)
+
+//#define TEST_CUSTOM_CLEAR_COLOR
+#ifdef TEST_CUSTOM_CLEAR_COLOR
+#define CLEAR_COLOR vec3(myType(1.0))
+#endif
 
 #ifdef UC_OPERATION
 #define UC_TEMP_NOISE_TEXTURE_POOL 	((unsigned char*)0x80000000 + (0x05000000))

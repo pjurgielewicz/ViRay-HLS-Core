@@ -109,30 +109,30 @@ vec3 GetCubeNormal(const unsigned char& faceIdx)
 	}
 }
 
-myTypeNC GetFresnelReflectionCoeff(const myTypeNC& cosRefl, const myTypeNC& relativeEta, const myTypeNC& invRelativeEtaSqrORExtendedAbsorptionCoeff, bool isConductor)
+myType GetFresnelReflectionCoeff(const myType& cosRefl, const myType& relativeEta, const myType& invRelativeEtaSqrORExtendedAbsorptionCoeff, bool isConductor)
 {
 #pragma HLS INLINE
 //#pragma HLS PIPELINE II=4
 
-	myTypeNC f1(1.0), f2(1.0); // Handling total internal reflection in advance (eta < 1.0)
+	myType f1(1.0), f2(1.0); // Handling total internal reflection in advance (eta < 1.0)
 
 	if (!isConductor)
 	{
-		myTypeNC invRelativeEtaSqr = invRelativeEtaSqrORExtendedAbsorptionCoeff;
-		myTypeNC cosRefrSqr = myTypeNC(1.0) - invRelativeEtaSqr * (myTypeNC(1.0) - cosRefl * cosRefl);
-		if (cosRefrSqr >= myTypeNC(0.0))
+		myType invRelativeEtaSqr = invRelativeEtaSqrORExtendedAbsorptionCoeff;
+		myType cosRefrSqr = myType(1.0) - invRelativeEtaSqr * (myType(1.0) - cosRefl * cosRefl);
+		if (cosRefrSqr >= myType(0.0))
 		{
 //#if defined(FAST_INV_SQRT_ENABLE) && defined(USE_FLOAT)
-//			myTypeNC invCosRefr = ViRayUtils::InvSqrt(cosRefrSqr);
-//			myTypeNC k = cosRefl * invCosRefr;
+//			myType invCosRefr = ViRayUtils::InvSqrt(cosRefrSqr);
+//			myType k = cosRefl * invCosRefr;
 //
 //			f1 = (k - relativeEta) / (k + relativeEta);
-//			f2 = (relativeEta * k - myTypeNC(1.0)) / (relativeEta * k + myTypeNC(1.0));
+//			f2 = (relativeEta * k - myType(1.0)) / (relativeEta * k + myType(1.0));
 //#else
 #if defined(AGGRESSIVE_AREA_OPTIMIZATION_ENABLE) && !defined(UC_OPERATION)
-			myTypeNC cosRefr = hls::sqrt(cosRefrSqr);
+			myType cosRefr = hls::sqrt(cosRefrSqr);
 #else
-			myTypeNC cosRefr = ViRayUtils::Sqrt(cosRefrSqr);
+			myType cosRefr = ViRayUtils::Sqrt(cosRefrSqr);
 #endif
 
 			f1 = (relativeEta * cosRefl - cosRefr) / (relativeEta * cosRefl + cosRefr);		// parallel
@@ -144,19 +144,19 @@ myTypeNC GetFresnelReflectionCoeff(const myTypeNC& cosRefl, const myTypeNC& rela
 	}
 	else
 	{
-		myTypeNC etak = invRelativeEtaSqrORExtendedAbsorptionCoeff;
-		myTypeNC cosSqr = cosRefl * cosRefl;
-		myTypeNC doubleEtaCos = myTypeNC(2.0) * relativeEta * cosRefl;
+		myType etak = invRelativeEtaSqrORExtendedAbsorptionCoeff;
+		myType cosSqr = cosRefl * cosRefl;
+		myType doubleEtaCos = myType(2.0) * relativeEta * cosRefl;
 
 		// APPROX FORMULA FROM PHYSICALLY BASED RENDERING
-		f1 = (etak * cosSqr - doubleEtaCos + myTypeNC(1.0)) / (etak * cosSqr + doubleEtaCos + myTypeNC(1.0));	// parallel^2
+		f1 = (etak * cosSqr - doubleEtaCos + myType(1.0)) / (etak * cosSqr + doubleEtaCos + myType(1.0));	// parallel^2
 		f2 = (etak - doubleEtaCos + cosSqr) / (etak + doubleEtaCos + cosSqr);								// perpendicular^2
 	}
 
 	/*
 	 * ASSUMING EQUAL CONTRIBUTION OF EACH KIND OF POLARIZATION <-> UNPOLARIZED LIGHT
 	 */
-	return myTypeNC(0.5) * (f1 + f2);
+	return myType(0.5) * (f1 + f2);
 }
 
 //myType GetOrenNayarDiffuseCoeff(const myType& cosR, const myType& cosI)
@@ -183,72 +183,77 @@ myType GetOrenNayarDiffuseCoeff(const vec3& wi, const vec3& wo, const vec3& n, c
 #pragma HLS PIPELINE II=4
 //#pragma HLS INLINE
 
-//	myType minInv   = myType(1.0) / ((ViRayUtils::Abs(wi.data[2]) > ViRayUtils::Abs(wo.data[2])) ? ViRayUtils::Abs(wi.data[2]) : ViRayUtils::Abs(wo.data[2]));
-//	myType f		= ViRayUtils::Clamp(wi.data[0] * wo.data[0] + wi.data[1] * wo.data[1], myType(0.0), myType(1.0)) * minInv;
+//	vec3 ri = wi - n * cosThetai;
+//	vec3 ro = wo - n * cosThetao;
 //
-//	return f;
+//	myTypeNC riSqr = AGGRESSIVE_DOT(ri, ri); //ri * ri;
+//	myTypeNC roSqr = AGGRESSIVE_DOT(ro, ro);//ro * ro;
+//
+////	vec3 localX = (vec3(myType(0.00424), myType(1.0), myType(0.00764))^n)^wi;//.Normalize();
+////	myTypeNC localXSqr = AGGRESSIVE_DOT(localX, localX);//localX * localX;
+//
+//	vec3 localX = (vec3(myType(0.004239838), myType(0.999961829), myType(0.007639708))^n);//.Normalize();
+//	const myTypeNC localXSqr = myTypeNC(1.0);
+//
+//	myTypeNC riLocalX = AGGRESSIVE_DOT(ri, localX);//ri * localX;
+//	myTypeNC roLocalX = AGGRESSIVE_DOT(ro, localX);//ro * localX;
+//
+//#if defined(AGGRESSIVE_AREA_OPTIMIZATION_ENABLE) && !defined(UC_OPERATION)
+//	myTypeNC sinPhiTerm = hls::sqrt((riSqr * localXSqr - riLocalX * riLocalX) * (roSqr * localXSqr - roLocalX * roLocalX) );
+//#else
+//	myTypeNC sinPhiTerm = ViRayUtils::Sqrt((riSqr * localXSqr - riLocalX * riLocalX) * (roSqr * localXSqr - roLocalX * roLocalX) );
+//#endif
+//
+//	myTypeNC minInv   = myTypeNC(1.0) / (localXSqr * ((ViRayUtils::Abs(cosThetai) > ViRayUtils::Abs(cosThetao)) ? ViRayUtils::Abs(cosThetai) : ViRayUtils::Abs(cosThetao)));
+//
+//	myTypeNC phiTerm = riLocalX * roLocalX + sinPhiTerm;
+//
+//	return (phiTerm > myTypeNC(0.0)) ? phiTerm * minInv : myTypeNC(0.0);
 
-//	myType cosThetai = n * wi;
-//	myType cosThetao = n * wo;
+	myTypeNC ri[3], ro[3], localX[3];
+	const myTypeNC dummyVec[3] = {myTypeNC(0.004239838), myTypeNC(0.999961829), myTypeNC(0.007639708)};
 
-	vec3 ri = wi - n * cosThetai;
-	vec3 ro = wo - n * cosThetao;
+	for (unsigned i = 0; i < 3; ++i)
+	{
+		ri[i] = myTypeNC(wi[i]) - myTypeNC(n[i]) * myTypeNC(cosThetai);
+		ro[i] = myTypeNC(wo[i]) - myTypeNC(n[i]) * myTypeNC(cosThetao);
+	}
 
-	myTypeNC riSqr = AGGRESSIVE_DOT(ri, ri); //ri * ri;
-	myTypeNC roSqr = AGGRESSIVE_DOT(ro, ro);//ro * ro;
+	myTypeNC riSqr = AGGRESSIVE_DOT(ri, ri);
+	myTypeNC roSqr = AGGRESSIVE_DOT(ro, ro);
 
-	vec3 localX = (vec3(myType(0.00424), myType(1.0), myType(0.00764))^n);//.Normalize();
-//	myType localXSqr;
-//	myType riLocalX, roLocalX;
+	localX[0] = dummyVec[1] * myTypeNC(n[2]) - dummyVec[2] * myTypeNC(n[1]);
+	localX[1] = -dummyVec[0] * myTypeNC(n[2]) + dummyVec[2] * myTypeNC(n[0]);
+	localX[2] = dummyVec[0] * myTypeNC(n[1]) - dummyVec[1] * myTypeNC(n[0]);
 
-//	if (ViRayUtils::Abs(n[0]) < myType(0.9) )
-//	{
-//		localX = vec3(0, n[2], -n[1]);
-////		localXSqr = n[2] * n[2] + n[1] * n[1];
-////		riLocalX = ri[1] * n[2] - ri[2] * n[1];
-////		roLocalX = ro[1] * n[2] - ro[2] * n[1];
-//	}
-//	else
-//	{
-//		localX = vec3(-n[2], 0, n[0]);
-////		localXSqr = n[2] * n[2] + n[0] * n[0];
-////		riLocalX = -ri[0] * n[2] + ri[2] * n[0];
-////		roLocalX = -ro[0] * n[2] + ro[2] * n[0];
-//	}
-	myTypeNC localXSqr = AGGRESSIVE_DOT(localX, localX);//localX * localX;
+	myTypeNC riLocalX = AGGRESSIVE_DOT(ri, localX);
+	myTypeNC roLocalX = AGGRESSIVE_DOT(ro, localX);
 
-	myTypeNC riLocalX = AGGRESSIVE_DOT(ri, localX);//ri * localX;
-	myTypeNC roLocalX = AGGRESSIVE_DOT(ro, localX);//ro * localX;
+	myTypeNC sinPhiTerm = hls::sqrt((riSqr - riLocalX * riLocalX) * (roSqr - roLocalX * roLocalX) );
 
-#if defined(AGGRESSIVE_AREA_OPTIMIZATION_ENABLE) && !defined(UC_OPERATION)
-	myTypeNC sinPhiTerm = hls::sqrt((riSqr * localXSqr - riLocalX * riLocalX) * (roSqr * localXSqr - roLocalX * roLocalX) );
-#else
-	myTypeNC sinPhiTerm = ViRayUtils::Sqrt((riSqr * localXSqr - riLocalX * riLocalX) * (roSqr * localXSqr - roLocalX * roLocalX) );
-#endif
-
-	myTypeNC minInv   = myTypeNC(1.0) / (localXSqr * ((ViRayUtils::Abs(cosThetai) > ViRayUtils::Abs(cosThetao)) ? ViRayUtils::Abs(cosThetai) : ViRayUtils::Abs(cosThetao)));
-
+	myTypeNC minInv = myTypeNC(1.0) / ((ViRayUtils::Abs(cosThetai) > ViRayUtils::Abs(cosThetao)) ? ViRayUtils::Abs(cosThetai) : ViRayUtils::Abs(cosThetao));
 	myTypeNC phiTerm = riLocalX * roLocalX + sinPhiTerm;
 
 	return (phiTerm > myTypeNC(0.0)) ? phiTerm * minInv : myTypeNC(0.0);
 }
 
-myTypeNC GetTorranceSparrowGeometricCoeff(const vec3& normal, const vec3& toViewer, const vec3& toLight, const myTypeNC& cosR, const myTypeNC& cosI, myTypeNC& nhalfDot)
+myType GetTorranceSparrowGeometricCoeff(const vec3& normal, const vec3& toViewer, const vec3& toLight, const myType& cosR, const myType& cosI, myType& nhalfDot)
 {
 #pragma HLS INLINE
 //#pragma HLS PIPELINE II=4
 	vec3 half = (toViewer + toLight).Normalize();
-	myTypeNC halfDotInv = myTypeNC(1.0) / (AGGRESSIVE_DOT(half, toViewer));
+	myType halfDotInv = myType(1.0) / (half * toViewer);
 
-	nhalfDot = normal * half;
-	myTypeNC tmp = myTypeNC(2.0) * halfDotInv * nhalfDot;
-	myTypeNC f1 = tmp * cosR;
-	myTypeNC f2 = tmp * cosI;
+	nhalfDot = ViRayUtils::Clamp(normal * half, myType(0.0), myType(1.0));
 
-	myTypeNC f = (f1 < f2) ? f1 : f2;
-	f = (f < myTypeNC(1.0)) ? f : myTypeNC(1.0);
+	myType tmp = myType(2.0) * halfDotInv * nhalfDot;
+	myType f1 = tmp * cosR;
+	myType f2 = tmp * cosI;
 
-	return f / (myTypeNC(4.0) * cosR * cosI);
+	myType f = (f1 < f2) ? f1 : f2;
+	f = (f < myType(1.0)) ? f : myType(1.0);
+
+	return f / (myType(4.0) * cosR * cosI);
 }
 
 void PerformHits(const Ray& transformedRay,
@@ -267,49 +272,57 @@ void PerformHits(const Ray& transformedRay,
 	bool xInverse(false), yInverse(false), zInverse(false);
 	Ray transformedRayByObjectDirection(transformedRay);
 
-#if defined(SPHERE_OBJECT_ENABLE) || defined(CYLINDER_OBJECT_ENABLE) || defined(CONE_OBJECT_ENABLE) || defined(PLANE_OBJECT_ENABLE) || defined(DISK_OBJECT_ENABLE) || defined(SQUARE_OBJECT_ENABLE)
-	if (objType == SPHERE 	||
-		objType == CYLINDER ||
-		objType == CONE		||
-		objType == PLANE	||
-		objType == DISK		||
-		objType == SQUARE)
-	{
 #ifdef SIMPLE_OBJECT_TRANSFORM_ENABLE
-		/*
-		 * SWAPPING COORDINATES IN ORDER TO ORIENT OBJECT
-		 * ALONG CHOSEN AXIS - IT IS BETTER THAN NOTHING...
-		 */
-		if (objOrientation[0] != myType(0.0))
+	/*
+	 * SWAPPING COORDINATES IN ORDER TO ORIENT OBJECT
+	 * ALONG CHOSEN AXIS - IT IS BETTER THAN NOTHING...
+	 */
+	if (objOrientation[0] != myType(0.0))
+	{
+		if (objOrientation[0] < myType(0.0))
 		{
-			if (objOrientation[0] < myType(0.0))
-			{
-				transformedRayByObjectDirection.direction[0] 	= -transformedRayByObjectDirection.direction[0];
-				transformedRayByObjectDirection.origin[0] 		= -transformedRayByObjectDirection.origin[0];
-				xInverse = true;
-			}
-			ViRayUtils::Swap(transformedRayByObjectDirection.direction[0], 	transformedRayByObjectDirection.direction[1]);
-			ViRayUtils::Swap(transformedRayByObjectDirection.origin[0], 	transformedRayByObjectDirection.origin[1]);
+			transformedRayByObjectDirection.direction[0] 	= -transformedRayByObjectDirection.direction[0];
+			transformedRayByObjectDirection.origin[0] 		= -transformedRayByObjectDirection.origin[0];
+			xInverse = true;
 		}
-		else if (objOrientation[1] < myType(0.0))
+		ViRayUtils::Swap(transformedRayByObjectDirection.direction[0], 	transformedRayByObjectDirection.direction[1]);
+		ViRayUtils::Swap(transformedRayByObjectDirection.origin[0], 	transformedRayByObjectDirection.origin[1]);
+	}
+	else if (objOrientation[1] < myType(0.0))
+	{
+		transformedRayByObjectDirection.direction[1] 		= -transformedRayByObjectDirection.direction[1];
+		transformedRayByObjectDirection.origin[1] 			= -transformedRayByObjectDirection.origin[1];
+		yInverse = true;
+	}
+	else if (objOrientation[2] != myType(0.0))
+	{
+		if (objOrientation[2] < myType(0.0))
 		{
-			transformedRayByObjectDirection.direction[1] 		= -transformedRayByObjectDirection.direction[1];
-			transformedRayByObjectDirection.origin[1] 			= -transformedRayByObjectDirection.origin[1];
-			yInverse = true;
+			transformedRayByObjectDirection.direction[2] 	= -transformedRayByObjectDirection.direction[2];
+			transformedRayByObjectDirection.origin[2] 		= -transformedRayByObjectDirection.origin[2];
+			zInverse = true;
 		}
-		else if (objOrientation[2] != myType(0.0))
-		{
-			if (objOrientation[2] < myType(0.0))
-			{
-				transformedRayByObjectDirection.direction[2] 	= -transformedRayByObjectDirection.direction[2];
-				transformedRayByObjectDirection.origin[2] 		= -transformedRayByObjectDirection.origin[2];
-				zInverse = true;
-			}
-			ViRayUtils::Swap(transformedRayByObjectDirection.direction[2], 	transformedRayByObjectDirection.direction[1]);
-			ViRayUtils::Swap(transformedRayByObjectDirection.origin[2], 	transformedRayByObjectDirection.origin[1]);
-		}
+		ViRayUtils::Swap(transformedRayByObjectDirection.direction[2], 	transformedRayByObjectDirection.direction[1]);
+		ViRayUtils::Swap(transformedRayByObjectDirection.origin[2], 	transformedRayByObjectDirection.origin[1]);
+	}
 #endif
 
+//	if (objType == SPHERE 	||
+//		objType == CYLINDER ||
+//		objType == CONE		||
+//		objType == PLANE	||
+//		objType == DISK		||
+//		objType == SQUARE)
+	switch(objType)
+	{
+#if defined(SPHERE_OBJECT_ENABLE) || defined(CYLINDER_OBJECT_ENABLE) || defined(CONE_OBJECT_ENABLE) || defined(PLANE_OBJECT_ENABLE) || defined(DISK_OBJECT_ENABLE) || defined(SQUARE_OBJECT_ENABLE)
+	case SPHERE:
+	case CYLINDER:
+	case CONE:
+	case PLANE:
+	case DISK:
+	case SQUARE:
+	{
 		myType dxdx = transformedRayByObjectDirection.direction[0] * transformedRayByObjectDirection.direction[0];
 		myType dydy = transformedRayByObjectDirection.direction[1] * transformedRayByObjectDirection.direction[1];
 		myType dzdz = transformedRayByObjectDirection.direction[2] * transformedRayByObjectDirection.direction[2];
@@ -383,16 +396,15 @@ void PerformHits(const Ray& transformedRay,
 		}
 #endif
 	}
-	else
-	{
+	break;
 #endif
-#if defined(CUBE_OBJECT_ENABLE)
-		if (objType == CUBE)
-		{
-			res = CubeTest(transformedRay, faceIdx);
-		}
+#if defined(CUBE_OBJECT_ENABLE) && !defined(SIMPLE_OBJECT_TRANSFORM_ENABLE)
+	case CUBE:
+		res = CubeTest(transformedRayByObjectDirection, faceIdx);
+		break;
 #endif
-		;
+	default:
+		res = MAX_DISTANCE;
 	}
 
 	sr.localHitPoint = transformedRay.origin + transformedRay.direction * res;
@@ -447,7 +459,7 @@ void PerformHits(const Ray& transformedRay,
 			ViRayUtils::Abs(sr.localHitPoint[2]) > myType(1.0))		sr.localHitPoint = vec3(MAX_DISTANCE);//res = MAX_DISTANCE;
 		break;
 #endif
-#ifdef CUBE_OBJECT_ENABLE
+#if  defined(CUBE_OBJECT_ENABLE) && !defined(SIMPLE_OBJECT_TRANSFORM_ENABLE)
 	case CUBE:
 		sr.localNormal = GetCubeNormal(faceIdx);
 		break;
@@ -473,64 +485,72 @@ void PerformShadowHits(const Ray& transformedRay,
 	bool xInverse(false), yInverse(false), zInverse(false);
 	Ray transformedRayByObjectDirection(transformedRay);
 
-#if defined(SPHERE_OBJECT_ENABLE) || defined(CYLINDER_OBJECT_ENABLE) || defined(CONE_OBJECT_ENABLE) || defined(PLANE_OBJECT_ENABLE) || defined(DISK_OBJECT_ENABLE) || defined(SQUARE_OBJECT_ENABLE)
-	if (objType == SPHERE 	||
-		objType == CYLINDER ||
-		objType == CONE		||
-		objType == PLANE	||
-		objType == DISK		||
-		objType == SQUARE)
-	{
 #ifdef SIMPLE_OBJECT_TRANSFORM_ENABLE
-		/*
-		 * SWAPPING COORDINATES IN ORDER TO ORIENT OBJECT
-		 * ALONG CHOSEN AXIS - IT IS BETTER THAN NOTHING...
-		 */
-		if (objOrientation[0] != myType(0.0))
+	/*
+	 * SWAPPING COORDINATES IN ORDER TO ORIENT OBJECT
+	 * ALONG CHOSEN AXIS - IT IS BETTER THAN NOTHING...
+	 */
+	if (objOrientation[0] != myType(0.0))
+	{
+		if (objOrientation[0] < myType(0.0))
 		{
-			if (objOrientation[0] < myType(0.0))
-			{
-				transformedRayByObjectDirection.direction[0] 	= -transformedRayByObjectDirection.direction[0];
-				transformedRayByObjectDirection.origin[0] 		= -transformedRayByObjectDirection.origin[0];
-				xInverse = true;
-			}
-			ViRayUtils::Swap(transformedRayByObjectDirection.direction[0], 	transformedRayByObjectDirection.direction[1]);
-			ViRayUtils::Swap(transformedRayByObjectDirection.origin[0], 	transformedRayByObjectDirection.origin[1]);
+			transformedRayByObjectDirection.direction[0] 	= -transformedRayByObjectDirection.direction[0];
+			transformedRayByObjectDirection.origin[0] 		= -transformedRayByObjectDirection.origin[0];
+			xInverse = true;
 		}
-		else if (objOrientation[1] < myType(0.0))
+		ViRayUtils::Swap(transformedRayByObjectDirection.direction[0], 	transformedRayByObjectDirection.direction[1]);
+		ViRayUtils::Swap(transformedRayByObjectDirection.origin[0], 	transformedRayByObjectDirection.origin[1]);
+	}
+	else if (objOrientation[1] < myType(0.0))
+	{
+		transformedRayByObjectDirection.direction[1] 		= -transformedRayByObjectDirection.direction[1];
+		transformedRayByObjectDirection.origin[1] 			= -transformedRayByObjectDirection.origin[1];
+		yInverse = true;
+	}
+	else if (objOrientation[2] != myType(0.0))
+	{
+		if (objOrientation[2] < myType(0.0))
 		{
-			transformedRayByObjectDirection.direction[1] 		= -transformedRayByObjectDirection.direction[1];
-			transformedRayByObjectDirection.origin[1] 			= -transformedRayByObjectDirection.origin[1];
-			yInverse = true;
+			transformedRayByObjectDirection.direction[2] 	= -transformedRayByObjectDirection.direction[2];
+			transformedRayByObjectDirection.origin[2] 		= -transformedRayByObjectDirection.origin[2];
+			zInverse = true;
 		}
-		else if (objOrientation[2] != myType(0.0))
-		{
-			if (objOrientation[2] < myType(0.0))
-			{
-				transformedRayByObjectDirection.direction[2] 	= -transformedRayByObjectDirection.direction[2];
-				transformedRayByObjectDirection.origin[2] 		= -transformedRayByObjectDirection.origin[2];
-				zInverse = true;
-			}
-			ViRayUtils::Swap(transformedRayByObjectDirection.direction[2], 	transformedRayByObjectDirection.direction[1]);
-			ViRayUtils::Swap(transformedRayByObjectDirection.origin[2], 	transformedRayByObjectDirection.origin[1]);
-		}
+		ViRayUtils::Swap(transformedRayByObjectDirection.direction[2], 	transformedRayByObjectDirection.direction[1]);
+		ViRayUtils::Swap(transformedRayByObjectDirection.origin[2], 	transformedRayByObjectDirection.origin[1]);
+	}
 #endif
 
-		myTypeNC dxdx = (myTypeNC)transformedRayByObjectDirection.direction[0] * (myTypeNC)transformedRayByObjectDirection.direction[0];
-		myTypeNC dydy = (myTypeNC)transformedRayByObjectDirection.direction[1] * (myTypeNC)transformedRayByObjectDirection.direction[1];
-		myTypeNC dzdz = (myTypeNC)transformedRayByObjectDirection.direction[2] * (myTypeNC)transformedRayByObjectDirection.direction[2];
+//	if (objType == SPHERE 	||
+//		objType == CYLINDER ||
+//		objType == CONE		||
+//		objType == PLANE	||
+//		objType == DISK		||
+//		objType == SQUARE)
+	switch(objType)
+	{
+#if defined(SPHERE_OBJECT_ENABLE) || defined(CYLINDER_OBJECT_ENABLE) || defined(CONE_OBJECT_ENABLE) || defined(PLANE_OBJECT_ENABLE) || defined(DISK_OBJECT_ENABLE) || defined(SQUARE_OBJECT_ENABLE)
+	case SPHERE:
+	case CYLINDER:
+	case CONE:
+	case PLANE:
+	case DISK:
+	case SQUARE:
+	{
+		myType dxdx = transformedRayByObjectDirection.direction[0] * transformedRayByObjectDirection.direction[0];
+		myType dydy = transformedRayByObjectDirection.direction[1] * transformedRayByObjectDirection.direction[1];
+		myType dzdz = transformedRayByObjectDirection.direction[2] * transformedRayByObjectDirection.direction[2];
 
-		myTypeNC dxox = (myTypeNC)transformedRayByObjectDirection.direction[0] * (myTypeNC)transformedRayByObjectDirection.origin[0];
-		myTypeNC dyoy = (myTypeNC)transformedRayByObjectDirection.direction[1] * (myTypeNC)transformedRayByObjectDirection.origin[1];
-		myTypeNC dzoz = (myTypeNC)transformedRayByObjectDirection.direction[2] * (myTypeNC)transformedRayByObjectDirection.origin[2];
+		myType dxox = transformedRayByObjectDirection.direction[0] * transformedRayByObjectDirection.origin[0];
+		myType dyoy = transformedRayByObjectDirection.direction[1] * transformedRayByObjectDirection.origin[1];
+		myType dzoz = transformedRayByObjectDirection.direction[2] * transformedRayByObjectDirection.origin[2];
 
-		myTypeNC oxox = (myTypeNC)transformedRayByObjectDirection.origin[0] * (myTypeNC)transformedRayByObjectDirection.origin[0];
-		myTypeNC oyoy = (myTypeNC)transformedRayByObjectDirection.origin[1] * (myTypeNC)transformedRayByObjectDirection.origin[1];
-		myTypeNC ozoz = (myTypeNC)transformedRayByObjectDirection.origin[2] * (myTypeNC)transformedRayByObjectDirection.origin[2];
+		myType oxox = transformedRayByObjectDirection.origin[0] * transformedRayByObjectDirection.origin[0];
+		myType oyoy = transformedRayByObjectDirection.origin[1] * transformedRayByObjectDirection.origin[1];
+		myType ozoz = transformedRayByObjectDirection.origin[2] * transformedRayByObjectDirection.origin[2];
 
-		myTypeNC dxdxdzdz = (myTypeNC)dxdx + (myTypeNC)dzdz;
-		myTypeNC dxoxdzoz = (myTypeNC)dxox + (myTypeNC)dzoz;
-		myTypeNC oxoxozoz = (myTypeNC)oxox + (myTypeNC)ozoz;
+		myType dxdxdzdz = dxdx + dzdz;
+		myType dxoxdzoz = dxox + dzoz;
+		myType oxoxozoz = oxox + ozoz;
 
 		switch(objType)
 		{
@@ -542,7 +562,7 @@ void PerformShadowHits(const Ray& transformedRay,
 		case SPHERE:
 			abc[0] = dxdxdzdz + dydy;
 			abc[1] = dxoxdzoz + dyoy;
-			abc[2] = oxoxozoz + oyoy - (myTypeNC)(1.0);
+			abc[2] = oxoxozoz + oyoy - myType(1.0);
 
 			break;
 #endif
@@ -550,7 +570,7 @@ void PerformShadowHits(const Ray& transformedRay,
 		case CYLINDER:
 			abc[0] = dxdxdzdz;
 			abc[1] = dxoxdzoz;
-			abc[2] = oxoxozoz - (myTypeNC)(1.0);
+			abc[2] = oxoxozoz - myType(1.0);
 
 			break;
 #endif
@@ -558,7 +578,7 @@ void PerformShadowHits(const Ray& transformedRay,
 		case CONE:
 			abc[0] = dxdxdzdz - dydy;
 			abc[1] = dxoxdzoz - dyoy + transformedRayByObjectDirection.direction[1];
-			abc[2] = oxoxozoz - oyoy + (myTypeNC)(2.0) * transformedRayByObjectDirection.origin[1] - (myTypeNC)(1.0);
+			abc[2] = oxoxozoz - oyoy + myType(2.0) * transformedRayByObjectDirection.origin[1] - myType(1.0);
 
 			break;
 #endif
@@ -589,16 +609,15 @@ void PerformShadowHits(const Ray& transformedRay,
 		}
 #endif
 	}
-	else
-	{
+	break;
 #endif
-#if defined(CUBE_OBJECT_ENABLE)
-		if (objType == CUBE)
-		{
-			res = CubeTest(transformedRay, faceIdx);
-		}
+#if defined(CUBE_OBJECT_ENABLE) && !defined(SIMPLE_OBJECT_TRANSFORM_ENABLE)
+	case CUBE:
+		res = CubeTest(transformedRayByObjectDirection, faceIdx);
+		break;
 #endif
-		;
+	default:
+		res = MAX_DISTANCE;
 	}
 
 	sr.localHitPoint = transformedRay.origin + transformedRay.direction * res;
@@ -681,17 +700,19 @@ void RenderSceneInnerLoop(const CCamera& camera,
 
 							pixelColorType* frameBuffer)
 {
-
 	const vec3 clearColor(myType(0.0));
 	vec3 colorAccum;
 
 	static unsigned short h = HEIGHT - 1;
 	unsigned short w = 0;
 
+#ifdef TEST_CUSTOM_CLEAR_COLOR
+	bool isVaccum;
+#endif
+
 	RenderPixelLoop: for (unsigned short fbPos = 0; fbPos < FRAME_ROW_BUFFER_SIZE; ++fbPos, ++w)
 	{
 DO_PRAGMA(HLS PIPELINE II=DESIRED_INNER_LOOP_II)
-DO_PRAGMA(HLS UNROLL factor=INNER_LOOP_UNROLL_FACTOR)
 
 		if (w == WIDTH)
 		{
@@ -707,6 +728,11 @@ DO_PRAGMA(HLS UNROLL factor=INNER_LOOP_UNROLL_FACTOR)
 		CreatePrimaryRay(camera, posShift, h, w, ray);
 
 		myType currentReflectivity(1.0);
+
+#ifdef TEST_CUSTOM_CLEAR_COLOR
+		isVaccum = false;
+#endif
+
 		for (unsigned char depth = 0; depth < RAYTRACING_DEPTH; ++depth)
 		{
 			closestSr = ShadeRec();
@@ -718,6 +744,10 @@ DO_PRAGMA(HLS UNROLL factor=INNER_LOOP_UNROLL_FACTOR)
 							objTransform,
 #endif
 							objType, closestSr);
+
+#ifdef TEST_CUSTOM_CLEAR_COLOR
+			if (depth == 0 && !closestSr.isHit) isVaccum = true;
+#endif
 
 			if (!closestSr.isHit) break;
 
@@ -753,6 +783,13 @@ DO_PRAGMA(HLS UNROLL factor=INNER_LOOP_UNROLL_FACTOR)
 			// RAY ALREADY USED TO COMPUTE REFLECTIVITY -> REFLECT
 			ray = Ray(closestSr.hitPoint, (-ray.direction).Reflect(closestSr.normal));
 		}
+
+#ifdef TEST_CUSTOM_CLEAR_COLOR
+		if (isVaccum)
+		{
+			colorAccum = CLEAR_COLOR;
+		}
+#endif
 
 		SaveColorToBuffer(colorAccum,
 #ifdef PIXEL_COLOR_CONVERSION_ENABLE
@@ -840,7 +877,6 @@ void RenderScene(const CCamera& camera,
 	RenderPixelLoop: for (unsigned px = 0; px < NUM_OF_PIXELS; ++px, ++w)
 	{
 DO_PRAGMA(HLS PIPELINE II=DESIRED_INNER_LOOP_II)
-DO_PRAGMA(HLS UNROLL factor=INNER_LOOP_UNROLL_FACTOR)
 		if (w == WIDTH)
 		{
 			w = (unsigned short)(0);
@@ -963,7 +999,7 @@ vec3 Shade(	const ShadeRec& closestSr,
 			const myType ndir2min,
 			const vec3& toViewer,
 
-			const myType& fresnelCoeff)
+			myType& fresnelCoeff)
 {
 #pragma HLS INLINE
 //#pragma HLS PIPELINE II=4
@@ -1003,7 +1039,7 @@ vec3 Shade(	const ShadeRec& closestSr,
 		myType OrenNayarCoeff = materials[closestSr.objIdx].GetMaterialDescription().k[0] + materials[closestSr.objIdx].GetMaterialDescription().k[1] * GetOrenNayarDiffuseCoeff(toViewer, dirToLight, closestSr.normal, ndir2min * myType(0.5), dot);//GetOrenNayarDiffuseCoeff(ndir2min * myType(0.5), dot);
 #endif
 
-		myTypeNC nhalfDot;
+		myType nhalfDot;
 		myType TorranceSparrowGCoeff = GetTorranceSparrowGeometricCoeff(closestSr.normal, toViewer, dirToLight, ndir2min * myType(0.5), dot, nhalfDot);
 		myType TorranceSparrowDCoeff = ViRayUtils::NaturalPow(nhalfDot, materials[closestSr.objIdx].GetMaterialDescription().specExp) * (materials[closestSr.objIdx].GetMaterialDescription().specExp + myType(2.0)) * INV_TWOPI;
 #ifdef TORRANCE_SPARROW_SPECULAR_MODEL_ENABLE
@@ -1012,6 +1048,7 @@ vec3 Shade(	const ShadeRec& closestSr,
 																	materials[closestSr.objIdx].GetMaterialDescription().fresnelData[2],
 																	materials[closestSr.objIdx].GetMaterialDescription().isConductor);//fresnelCoeff;
 		myType specularCoeff = (materials[closestSr.objIdx].GetMaterialDescription().useTorranceSparrowSpecularReflection) ? myType(TorranceSparrowDCoeff * TorranceSparrowGCoeff * TorranceSparrowFCoeff) : TorranceSparrowDCoeff;
+		fresnelCoeff = (materials[closestSr.objIdx].GetMaterialDescription().useTorranceSparrowSpecularReflection) ? TorranceSparrowFCoeff : fresnelCoeff;
 #else
 		myType specularCoeff = TorranceSparrowDCoeff;		// USE BLINN-PHONG MODEL INSTEAD
 #endif
@@ -1538,13 +1575,13 @@ myType ViRayUtils::InvSqrt(myType val)
 	y.fp_num = val;
 	i = y.raw_bits;
 
-	i = 0x5f375a86 - (i >> 1);
+	i = 0x5f375a86 - (i >> 1);												// 'MAGICK' number
 
 	y.raw_bits = i;
 
 	for (unsigned char k = 0; k < FAST_INV_SQRT_ORDER; ++k)
 	{
-		y.fp_num = y.fp_num * (threehalfs - (x2 * y.fp_num * y.fp_num));   // NR iteration
+		y.fp_num = y.fp_num * (threehalfs - (x2 * y.fp_num * y.fp_num));   // Newton-Raphson iteration
 	}
 
 	return y.fp_num;

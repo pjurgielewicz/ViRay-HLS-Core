@@ -62,15 +62,13 @@ private:
 			myTypeNC w11, w12, w22, w21;
 		};
 
-
-
 		unsigned      baseAddr;
 		unsigned char textureType;
 		unsigned char textureMapping;
 		unsigned short textureWidth, textureHeight;
 
-		myTypeNC 			s, t;
-		myTypeNC			ss, st;
+		myType 			s, t;
+		myType			ss, st;
 
 		/*
 		 * THE WIDTH OF EACH ELEMENT IS BIGGER THAN NECESSARY FOR THE CURRENT IMPLEMENTATION
@@ -129,7 +127,7 @@ private:
 		{
 //		#pragma HLS INLINE
 #pragma HLS PIPELINE II=4
-		myTypeNC vx, vy, vz;
+		myType vx, vy, vz;
 #ifdef SIMPLE_OBJECT_TRANSFORM_ENABLE
 			if (orientation[0] != myType(0.0))
 			{
@@ -162,22 +160,22 @@ private:
 //			vz = hls::modf(vz, &dummy);
 
 #ifdef ADVANCED_TEXTURE_MAPPING_ENABLE
-			myTypeNC phi 		= ViRayUtils::Atan2(vx, vz) + myTypeNC(PI);
-			myTypeNC theta		= ViRayUtils::Acos(vy);
+			myType phi 		= ViRayUtils::Atan2(vx, vz) + myType(PI);
+			myType theta		= ViRayUtils::Acos(vy);
 #endif
 
-			myTypeNC u, v;
+			myType u, v;
 
 			switch (textureMapping)
 			{
 #ifdef ADVANCED_TEXTURE_MAPPING_ENABLE
 			case SPHERICAL:
-				u = phi * myTypeNC(INV_TWOPI);
-				v = myTypeNC(1.0) - theta  * myTypeNC(INV_PI);
+				u = phi * myType(INV_TWOPI);
+				v = myType(1.0) - theta  * myType(INV_PI);
 				break;
 			case CYLINDRICAL:
-				u = phi * myTypeNC(INV_TWOPI);
-				v = (vy + myTypeNC(1.0)) * myTypeNC(0.5);
+				u = phi * myType(INV_TWOPI);
+				v = (vy + myType(1.0)) * myType(0.5);
 				break;
 #endif
 			case PLANE_PLANAR:
@@ -185,19 +183,19 @@ private:
 				v = vz;
 				break;
 			default: // RECTANGULAR
-				u = (vx + myTypeNC(1.0)) * myTypeNC(0.5);
-				v = (vz + myTypeNC(1.0)) * myTypeNC(0.5);
+				u = (vx + myType(1.0)) * myType(0.5);
+				v = (vz + myType(1.0)) * myType(0.5);
 				break;
 			}
 
 			// TRANSFORM TEXTURE & FIND MAJOR PIXEL
-			myTypeNC realColumn 	= (textureWidth  ) * (u + this->s) * this->ss; // hls::fabs ??
-			myTypeNC realRow 		= (textureHeight ) * (v + this->t) * this->st; // hls::fabs ??
+			myType realColumn 	= (textureWidth  ) * (u + this->s) * this->ss; // hls::fabs ??
+			myType realRow 		= (textureHeight ) * (v + this->t) * this->st; // hls::fabs ??
 
 //			realColumn = hls::fabs(realColumn);
 //			realRow    = hls::fabs(realRow);
 
-			myTypeNC dc, dr;
+			myType dc, dr;
 #ifndef UC_OPERATION
 #ifdef USE_FIXEDPOINT
 			myType fc = realColumn 	& LOW_BITS;
@@ -205,16 +203,16 @@ private:
 			dc 		  = realColumn 	& HIGH_BITS;
 			dr 		  = realRow 	& HIGH_BITS;
 #else
-			myTypeNC fc = hls::modf(realColumn, &dc);
-			myTypeNC fr = hls::modf(realRow, 	  &dr);
+			myType fc = hls::modf(realColumn, &dc);
+			myType fr = hls::modf(realRow, 	  &dr);
 #endif
 #else
-			myTypeNC fc = std::modf(realColumn, &dc);
-			myTypeNC fr = std::modf(realRow, 	  &dr);
+			myType fc = std::modf(realColumn, &dc);
+			myType fr = std::modf(realRow, 	  &dr);
 #endif
 
-			if (fc <= myTypeNC(0.0)) fc += myTypeNC(1.0);
-			if (fr <= myTypeNC(0.0)) fr += myTypeNC(1.0);
+			if (fc <= myType(0.0)) fc += myType(1.0);
+			if (fr <= myType(0.0)) fr += myType(1.0);
 
 //			dc = hls::fabs(dc);
 //			dr = hls::fabs(dr);
@@ -273,36 +271,36 @@ private:
 			*/
 			// HORIZONTAL FILTER
 			interpolationData.c1 = uc;
-			if (fc < myTypeNC(0.5))
+			if (fc < myType(0.5))
 			{
 				interpolationData.c2 = uc - 1;
 				if (interpolationData.c1 == 0) interpolationData.c2 = textureWidth - 1;
-				interpolationData.wc1 = myTypeNC(0.5) + fc;
-				interpolationData.wc2 = myTypeNC(0.5) - fc;
+				interpolationData.wc1 = myType(0.5) + fc;
+				interpolationData.wc2 = myType(0.5) - fc;
 			}
 			else
 			{
 				interpolationData.c2 = uc + 1;
 				if (interpolationData.c2 == textureWidth) interpolationData.c2 = 0;
-				interpolationData.wc1 = myTypeNC(1.5) - fc;
-				interpolationData.wc2 = myTypeNC(-0.5) + fc;
+				interpolationData.wc1 = myType(1.5) - fc;
+				interpolationData.wc2 = myType(-0.5) + fc;
 			}
 
 			// VERTICAL FILTER
 			interpolationData.r1 = ur;
-			if (fr < myTypeNC(0.5))
+			if (fr < myType(0.5))
 			{
 				interpolationData.r2 = ur - 1;
 				if (interpolationData.r1 == 0) interpolationData.r2 = textureHeight - 1;
-				interpolationData.wr1 = myTypeNC(0.5) + fr;
-				interpolationData.wr2 = myTypeNC(0.5) - fr;
+				interpolationData.wr1 = myType(0.5) + fr;
+				interpolationData.wr2 = myType(0.5) - fr;
 			}
 			else
 			{
 				interpolationData.r2 = ur + 1;
 				if (interpolationData.r2 == textureHeight) interpolationData.r2 = 0;
-				interpolationData.wr1 = myTypeNC(1.5) - fr;
-				interpolationData.wr2 = myTypeNC(-0.5) + fr;
+				interpolationData.wr1 = myType(1.5) - fr;
+				interpolationData.wr2 = myType(-0.5) + fr;
 			}
 
 #else
