@@ -80,7 +80,7 @@ namespace ViRay
 		 * Get val to the power of n using powering by squaring algorithm
 		 * Number of iteration (thus maximum n) is controlled by: MAX_POWER_LOOP_ITER
 		 */
-		myType NaturalPow(myType val, unsigned char n);
+		myType NaturalPow(myType val, unsigned short n);
 
 		/*
 		 * If it is possible to use fast implementation of ViRayUtils::InvSqrt() call val * ViRayUtils::InvSqrt(val)
@@ -228,18 +228,14 @@ namespace ViRay
 
 	/*
 	 * Calculate angle-dependent term in Oren-Nayar model
-//	 * cosR - cosine between toViewer and normal
-//	 * cosI - cosine between toLight and normal
 	 */
 //	myType GetOrenNayarDiffuseCoeff(const myType& cosR, const myType& cosI);
 	myType GetOrenNayarDiffuseCoeff(const vec3& wi, const vec3& wo, const vec3& n, const myTypeNC& cosThetai, const myTypeNC& cosThetao);
 
 	/*
 	 * Calculate geometric term in Torrance-Sparrow model
-	 * cosR - cosine between toViewer and normal
-	 * cosI - cosine between toLight and normal
 	 */
-	myType GetTorranceSparrowGeometricCoeff(const vec3& normal, const vec3& toViewer, const vec3& toLight, const myType& cosR, const myType& cosI, myType& nhalfDot);
+	myType GetTorranceSparrowGeometricCoeff(const vec3& normal, const vec3& toViewer, const vec3& toLight, const myType& cosR, const myType& cosI, myType& nhalfDot, myType& toViewerHalfDot);
 
 	/*
 	 * Determine whether and where exactly (in local coordinates) the hit occurred

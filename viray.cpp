@@ -237,12 +237,14 @@ myType GetOrenNayarDiffuseCoeff(const vec3& wi, const vec3& wo, const vec3& n, c
 	return (phiTerm > myTypeNC(0.0)) ? phiTerm * minInv : myTypeNC(0.0);
 }
 
-myType GetTorranceSparrowGeometricCoeff(const vec3& normal, const vec3& toViewer, const vec3& toLight, const myType& cosR, const myType& cosI, myType& nhalfDot)
+myType GetTorranceSparrowGeometricCoeff(const vec3& normal, const vec3& toViewer, const vec3& toLight, const myType& cosR, const myType& cosI, myType& nhalfDot, myType& toViewerHalfDot)
 {
 #pragma HLS INLINE
 //#pragma HLS PIPELINE II=4
 	vec3 half = (toViewer + toLight).Normalize();
-	myType halfDotInv = myType(1.0) / (half * toViewer);
+
+	toViewerHalfDot = half * toViewer;
+	myType halfDotInv = myType(1.0) / (toViewerHalfDot);
 
 	nhalfDot = ViRayUtils::Clamp(normal * half, myType(0.0), myType(1.0));
 
@@ -415,6 +417,28 @@ void PerformHits(const Ray& transformedRay,
 	sr.localNormal = objOrientation;
 #endif
 
+//#ifdef SIMPLE_OBJECT_TRANSFORM_ENABLE
+//#if defined(PLANE_OBJECT_ENABLE) || defined(DISK_OBJECT_ENABLE) || defined(SQUARE_OBJECT_ENABLE)
+//	// Prevent non-zero value along orientation vector
+//	// Helps during texturing stage
+//	switch(objType)
+//	{
+//	case PLANE:
+//	case DISK:
+//	case SQUARE:
+//		for (unsigned i = 0; i < 3; ++i)
+//		{
+//			if (objOrientation[i] != myType(0.0))
+//			{
+//				sr.localHitPoint[i] = myType(0.0);
+////				break;
+//			}
+//		}
+//		break;
+//	}
+//#endif
+//#endif
+
 	switch(objType)
 	{
 #ifdef SPHERE_OBJECT_ENABLE
@@ -439,7 +463,7 @@ void PerformHits(const Ray& transformedRay,
 		sr.localNormal = vec3(sr.localHitPoint[0], myType(1.0) - sr.localHitPoint[1], sr.localHitPoint[2]);
 #else
 		/*
-		 * IF ORIENTATION IS INVERTED, INVERT ASYMETRIC (1.0 -> -1.0) TERM IN LOCAL NORMAL CALCULATION
+		 * IF ORIENTATION IS INVERTED, INVERT ASYMMETRIC (1.0 -> -1.0) TERM IN LOCAL NORMAL CALCULATION
 		 */
 		if 		(objOrientation[0] != myType(0.0))	sr.localNormal = vec3((xInverse ? myType(-1.0) : myType(1.0)) - sr.localHitPoint[0], sr.localHitPoint[1], sr.localHitPoint[2]);
 		else if (objOrientation[1] != myType(0.0)) 	sr.localNormal = vec3(sr.localHitPoint[0], (yInverse ? myType(-1.0) : myType(1.0)) - sr.localHitPoint[1], sr.localHitPoint[2]);
@@ -447,13 +471,48 @@ void PerformHits(const Ray& transformedRay,
 #endif
 		break;
 #endif
+#ifdef PLANE_OBJECT_ENABLE
+	case PLANE:
+#ifdef SIMPLE_OBJECT_TRANSFORM_ENABLE
+		for (unsigned i = 0; i < 3; ++i)
+		{
+			if (objOrientation[i] != myType(0.0))
+			{
+				sr.localHitPoint[i] = myType(0.0);
+//				break;
+			}
+		}
+#endif
+		break;
+#endif
+
 #ifdef DISK_OBJECT_ENABLE
 	case DISK:
+#ifdef SIMPLE_OBJECT_TRANSFORM_ENABLE
+		for (unsigned i = 0; i < 3; ++i)
+		{
+			if (objOrientation[i] != myType(0.0))
+			{
+				sr.localHitPoint[i] = myType(0.0);
+//				break;
+			}
+		}
+#endif
 		if (sr.localHitPoint * sr.localHitPoint > myType(1.0)) 		sr.localHitPoint = vec3(MAX_DISTANCE);//res = MAX_DISTANCE;
 		break;
 #endif
 #ifdef SQUARE_OBJECT_ENABLE
 	case SQUARE:
+#ifdef SIMPLE_OBJECT_TRANSFORM_ENABLE
+		for (unsigned i = 0; i < 3; ++i)
+		{
+			if (objOrientation[i] != myType(0.0))
+			{
+				sr.localHitPoint[i] = myType(0.0);
+//				break;
+			}
+		}
+#endif
 		if (ViRayUtils::Abs(sr.localHitPoint[0]) > myType(1.0) ||
 			ViRayUtils::Abs(sr.localHitPoint[1]) > myType(1.0) ||
 			ViRayUtils::Abs(sr.localHitPoint[2]) > myType(1.0))		sr.localHitPoint = vec3(MAX_DISTANCE);//res = MAX_DISTANCE;
@@ -1039,11 +1098,11 @@ vec3 Shade(	const ShadeRec& closestSr,
 		myType OrenNayarCoeff = materials[closestSr.objIdx].GetMaterialDescription().k[0] + materials[closestSr.objIdx].GetMaterialDescription().k[1] * GetOrenNayarDiffuseCoeff(toViewer, dirToLight, closestSr.normal, ndir2min * myType(0.5), dot);//GetOrenNayarDiffuseCoeff(ndir2min * myType(0.5), dot);
 #endif
 
-		myType nhalfDot;
-		myType TorranceSparrowGCoeff = GetTorranceSparrowGeometricCoeff(closestSr.normal, toViewer, dirToLight, ndir2min * myType(0.5), dot, nhalfDot);
+		myType nhalfDot, toViewerHalfDot;
+		myType TorranceSparrowGCoeff = GetTorranceSparrowGeometricCoeff(closestSr.normal, toViewer, dirToLight, ndir2min * myType(0.5), dot, nhalfDot, toViewerHalfDot);
 		myType TorranceSparrowDCoeff = ViRayUtils::NaturalPow(nhalfDot, materials[closestSr.objIdx].GetMaterialDescription().specExp) * (materials[closestSr.objIdx].GetMaterialDescription().specExp + myType(2.0)) * INV_TWOPI;
 #ifdef TORRANCE_SPARROW_SPECULAR_MODEL_ENABLE
-		myType TorranceSparrowFCoeff = GetFresnelReflectionCoeff(nhalfDot,
+		myType TorranceSparrowFCoeff = GetFresnelReflectionCoeff(toViewerHalfDot,
 																	materials[closestSr.objIdx].GetMaterialDescription().fresnelData[1],
 																	materials[closestSr.objIdx].GetMaterialDescription().fresnelData[2],
 																	materials[closestSr.objIdx].GetMaterialDescription().isConductor);//fresnelCoeff;
@@ -1604,7 +1663,7 @@ myType ViRayUtils::InvSqrt(myType val)
 
 }
 
-myType ViRayUtils::NaturalPow(myType val, unsigned char n)
+myType ViRayUtils::NaturalPow(myType val, unsigned short n)
 {
 	/*
 	* N_max = 2^MAX_POWER_LOOP_ITER (FF OPENGL - like)

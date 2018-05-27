@@ -425,9 +425,9 @@ public:
 		float_union texelColor21 = bitmap[interpolationData.idx21];
 #endif
 
-		vec3 interpolationResult = InterpolateTexture(interpolationData, texelColor11,
+		vec3 interpolationResult = InterpolateTexture(interpolationData, texelColor11
 #ifdef BILINEAR_TEXTURE_FILTERING_ENABLE
-														texelColor12, texelColor22, texelColor21
+														,texelColor12, texelColor22, texelColor21
 #endif
 				);
 
@@ -445,9 +445,9 @@ public:
 	}
 
 	vec3 InterpolateTexture(const TextureDescription::InterpolationData& interpolationData,
-							float_union texelColor11,
+							float_union texelColor11
 #ifdef BILINEAR_TEXTURE_FILTERING_ENABLE
-							float_union texelColor12, float_union texelColor22, float_union texelColor21
+							,float_union texelColor12, float_union texelColor22, float_union texelColor21
 #endif
 							) const
 	{
@@ -477,7 +477,7 @@ public:
 					 TextureDescription::ConvertFloatBufferToRGB888(texelColor22) * interpolationData.w22  +
 					 TextureDescription::ConvertFloatBufferToRGB888(texelColor21) * interpolationData.w21) * conversionFactor;
 #else
-			tmp 	TextureDescription::ConvertFloatBufferToRGB888(texelColor11) * conversionFactor;
+			tmp =	TextureDescription::ConvertFloatBufferToRGB888(texelColor11) * conversionFactor;
 #endif
 			return vec3(tmp[0], tmp[1], tmp[2]);
 		}
