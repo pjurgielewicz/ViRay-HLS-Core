@@ -1357,20 +1357,6 @@ myType ViRayUtils::Abs(myType val)
 #endif
 }
 
-#ifndef UC_OPERATION
-half ViRayUtils::Abs(half val)
-{
-#pragma HLS INLINE
-#ifdef USE_FIXEDPOINT
-	return (val > myType(0.0)) ? myType(val) : myType(-val);
-#elif defined(USE_FLOAT)
-	return hls::fabs(val);
-#else
-	return hls::abs(val);
-#endif
-}
-#endif
-
 myTypeNC ViRayUtils::Acos(myTypeNC x)
 {
 #ifdef FAST_ACOS_ENABLE

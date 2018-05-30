@@ -253,12 +253,12 @@ int main()
 ////	textureHelper.BindTextureToObject(2, addr, code);
 //	textureHelper.SaveTexture(CTextureGenerator(128, 128, CTextureGenerator::WOOD, 6, 6, 1784301, 5, 0.2), ViRay::CMaterial::SPHERICAL, code, true, 3);
 
-//	addr = textureHelper.SaveTexture(CTextureGenerator(128, 128, CTextureGenerator::XOR, 6, 6), ViRay::CMaterial::PLANAR, code, true, 0);
+	addr = textureHelper.SaveTexture(CTextureGenerator(128, 128, CTextureGenerator::XOR, 6, 6), ViRay::CMaterial::PLANAR, code, true, 0);
 //	textureHelper.BindTextureToObject(1, addr, textureHelper.GetTextureDescriptionCode(ViRay::CMaterial::BITMAP_MASK, ViRay::CMaterial::PLANAR, 128, 128));
 //	textureHelper.BindTextureToObject(2, addr, textureHelper.GetTextureDescriptionCode(ViRay::CMaterial::BITMAP_MASK, ViRay::CMaterial::PLANAR, 128, 128));
 //	textureHelper.BindTextureToObject(3, addr, textureHelper.GetTextureDescriptionCode(ViRay::CMaterial::BITMAP_MASK, ViRay::CMaterial::PLANAR, 128, 128));
-//	addr = textureHelper.SaveTexture(CTextureGenerator(128, 128, CTextureGenerator::MARBLE, 6, 4, 1784301, 5, 1.87), ViRay::CMaterial::SPHERICAL, code, true, 7);
-//	addr = textureHelper.SaveTexture(CTextureGenerator(128, 128, CTextureGenerator::CHECKERBOARD, 4, 4), ViRay::CMaterial::SPHERICAL, code, true, 0);
+	addr = textureHelper.SaveTexture(CTextureGenerator(128, 128, CTextureGenerator::MARBLE, 6, 4, 1784301, 5, 1.87), ViRay::CMaterial::SPHERICAL, code, true, 7);
+	addr = textureHelper.SaveTexture(CTextureGenerator(128, 128, CTextureGenerator::CHECKERBOARD, 4, 4), ViRay::CMaterial::CYLINDRICAL, code, true, 6);
 //	textureHelper.BindTextureToObject(1, addr, textureHelper.GetTextureDescriptionCode(ViRay::CMaterial::BITMAP_MASK, ViRay::CMaterial::SPHERICAL, 128, 128));
 //	textureHelper.BindTextureToObject(2, addr, textureHelper.GetTextureDescriptionCode(ViRay::CMaterial::BITMAP_MASK, ViRay::CMaterial::SPHERICAL, 128, 128));
 

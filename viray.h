@@ -19,9 +19,6 @@ namespace ViRay
 		 * return |val|.
 		 */
 		myType Abs(myType val);
-#ifndef UC_OPERATION
-		half Abs(half val);
-#endif
 
 		/*
 		 * Get arcus cosinus value for parameter x.

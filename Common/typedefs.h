@@ -1,7 +1,7 @@
 #ifndef TYPEDEFS__H_
 #define TYPEDEFS__H_
 
-//#define UC_OPERATION												// Switch between HLS and SDK environments
+#define UC_OPERATION												// Switch between HLS and SDK environments
 
 #ifndef UC_OPERATION
 
@@ -88,7 +88,7 @@ enum ObjectType{
 
 //#define SELF_RESTART_ENABLE												// If on core enters infinite loop of rendering right after loading textures, all other parameters can change between frames - reduces # of clock cycles (TEXT_PAGE_SIZE)
 
-#define PIXEL_COLOR_CONVERSION_ENABLE									// Convert RGB pixel color to 422 standard (to use with limited bandwidth ADV7511)
+//#define PIXEL_COLOR_CONVERSION_ENABLE									// Convert RGB pixel color to 422 standard (to use with limited bandwidth ADV7511)
 
 #define RENDER_DATAFLOW_ENABLE											// DATAFLOW seems to require less logic around rendering loop however this construct uses extra cycles for each start of RenderSceneInnerLoop and final buffer dump
 																		// The amount of theses extra cycles can be optimized by FRAME_ROWS_IN_BUFFER
